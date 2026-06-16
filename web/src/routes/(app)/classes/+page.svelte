@@ -3,6 +3,7 @@
 	import { api } from '$lib/api';
 	import { onMount } from 'svelte';
 	import type { Class } from '$lib/types';
+	import { toPersianNum } from '$lib/utils/persian';
 
 	let classes = $state<Class[]>([]);
 	let loading = $state(true);
@@ -11,7 +12,9 @@
 
 	let currentPage = $state(1);
 	let totalClasses = $state(0);
-	const perPage = 12;
+	let perPage = $state(12);
+
+	const perPageOptions = [6, 12, 24, 48];
 
 	// Form
 	let formName = $state('');
@@ -24,6 +27,11 @@
 	const colors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#06B6D4'];
 
 	const totalPages = $derived(Math.ceil(totalClasses / perPage));
+
+	function handlePerPageChange() {
+		currentPage = 1;
+		loadClasses();
+	}
 
 	onMount(() => loadClasses());
 
@@ -75,7 +83,7 @@
 	<div class="flex items-center justify-between">
 		<div>
 			<h1 class="text-2xl font-bold text-gray-900">کلاس‌ها</h1>
-			<p class="text-gray-500 mt-1">{totalClasses} کلاس</p>
+			<p class="text-gray-500 mt-1">{toPersianNum(totalClasses)} کلاس</p>
 		</div>
 		{#if $isAdmin || $isTeacher}
 			<button
@@ -131,7 +139,7 @@
 							<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
 							</svg>
-							حداکثر {cls.max_students} نفر
+							حداکثر {toPersianNum(cls.max_students)} نفر
 						</span>
 					</div>
 				</a>
@@ -141,10 +149,25 @@
 
 	{#if totalPages > 1}
 		<div class="flex items-center justify-between text-sm text-gray-500">
-			<span>{totalClasses} کلاس</span>
+			<div class="flex items-center gap-3">
+				<span>{toPersianNum(totalClasses)} کلاس</span>
+				<div class="flex items-center gap-1">
+					<span>نمایش</span>
+					<select
+						bind:value={perPage}
+						onchange={handlePerPageChange}
+						class="px-2 py-1 border rounded text-sm bg-white"
+					>
+						{#each perPageOptions as opt}
+							<option value={opt}>{toPersianNum(opt)}</option>
+						{/each}
+					</select>
+					<span>در هر صفحه</span>
+				</div>
+			</div>
 			<div class="flex gap-1">
 				<button disabled={currentPage <= 1} onclick={() => { currentPage--; loadClasses(); }} class="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50">قبلی</button>
-				<span class="px-3 py-1">صفحه {currentPage} از {totalPages}</span>
+				<span class="px-3 py-1">صفحه {toPersianNum(currentPage)} از {toPersianNum(totalPages)}</span>
 				<button disabled={currentPage >= totalPages} onclick={() => { currentPage++; loadClasses(); }} class="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50">بعدی</button>
 			</div>
 		</div>

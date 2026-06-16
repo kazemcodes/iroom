@@ -76,7 +76,8 @@ func main() {
 	e.Use(middleware.RateLimit(100, time.Minute))
 
 	// Health
-	e.GET("/api/v1/health", handlers.Health)
+	healthHandler := handlers.NewHealthHandler(db, cfg.Database.Path, livekitSvc)
+	e.GET("/api/v1/health", healthHandler.Health)
 
 	// Auth (with stricter rate limit)
 	authGroup := e.Group("/api/v1/auth")

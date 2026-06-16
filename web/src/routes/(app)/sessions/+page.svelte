@@ -5,6 +5,7 @@
 	import type { Session } from '$lib/types';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import { classroomWindow } from '$lib/classroom/ClassroomWindow';
+	import { toPersianNum, toPersianDateTime } from '$lib/utils/persian';
 
 	let sessions = $state<Session[]>([]);
 	let loading = $state(true);
@@ -60,7 +61,7 @@
 
 	function formatDate(d: string) {
 		if (!d) return '';
-		return new Date(d).toLocaleDateString('fa-IR', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+		return toPersianDateTime(d);
 	}
 
 	const filtered = $derived(
@@ -75,7 +76,7 @@
 	<div class="flex items-center justify-between">
 		<div>
 			<h1 class="text-2xl font-bold text-gray-900">جلسات</h1>
-			<p class="text-gray-500 mt-1">{totalSessions} جلسه</p>
+			<p class="text-gray-500 mt-1">{toPersianNum(totalSessions)} جلسه</p>
 		</div>
 	</div>
 
@@ -128,7 +129,7 @@
 							</div>
 							<div>
 								<h3 class="font-bold text-gray-900">{s.title}</h3>
-								<p class="text-sm text-gray-500 mt-0.5">{formatDate(s.scheduled_at)} • {s.duration} دقیقه</p>
+								<p class="text-sm text-gray-500 mt-0.5">{formatDate(s.scheduled_at)} • {toPersianNum(s.duration)} دقیقه</p>
 							</div>
 						</div>
 						<div class="flex items-center gap-2">
@@ -159,10 +160,10 @@
 
 	{#if totalPages > 1}
 		<div class="flex items-center justify-between text-sm text-gray-500">
-			<span>{totalSessions} جلسه</span>
+			<span>{toPersianNum(totalSessions)} جلسه</span>
 			<div class="flex gap-1">
 				<button disabled={currentPage <= 1} onclick={() => { currentPage--; loadSessions(); }} class="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50">قبلی</button>
-				<span class="px-3 py-1">صفحه {currentPage} از {totalPages}</span>
+				<span class="px-3 py-1">صفحه {toPersianNum(currentPage)} از {toPersianNum(totalPages)}</span>
 				<button disabled={currentPage >= totalPages} onclick={() => { currentPage++; loadSessions(); }} class="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50">بعدی</button>
 			</div>
 		</div>

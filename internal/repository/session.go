@@ -122,6 +122,12 @@ func (r *SessionRepo) Count() (int64, error) {
 	return count, err
 }
 
+func (r *SessionRepo) CountActive() (int64, error) {
+	var count int64
+	err := r.db.QueryRow(`SELECT COUNT(*) FROM sessions WHERE status = 'live'`).Scan(&count)
+	return count, err
+}
+
 func (r *SessionRepo) Delete(id int64) error {
 	_, err := r.db.Exec(`DELETE FROM sessions WHERE id = ?`, id)
 	return err

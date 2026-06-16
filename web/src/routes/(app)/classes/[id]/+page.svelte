@@ -6,7 +6,9 @@
 	import { onMount } from 'svelte';
 	import type { Class, Session, User } from '$lib/types';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
+	import JalaliDatePicker from '$lib/components/JalaliDatePicker.svelte';
 	import { classroomWindow } from '$lib/classroom/ClassroomWindow';
+	import { toPersianNum, toPersianDate, toPersianDateTime } from '$lib/utils/persian';
 
 	let classData = $state<Class | null>(null);
 	let sessions = $state<Session[]>([]);
@@ -122,16 +124,6 @@
 		if (res.success) goto('/classes');
 	}
 
-	function formatDate(d: string) {
-		if (!d) return '';
-		return new Date(d).toLocaleDateString('fa-IR', { year: 'numeric', month: 'short', day: 'numeric' });
-	}
-
-	function formatTime(d: string) {
-		if (!d) return '';
-		return new Date(d).toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' });
-	}
-
 	const statusLabels: Record<string, string> = { scheduled: 'برنامه‌ریزی شده', live: 'در حال برگزاری', ended: 'پایان یافته' };
 	const statusColors: Record<string, string> = { scheduled: 'bg-blue-100 text-blue-700', live: 'bg-green-100 text-green-700', ended: 'bg-gray-100 text-gray-500' };
 </script>
@@ -177,11 +169,11 @@
 			<button
 				class="px-4 py-2 rounded-md text-sm font-medium transition-all {activeTab === 'sessions' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}"
 				onclick={() => activeTab = 'sessions'}
-			>جلسات ({sessions.length})</button>
+			>جلسات ({toPersianNum(sessions.length)})</button>
 			<button
 				class="px-4 py-2 rounded-md text-sm font-medium transition-all {activeTab === 'students' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}"
 				onclick={() => activeTab = 'students'}
-			>دانش‌آموزان ({students.length})</button>
+			>دانش‌آموزان ({toPersianNum(students.length)})</button>
 		</div>
 
 		{#if activeTab === 'sessions'}
@@ -210,7 +202,7 @@
 								</div>
 								<div>
 									<p class="font-medium text-gray-900">{s.title}</p>
-									<p class="text-sm text-gray-500">{formatDate(s.scheduled_at)} — {formatTime(s.scheduled_at)} • {s.duration} دقیقه</p>
+									<p class="text-sm text-gray-500">{toPersianDateTime(s.scheduled_at)} • {toPersianNum(s.duration)} دقیقه</p>
 								</div>
 							</div>
 							<div class="flex items-center gap-3">
@@ -281,8 +273,7 @@
 					</div>
 					<div class="grid grid-cols-2 gap-3">
 						<div>
-							<label class="block text-sm font-medium text-gray-700 mb-1">تاریخ</label>
-							<input type="date" bind:value={sessionDate} class="w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm" required />
+							<JalaliDatePicker bind:value={sessionDate} label="تاریخ" />
 						</div>
 						<div>
 							<label class="block text-sm font-medium text-gray-700 mb-1">ساعت</label>

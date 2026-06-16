@@ -3,6 +3,7 @@
 	import { api } from '$lib/api';
 	import { onMount } from 'svelte';
 	import type { Class, Session } from '$lib/types';
+	import { toPersianNum, toPersianDate, toPersianDateTime } from '$lib/utils/persian';
 
 	let stats = $state({ users: 0, classes: 0, sessions: 0, messages: 0 });
 	let classes = $state<Class[]>([]);
@@ -24,16 +25,6 @@
 		loading = false;
 	}
 
-	function formatDate(d: string) {
-		if (!d) return '';
-		return new Date(d).toLocaleDateString('fa-IR', { month: 'long', day: 'numeric' });
-	}
-
-	function formatTime(d: string) {
-		if (!d) return '';
-		return new Date(d).toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' });
-	}
-
 	const statusLabels: Record<string, string> = { scheduled: 'برنامه‌ریزی شده', live: 'در حال برگزاری', ended: 'پایان یافته' };
 	const statusColors: Record<string, string> = { scheduled: 'bg-blue-50 text-blue-600', live: 'bg-green-50 text-green-600', ended: 'bg-gray-50 text-gray-500' };
 	const statusDots: Record<string, string> = { scheduled: 'bg-blue-400', live: 'bg-green-500', ended: 'bg-gray-400' };
@@ -44,7 +35,7 @@
 	<div>
 		<h1 class="text-2xl font-extrabold text-gray-900">سلام {$auth.user?.display_name} 👋</h1>
 		<p class="text-gray-400 mt-1 font-medium">
-			{new Date().toLocaleDateString('fa-IR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+			{toPersianDate(new Date())} — {new Date().toLocaleDateString('fa-IR', { weekday: 'long' })}
 		</p>
 	</div>
 
@@ -70,7 +61,7 @@
 								</svg>
 							</div>
 						</div>
-						<p class="text-2xl font-extrabold text-gray-900">{stat.value.toLocaleString('fa-IR')}</p>
+						<p class="text-2xl font-extrabold text-gray-900">{toPersianNum(stat.value)}</p>
 						<p class="text-sm text-gray-400 font-medium mt-0.5">{stat.label}</p>
 					</div>
 				{/each}
@@ -108,7 +99,7 @@
 								<div class="flex items-center justify-between text-xs text-gray-400 pt-3 border-t border-gray-50">
 									<span class="flex items-center gap-1">
 										<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg>
-										حداکثر {cls.max_students} نفر
+										حداکثر {toPersianNum(cls.max_students)} نفر
 									</span>
 								</div>
 							</a>
@@ -141,7 +132,7 @@
 								</div>
 								<div>
 									<p class="font-semibold text-gray-900">{session.title}</p>
-									<p class="text-sm text-gray-400">{formatDate(session.scheduled_at)} — {formatTime(session.scheduled_at)}</p>
+									<p class="text-sm text-gray-400">{toPersianDateTime(session.scheduled_at)}</p>
 								</div>
 							</div>
 							<span class="badge {statusColors[session.status]}">
