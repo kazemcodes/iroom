@@ -10,12 +10,19 @@
 	let uploading = $state(false);
 	let fileInput = $state<HTMLInputElement | null>(null);
 
+	let currentPage = $state(1);
+	let totalFiles = $state(0);
+	const perPage = 20;
+
+	const totalPages = $derived(Math.ceil(totalFiles / perPage));
+
 	onMount(async () => {
 		const res = await api.get<Session[]>('/sessions');
 		if (res.success && res.data) {
 			sessions = Array.isArray(res.data) ? res.data : [];
 			if (sessions.length > 0) {
 				selectedSessionId = sessions[0].id;
+				currentPage = 1;
 				await loadFiles();
 			}
 		}
@@ -24,11 +31,14 @@
 	async function loadFiles() {
 		if (!selectedSessionId) return;
 		loading = true;
-		const res = await api.get<FileItem[]>(`/sessions/${selectedSessionId}/files`);
+		const params: Record<string, string> = { page: String(currentPage), per_page: String(perPage) };
+		const res = await api.get<{ items: FileItem[]; total: number }>(`/sessions/${selectedSessionId}/files`, params);
 		if (res.success && res.data) {
-			files = Array.isArray(res.data) ? res.data : [];
+			files = res.data.items || (Array.isArray(res.data) ? res.data : []);
+			totalFiles = res.data.total || files.length;
 		} else {
 			files = [];
+			totalFiles = 0;
 		}
 		loading = false;
 	}
@@ -113,9 +123,9 @@
 	<div class="bg-white border border-gray-200 rounded-xl p-5">
 		<div class="flex items-center gap-3">
 			<label class="text-sm font-medium text-gray-700">جلسه:</label>
-			<select
-				bind:value={selectedSessionId}
-				onchange={loadFiles}
+		<select
+			bind:value={selectedSessionId}
+			onchange={() => { currentPage = 1; loadFiles(); }}
 				class="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white"
 			>
 				{#if sessions.length === 0}
@@ -163,6 +173,17 @@
 					{/each}
 				</tbody>
 			</table>
+		</div>
+	{/if}
+
+	{#if totalPages > 1}
+		<div class="flex items-center justify-between text-sm text-gray-500">
+			<span>{totalFiles} فایل</span>
+			<div class="flex gap-1">
+				<button disabled={currentPage <= 1} onclick={() => { currentPage--; loadFiles(); }} class="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50">قبلی</button>
+				<span class="px-3 py-1">صفحه {currentPage} از {totalPages}</span>
+				<button disabled={currentPage >= totalPages} onclick={() => { currentPage++; loadFiles(); }} class="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50">بعدی</button>
+			</div>
 		</div>
 	{/if}
 </div>

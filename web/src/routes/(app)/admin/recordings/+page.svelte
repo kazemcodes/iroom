@@ -2,12 +2,16 @@
 	import { api } from '$lib/api';
 	import { onMount } from 'svelte';
 	import type { Recording } from '$lib/types';
+	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 
 	let recordings = $state<Recording[]>([]);
 	let total = $state(0);
 	let page = $state(1);
 	let loading = $state(true);
 	let search = $state('');
+
+	let showDeleteConfirm = $state(false);
+	let deleteTargetId = $state(0);
 
 	const perPage = 20;
 
@@ -26,12 +30,16 @@
 	}
 
 	async function deleteRecording(id: number) {
-		if (!confirm('آیا از حذف این ضبط اطمینان دارید؟')) return;
 		const res = await api.delete(`/admin/recordings/${id}`);
 		if (res.success) {
 			recordings = recordings.filter(r => r.id !== id);
 			total--;
 		}
+	}
+
+	function confirmDeleteRecording(id: number) {
+		deleteTargetId = id;
+		showDeleteConfirm = true;
 	}
 
 	function formatSize(bytes: number) {
@@ -89,7 +97,7 @@
 							<td class="px-5 py-3">
 								<div class="flex items-center gap-1">
 									<a href="/recordings/{rec.session_id}" class="px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded">مشاهده</a>
-									<button onclick={() => deleteRecording(rec.id)} class="px-2 py-1 text-xs text-red-600 hover:bg-red-50 rounded">حذف</button>
+									<button onclick={() => confirmDeleteRecording(rec.id)} class="px-2 py-1 text-xs text-red-600 hover:bg-red-50 rounded">حذف</button>
 								</div>
 							</td>
 						</tr>
@@ -103,8 +111,10 @@
 						<button disabled={page <= 1} onclick={() => { page--; loadRecordings(); }} class="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50">قبلی</button>
 						<span class="px-3 py-1">صفحه {page} از {Math.ceil(total / perPage)}</span>
 						<button disabled={page >= Math.ceil(total / perPage)} onclick={() => { page++; loadRecordings(); }} class="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50">بعدی</button>
-					</div>
-				</div>
+	</div>
+</div>
+
+<ConfirmModal bind:show={showDeleteConfirm} title="حذف ضبط" message="آیا از حذف این ضبط اطمینان دارید؟" onConfirm={() => deleteRecording(deleteTargetId)} onCancel={() => {}} />
 			{/if}
 		</div>
 	{/if}

@@ -52,6 +52,8 @@
 	const statusColors: Record<string, string> = { open: 'bg-green-100 text-green-700', answered: 'bg-blue-100 text-blue-700', closed: 'bg-gray-100 text-gray-500' };
 	const priorityLabels: Record<string, string> = { low: 'کم', normal: 'عادی', high: 'زیاد', urgent: 'فوری' };
 	const priorityColors: Record<string, string> = { low: 'bg-gray-100 text-gray-500', normal: 'bg-blue-100 text-blue-700', high: 'bg-orange-100 text-orange-700', urgent: 'bg-red-100 text-red-700' };
+	const priorityDotColors: Record<string, string> = { low: 'bg-gray-400', normal: 'bg-blue-500', high: 'bg-orange-500', urgent: 'bg-red-500' };
+	const categoryLabels: Record<string, string> = { 'عمومی': 'عمومی', 'فنی': 'فنی', 'مالی': 'مالی' };
 </script>
 
 <div class="space-y-6">
@@ -65,7 +67,10 @@
 					<h1 class="text-xl font-bold text-gray-900">{ticket.title}</h1>
 					<div class="flex items-center gap-2 mt-1">
 						<span class="text-xs px-2.5 py-1 rounded-full font-medium {statusColors[ticket.status]}">{statusLabels[ticket.status]}</span>
-						<span class="text-xs px-2.5 py-1 rounded-full font-medium {priorityColors[ticket.priority]}">{priorityLabels[ticket.priority]}</span>
+						<span class="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium {priorityColors[ticket.priority]}">
+							<span class="w-2 h-2 rounded-full {priorityDotColors[ticket.priority]}"></span>
+							{priorityLabels[ticket.priority]}
+						</span>
 						<span class="text-xs text-gray-400">{formatDate(ticket.created_at)}</span>
 					</div>
 				</div>
@@ -77,6 +82,29 @@
 			</button>
 		{/if}
 	</div>
+
+	<!-- Ticket Metadata Card -->
+	{#if ticket}
+		<div class="bg-white border border-gray-200 rounded-xl p-4">
+			<div class="grid grid-cols-3 gap-4">
+				<div>
+					<p class="text-xs text-gray-400 mb-1">وضعیت</p>
+					<span class="text-xs px-2.5 py-1 rounded-full font-medium {statusColors[ticket.status]}">{statusLabels[ticket.status]}</span>
+				</div>
+				<div>
+					<p class="text-xs text-gray-400 mb-1">اولویت</p>
+					<span class="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium {priorityColors[ticket.priority]}">
+						<span class="w-2 h-2 rounded-full {priorityDotColors[ticket.priority]}"></span>
+						{priorityLabels[ticket.priority]}
+					</span>
+				</div>
+				<div>
+					<p class="text-xs text-gray-400 mb-1">دسته‌بندی</p>
+					<span class="text-xs px-2.5 py-1 rounded-full font-medium bg-purple-100 text-purple-700">{categoryLabels[ticket.category] || ticket.category}</span>
+				</div>
+			</div>
+		</div>
+	{/if}
 
 	{#if loading}
 		<div class="flex items-center justify-center py-20">

@@ -3,21 +3,32 @@
 	import { api } from '$lib/api';
 	import { onMount } from 'svelte';
 	import type { Session } from '$lib/types';
+	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 
 	let sessions = $state<Session[]>([]);
 	let loading = $state(true);
 	let search = $state('');
 	let filter = $state<'all' | 'scheduled' | 'live' | 'ended'>('all');
 
+	let currentPage = $state(1);
+	let totalSessions = $state(0);
+	const perPage = 10;
+
+	let showDeleteConfirm = $state(false);
+	let deleteTargetId = $state(0);
+
+	const totalPages = $derived(Math.ceil(totalSessions / perPage));
+
 	onMount(() => loadSessions());
 
 	async function loadSessions() {
 		loading = true;
-		const params: Record<string, string> = {};
+		const params: Record<string, string> = { page: String(currentPage), per_page: String(perPage) };
 		if (search) params.search = search;
-		const res = await api.get<Session[]>('/sessions', params);
+		const res = await api.get<{ items: Session[]; total: number }>('/sessions', params);
 		if (res.success && res.data) {
-			sessions = Array.isArray(res.data) ? res.data : [];
+			sessions = res.data.items || (Array.isArray(res.data) ? res.data : []);
+			totalSessions = res.data.total || sessions.length;
 		}
 		loading = false;
 	}
@@ -37,9 +48,13 @@
 	}
 
 	async function deleteSession(id: number) {
-		if (!confirm('آیا از حذف این جلسه اطمینان دارید؟')) return;
 		const res = await api.delete(`/sessions/${id}`);
 		if (res.success) sessions = sessions.filter(s => s.id !== id);
+	}
+
+	function confirmDeleteSession(id: number) {
+		deleteTargetId = id;
+		showDeleteConfirm = true;
 	}
 
 	function formatDate(d: string) {
@@ -59,7 +74,7 @@
 	<div class="flex items-center justify-between">
 		<div>
 			<h1 class="text-2xl font-bold text-gray-900">جلسات</h1>
-			<p class="text-gray-500 mt-1">{sessions.length} جلسه</p>
+			<p class="text-gray-500 mt-1">{totalSessions} جلسه</p>
 		</div>
 	</div>
 
@@ -130,7 +145,7 @@
 							جزئیات
 						</a>
 						{#if $isAdmin}
-							<button onclick={() => deleteSession(s.id)} class="p-1.5 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors">
+							<button onclick={() => confirmDeleteSession(s.id)} class="p-1.5 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors">
 								<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
 							</button>
 						{/if}
@@ -140,4 +155,17 @@
 			{/each}
 		</div>
 	{/if}
+
+	{#if totalPages > 1}
+		<div class="flex items-center justify-between text-sm text-gray-500">
+			<span>{totalSessions} جلسه</span>
+			<div class="flex gap-1">
+				<button disabled={currentPage <= 1} onclick={() => { currentPage--; loadSessions(); }} class="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50">قبلی</button>
+				<span class="px-3 py-1">صفحه {currentPage} از {totalPages}</span>
+				<button disabled={currentPage >= totalPages} onclick={() => { currentPage++; loadSessions(); }} class="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50">بعدی</button>
+			</div>
+		</div>
+	{/if}
 </div>
+
+<ConfirmModal bind:show={showDeleteConfirm} title="حذف جلسه" message="آیا از حذف این جلسه اطمینان دارید؟" onConfirm={() => deleteSession(deleteTargetId)} onCancel={() => {}} />

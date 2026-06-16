@@ -9,6 +9,10 @@
 	let showCreate = $state(false);
 	let search = $state('');
 
+	let currentPage = $state(1);
+	let totalClasses = $state(0);
+	const perPage = 12;
+
 	// Form
 	let formName = $state('');
 	let formDesc = $state('');
@@ -19,15 +23,18 @@
 
 	const colors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#06B6D4'];
 
+	const totalPages = $derived(Math.ceil(totalClasses / perPage));
+
 	onMount(() => loadClasses());
 
 	async function loadClasses() {
 		loading = true;
-		const params: Record<string, string> = {};
+		const params: Record<string, string> = { page: String(currentPage), per_page: String(perPage) };
 		if (search) params.search = search;
-		const res = await api.get<Class[]>('/classes', params);
+		const res = await api.get<{ items: Class[]; total: number }>('/classes', params);
 		if (res.success && res.data) {
-			classes = Array.isArray(res.data) ? res.data : [];
+			classes = res.data.items || (Array.isArray(res.data) ? res.data : []);
+			totalClasses = res.data.total || classes.length;
 		}
 		loading = false;
 	}
@@ -59,6 +66,7 @@
 	}
 
 	function handleSearch() {
+		currentPage = 1;
 		loadClasses();
 	}
 </script>
@@ -67,7 +75,7 @@
 	<div class="flex items-center justify-between">
 		<div>
 			<h1 class="text-2xl font-bold text-gray-900">کلاس‌ها</h1>
-			<p class="text-gray-500 mt-1">{classes.length} کلاس</p>
+			<p class="text-gray-500 mt-1">{totalClasses} کلاس</p>
 		</div>
 		{#if $isAdmin || $isTeacher}
 			<button
@@ -128,6 +136,17 @@
 					</div>
 				</a>
 			{/each}
+		</div>
+	{/if}
+
+	{#if totalPages > 1}
+		<div class="flex items-center justify-between text-sm text-gray-500">
+			<span>{totalClasses} کلاس</span>
+			<div class="flex gap-1">
+				<button disabled={currentPage <= 1} onclick={() => { currentPage--; loadClasses(); }} class="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50">قبلی</button>
+				<span class="px-3 py-1">صفحه {currentPage} از {totalPages}</span>
+				<button disabled={currentPage >= totalPages} onclick={() => { currentPage++; loadClasses(); }} class="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50">بعدی</button>
+			</div>
 		</div>
 	{/if}
 </div>

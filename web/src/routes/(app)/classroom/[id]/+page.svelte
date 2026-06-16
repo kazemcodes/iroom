@@ -6,6 +6,7 @@
 	import { Room, RoomEvent, Track, ConnectionState, type Room as RoomType, type TrackPublication } from 'livekit-client';
 	import Whiteboard from '$lib/components/Whiteboard.svelte';
 	import type { Session } from '$lib/types';
+	import { formatDuration, toPersianNum } from '$lib/utils/persian';
 
 	let session = $state<Session | null>(null);
 	let loading = $state(true);
@@ -17,7 +18,7 @@
 	let chatOpen = $state(false);
 	let whiteboardOpen = $state(false);
 	let participantsOpen = $state(false);
-	let participants = $state<{identity: string; name: string; isSpeaking: boolean; hasVideo: boolean; hasAudio: boolean}[]>([]);
+	let participants = $state<{identity: string; name: string; isSpeaking: boolean; hasVideo: boolean; hasAudio: boolean; isLocal?: boolean; handRaised?: boolean}[]>([]);
 	let chatMessages = $state<any[]>([]);
 	let chatInput = $state('');
 	let localVideoEl: HTMLVideoElement;
@@ -28,8 +29,23 @@
 	let recordingChunks = $state<Blob[]>([]);
 	let recordingStartTime = $state(0);
 	let connected = $state(false);
+	let handRaised = $state(false);
+	let elapsedSeconds = $state(0);
+	let timerInterval: ReturnType<typeof setInterval> | null = null;
+	let unreadCount = $state(0);
+	let handsRaised = $state<Record<string, boolean>>({});
 
 	const sessionId = $derived(page.params.id);
+	const isTeacherOrAdmin = $derived($auth.user?.role === 'teacher' || $auth.user?.role === 'admin');
+
+	const gridCols = $derived.by(() => {
+		const count = participants.length;
+		if (count <= 1) return 'grid-cols-1';
+		if (count <= 2) return 'grid-cols-2';
+		if (count <= 4) return 'grid-cols-2';
+		if (count <= 6) return 'grid-cols-3';
+		return 'grid-cols-4';
+	});
 
 	onMount(async () => { await loadSession(); });
 	onDestroy(() => { stopRecording(); disconnect(); });
@@ -59,6 +75,7 @@
 						time: new Date(msg.created_at).toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' }),
 						isOwn
 					}];
+					if (!isOwn && !chatOpen) unreadCount++;
 				}
 			} catch (e) {}
 		};
@@ -81,11 +98,16 @@
 			room.on(RoomEvent.Connected, () => {
 				connectionState = ConnectionState.Connected;
 				connected = true;
+				elapsedSeconds = 0;
+				timerInterval = setInterval(() => { elapsedSeconds++; }, 1000);
 				const lp = room!.localParticipant;
 				lp.setMicrophoneEnabled(true).catch(() => {});
 			});
 
-			room.on(RoomEvent.Disconnected, () => { connectionState = ConnectionState.Disconnected; });
+			room.on(RoomEvent.Disconnected, () => {
+				connectionState = ConnectionState.Disconnected;
+				if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+			});
 
 			room.on(RoomEvent.TrackSubscribed, (track: TrackPublication, participant) => {
 				console.log('Track subscribed:', track.source, participant.identity);

@@ -5,6 +5,7 @@
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import type { Class, Session, User } from '$lib/types';
+	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 
 	let classData = $state<Class | null>(null);
 	let sessions = $state<Session[]>([]);
@@ -34,6 +35,9 @@
 	let editColor = $state('#3B82F6');
 	let editMax = $state(30);
 	let editLoading = $state(false);
+
+	// Delete confirm
+	let showDeleteConfirm = $state(false);
 
 	const classId = $derived(page.params.id);
 
@@ -113,7 +117,6 @@
 	}
 
 	async function deleteClass() {
-		if (!confirm('آیا از حذف این کلاس اطمینان دارید؟')) return;
 		const res = await api.delete(`/classes/${classId}`);
 		if (res.success) goto('/classes');
 	}
@@ -162,7 +165,7 @@
 							}}
 							class="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
 						>ویرایش</button>
-						<button onclick={deleteClass} class="px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors">حذف</button>
+						<button onclick={() => showDeleteConfirm = true} class="px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors">حذف</button>
 					{/if}
 				</div>
 			</div>
@@ -374,3 +377,5 @@
 		<a href="/classes" class="text-blue-600 text-sm mt-2 inline-block">بازگشت به کلاس‌ها</a>
 	</div>
 {/if}
+
+<ConfirmModal bind:show={showDeleteConfirm} title="حذف کلاس" message="آیا از حذف این کلاس اطمینان دارید؟" onConfirm={deleteClass} onCancel={() => {}} />
