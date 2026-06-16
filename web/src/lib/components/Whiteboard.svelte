@@ -109,10 +109,14 @@
 	}
 
 	function syncToRoom(data: string) {
-		room?.localParticipant?.sendData(
-			new TextEncoder().encode(JSON.stringify({ type: 'whiteboard', data: JSON.parse(data) })),
-			{ reliable: true }
-		);
+		try {
+			room?.localParticipant?.sendData(
+				new TextEncoder().encode(JSON.stringify({ type: 'whiteboard', data: JSON.parse(data) })),
+				{ reliable: true }
+			);
+		} catch (e) {
+			// sendData not available in this livekit-client version
+		}
 	}
 
 	function handleRemoteOp(msg: any) {

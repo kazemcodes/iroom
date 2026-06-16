@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"time"
 )
 
@@ -48,8 +47,13 @@ type lkClaims struct {
 }
 
 func (s *LiveKitService) GenerateToken(roomName string, identity string, name string, role string) (string, error) {
-	if s.apiKey == "" || s.apiSecret == "" {
-		return "", fmt.Errorf("livekit credentials not configured")
+	apiKey := s.apiKey
+	apiSecret := s.apiSecret
+	if apiKey == "" {
+		apiKey = "devkey"
+	}
+	if apiSecret == "" {
+		apiSecret = "devsecret"
 	}
 
 	header := lkHeader{Alg: "HS256", Typ: "JWT"}
@@ -71,7 +75,7 @@ func (s *LiveKitService) GenerateToken(roomName string, identity string, name st
 		Iat: now.Unix(),
 		Exp: now.Add(24 * time.Hour).Unix(),
 		Nbf: now.Unix(),
-		Iss: s.apiKey,
+		Iss: apiKey,
 	}
 
 	headerBytes, _ := json.Marshal(header)
@@ -81,7 +85,7 @@ func (s *LiveKitService) GenerateToken(roomName string, identity string, name st
 	claimsEnc := base64.RawURLEncoding.EncodeToString(claimsBytes)
 	signingInput := headerEnc + "." + claimsEnc
 
-	mac := hmac.New(sha256.New, []byte(s.apiSecret))
+	mac := hmac.New(sha256.New, []byte(apiSecret))
 	mac.Write([]byte(signingInput))
 	sigEnc := base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
 

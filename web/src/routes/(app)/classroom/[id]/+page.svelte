@@ -22,10 +22,12 @@
 	let chatInput = $state('');
 	let localVideoEl: HTMLVideoElement;
 	let remoteContainer: HTMLDivElement;
+	let chatWs: WebSocket | null = null;
 	let mediaRecorder = $state<MediaRecorder | null>(null);
 	let isRecording = $state(false);
 	let recordingChunks = $state<Blob[]>([]);
 	let recordingStartTime = $state(0);
+	let connected = $state(false);
 
 	const sessionId = $derived(page.params.id);
 
@@ -37,11 +39,35 @@
 		const res = await api.get<Session>(`/sessions/${sessionId}`);
 		if (res.success) session = res.data!;
 		loading = false;
+		connectChatWs();
+	}
+
+	function connectChatWs() {
+		const token = localStorage.getItem('access_token');
+		if (!token) return;
+		const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+		chatWs = new WebSocket(`${proto}//${window.location.host}/ws/sessions/${sessionId}?token=${token}`);
+		chatWs.onmessage = (event) => {
+			try {
+				const data = JSON.parse(event.data);
+				if (data.type === 'message') {
+					const msg = data.message;
+					const isOwn = msg.user_id === $auth.user?.id;
+					chatMessages = [...chatMessages, {
+						sender: isOwn ? 'شما' : (msg.user_display_name || 'کاربر'),
+						content: msg.content,
+						time: new Date(msg.created_at).toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' }),
+						isOwn
+					}];
+				}
+			} catch (e) {}
+		};
+		chatWs.onclose = () => { if (connected) setTimeout(connectChatWs, 3000); };
 	}
 
 	async function joinRoom() {
 		const tokenRes = await api.get<{ token: string; url: string; room: string }>(`/sessions/${sessionId}/livekit-token`);
-		if (!tokenRes.success || !tokenRes.data) { alert('خطا در دریافت توکن اتاق'); return; }
+		if (!tokenRes.success || !tokenRes.data) { alert(tokenRes.error || 'خطا در دریافت توکن اتاق'); return; }
 
 		const { token, url } = tokenRes.data;
 		try {
@@ -54,21 +80,37 @@
 
 			room.on(RoomEvent.Connected, () => {
 				connectionState = ConnectionState.Connected;
+				connected = true;
 				const lp = room!.localParticipant;
-				lp.setMicrophoneEnabled(true);
-				const camPub = lp.getTrackPublication(Track.Source.Camera);
-				if (camPub?.track) attachLocalVideo(camPub.track.mediaStreamTrack!);
+				lp.setMicrophoneEnabled(true).catch(() => {});
 			});
 
 			room.on(RoomEvent.Disconnected, () => { connectionState = ConnectionState.Disconnected; });
 
 			room.on(RoomEvent.TrackSubscribed, (track: TrackPublication, participant) => {
-				if (track.source === Track.Source.Camera || track.source === Track.Source.Microphone) {
-					attachTrack(track, participant.identity);
-				}
+				console.log('Track subscribed:', track.source, participant.identity);
+				try {
+					if (track.source === Track.Source.Camera) {
+						const el = track.track?.attach();
+						if (el) {
+							el.id = `track-${participant.identity}`;
+							el.className = 'w-full h-full object-cover rounded-lg';
+							remoteContainer?.appendChild(el);
+						}
+					} else if (track.source === Track.Source.Microphone) {
+						const el = track.track?.attach();
+						if (el) {
+							el.className = 'hidden';
+							document.body.appendChild(el);
+						}
+					}
+				} catch (e) { console.error('Track attach error:', e); }
 			});
 
-			room.on(RoomEvent.TrackUnsubscribed, (track: TrackPublication) => { detachTrack(track); });
+			room.on(RoomEvent.TrackUnsubscribed, (track: TrackPublication) => {
+				const el = document.getElementById(`track-${track?.sid || ''}`);
+				if (el) el.remove();
+			});
 
 			room.on(RoomEvent.ActiveSpeakersChanged, (speakers) => {
 				const remotePs = room!.participants.values().toArray().map(p => ({
@@ -137,22 +179,34 @@
 	async function toggleVideo() {
 		if (!room) return;
 		const e = !videoEnabled;
-		await room.localParticipant.setCameraEnabled(e);
 		videoEnabled = e;
+		await room.localParticipant.setCameraEnabled(e);
 		if (e) {
-			const pub = room.localParticipant.getTrackPublication(Track.Source.Camera);
-			if (pub?.track) attachLocalVideo(pub.track.mediaStreamTrack!);
+			try {
+				const stream = await navigator.mediaDevices.getUserMedia({ video: true, width: 640, height: 480 });
+				if (localVideoEl) localVideoEl.srcObject = stream;
+			} catch (err) {
+				console.error('Camera access denied:', err);
+				videoEnabled = false;
+				await room.localParticipant.setCameraEnabled(false);
+			}
+		} else {
+			if (localVideoEl) {
+				const stream = localVideoEl.srcObject as MediaStream;
+				stream?.getTracks().forEach(t => t.stop());
+				localVideoEl.srcObject = null;
+			}
 		}
 	}
 
 	async function toggleScreenShare() {
 		if (!room) return;
 		if (screenSharing) {
-			await room.localParticipant.setScreenSharesEnabled(false);
+			await room.localParticipant.setScreenShareEnabled(false);
 			screenSharing = false;
 		} else {
 			try {
-				await room.localParticipant.setScreenSharesEnabled(true);
+				await room.localParticipant.setScreenShareEnabled(true);
 				screenSharing = true;
 			} catch (e) { console.error('Screen share failed:', e); }
 		}
@@ -210,20 +264,29 @@
 	}
 
 	function sendChat() {
-		if (!chatInput.trim() || !room) return;
-		room.localParticipant.sendData(
-			new TextEncoder().encode(JSON.stringify({ type: 'chat', content: chatInput.trim() })),
-			{ reliable: true }
-		);
-		chatMessages = [...chatMessages, {
-			sender: 'شما', content: chatInput.trim(),
-			time: new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })
-		}];
+		if (!chatInput.trim()) return;
+		const content = chatInput.trim();
 		chatInput = '';
+
+		if (chatWs?.readyState === WebSocket.OPEN) {
+			chatWs.send(JSON.stringify({ type: 'message', content }));
+		} else {
+			api.post(`/sessions/${sessionId}/messages`, { content });
+			chatMessages = [...chatMessages, {
+				sender: 'شما', content, isOwn: true,
+				time: new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })
+			}];
+		}
 	}
 
 	function disconnect() {
+		connected = false;
+		chatWs?.close();
 		stopRecording();
+		if (localVideoEl?.srcObject) {
+			(localVideoEl.srcObject as MediaStream).getTracks().forEach(t => t.stop());
+			localVideoEl.srcObject = null;
+		}
 		if (room) { room.disconnect(); room = null; }
 		connectionState = ConnectionState.Disconnected;
 	}
@@ -261,7 +324,7 @@
 				{#if whiteboardOpen && room}
 					<Whiteboard {room} {sessionId} />
 				{:else}
-					<div bind:this={remoteContainer} class="absolute inset-0 grid grid-cols-2 gap-2 p-2"></div>
+					<div bind:this={remoteContainer} class="absolute inset-0 grid grid-cols-2 gap-2 p-2 auto-rows-fr"></div>
 					{#if connectionState !== ConnectionState.Connected}
 						<div class="absolute inset-0 flex flex-col items-center justify-center">
 							<div class="w-24 h-24 bg-gray-700 rounded-full flex items-center justify-center mb-4">
@@ -271,7 +334,7 @@
 							<button onclick={joinRoom} class="px-6 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors">پیوستن به کلاس</button>
 						</div>
 					{/if}
-					<div class="absolute bottom-4 left-4 w-40 h-30 rounded-lg overflow-hidden border-2 border-gray-600 bg-gray-800">
+					<div class="absolute bottom-4 left-4 w-40 h-30 rounded-lg overflow-hidden border-2 border-gray-600 bg-gray-800 {videoEnabled ? '' : 'hidden'}">
 						<video bind:this={localVideoEl} autoplay muted playsinline class="w-full h-full object-cover"></video>
 					</div>
 				{/if}

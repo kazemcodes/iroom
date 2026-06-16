@@ -11,8 +11,8 @@ jwt:
   refresh_expiry: 10080
 
 livekit:
-  api_key: ""
-  api_secret: ""
+  api_key: "devkey"
+  api_secret: "secret"
   url: "ws://localhost:7880"
 
 upload:
@@ -21,3 +21,4 @@ upload:
 
 external:
   api_key: "change-me-external-api-key"
+
