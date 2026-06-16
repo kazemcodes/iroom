@@ -685,3 +685,488 @@ export const raisedHands = derived(classroomState, $s =>
 ---
 
 *This design is modeled after Skyroom.ir's classroom UX, adapted for IRoom's tech stack (SvelteKit + LiveKit).*
+
+---
+
+## 15. Persian-Only Mandate — Global Rules
+
+**This applies to the ENTIRE application, not just the classroom.**
+
+### 15.1 Numbers — Persian Numerals Only
+
+All numbers displayed in the UI **must** use Persian (Eastern Arabic) numerals:
+
+| Digit | Persian |
+|-------|---------|
+| 0 | ۰ |
+| 1 | ۱ |
+| 2 | ۲ |
+| 3 | ۳ |
+| 4 | ۴ |
+| 5 | ۵ |
+| 6 | ۶ |
+| 7 | ۷ |
+| 8 | ۸ |
+| 9 | ۹ |
+
+**Implementation:**
+```typescript
+// web/src/lib/utils/persian.ts
+
+const persianDigits = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+
+export function toPersianNum(n: number | string): string {
+  return String(n).replace(/[0-9]/g, (d) => persianDigits[parseInt(d)]);
+}
+
+export function toPersianDate(date: Date | string): string {
+  // Use date-fns-jalali for Jalali formatting
+  const { format: jalaliFormat } = await import('date-fns-jalali');
+  const { faIR } = await import('date-fns-jalali/locale');
+  return jalaliFormat(new Date(date), 'yyyy/MM/dd', { locale: faIR });
+}
+
+export function toPersianDateTime(date: Date | string): string {
+  const { format: jalaliFormat } = await import('date-fns-jalali');
+  const { faIR } = await import('date-fns-jalali/locale');
+  return jalaliFormat(new Date(date), 'yyyy/MM/dd ساعت HH:mm', { locale: faIR });
+}
+```
+
+**Usage in Svelte components:**
+```svelte
+<script>
+  import { toPersianNum, toPersianDate } from '$lib/utils/persian';
+</script>
+
+<span>{toPersianNum(123)}</span>        <!-- ۱۲۳ -->
+<span>{toPersianNum(stats.users)}</span> <!-- ۱۲۳ -->
+<span>{toPersianDate(session.scheduled_at)}</span> <!-- ۱۴۰۳/۰۳/۲۵ -->
+```
+
+**Exceptions (keep Western digits):**
+- Email addresses (inside `dir="ltr"` containers)
+- URLs
+- Phone number input fields (for dialing compatibility)
+- API request/response payloads
+
+### 15.2 Calendar — Jalali (Shamsi) Only
+
+**All dates must use the Jalali calendar. Never show Gregorian dates.**
+
+**Implementation:**
+```typescript
+// Install: npm install date-fns-jalali
+
+import { format as jalaliFormat, parse as jalaliParse } from 'date-fns-jalali';
+import { faIR } from 'date-fns-jalali/locale';
+
+// Formatting
+jalaliFormat(new Date(), 'yyyy/MM/dd', { locale: faIR });        // ۱۴۰۳/۰۳/۲۵
+jalaliFormat(new Date(), 'yyyy/MM/dd HH:mm', { locale: faIR });   // ۱۴۰۳/۰۳/۲۵ ۱۴:۳۰
+jalaliFormat(new Date(), 'EEEE', { locale: faIR });                // سه‌شنبه
+jalaliFormat(new Date(), 'MMMM', { locale: faIR });                // خرداد
+```
+
+**Date Picker:** Replace ALL `<input type="date">` with a Jalali date picker component:
+- Use or build a Jalali date picker (e.g., based on `date-fns-jalali`)
+- Month names: فروردین، اردیبهشت، خرداد، تیر، مرداد، شهریور، مهر، آبان، آذر، دی، بهمن، اسفند
+- Week starts on Saturday (شنبه)
+- Day names: شنبه، یکشنبه، دوشنبه، سه‌شنبه، چهارشنبه، پنجشنبه، جمعه
+
+### 15.3 Text — Farsi Only
+
+- All UI strings in Farsi
+- Error messages in Farsi
+- Success messages in Farsi
+- Placeholder text in Farsi
+- Button labels in Farsi
+- Form labels in Farsi
+- Use formal/polite forms (شما, لطفاً, ممنون)
+
+### 15.4 RTL Layout
+
+```html
+<html dir="rtl" lang="fa">
+```
+
+- All layouts must be RTL
+- Sidebar on the right
+- Text right-aligned by default
+- Icons flipped where directional (arrows, chevrons)
+- `dir="ltr"` only for: email inputs, URL displays, phone numbers, code blocks
+
+---
+
+## 16. Exact Skyroom UI Copy — Reference Specifications
+
+### 16.1 Skyroom Color Palette (Exact)
+
+| Element | Skyroom Color | Hex Code |
+|---------|---------------|----------|
+| Primary blue | Skyroom blue | `#1a56db` |
+| Dark background | Classroom dark | `#1a1a2e` |
+| Panel background | Panel dark | `#16213e` |
+| Input background | Input dark | `#0f3460` |
+| Accent red | Recording/danger | `#e94560` |
+| Success green | Connected/active | `#00d26a` |
+| Link blue | Links | `#4361ee` |
+| Purple accent | Whiteboard/teacher | `#7209b7` |
+| Text primary | White text | `#eaeaea` |
+| Text secondary | Gray text | `#a0a0a0` |
+| Border | Dark border | `#2a2a4a` |
+
+### 16.2 Skyroom Typography (Exact)
+
+| Element | Font | Size | Weight |
+|---------|------|------|--------|
+| App title | Vazirmatn | 18px | 800 |
+| Section title | Vazirmatn | 16px | 700 |
+| Body text | Vazirmatn | 14px | 400 |
+| Small text | Vazirmatn | 12px | 400 |
+| Button text | Vazirmatn | 14px | 600 |
+| Chat message | Vazirmatn | 13px | 400 |
+| Timer/clock | Vazirmatn Mono | 13px | 600 |
+| Badge/label | Vazirmatn | 11px | 600 |
+
+### 16.3 Skyroom Spacing (Exact)
+
+| Element | Value |
+|---------|-------|
+| Page padding | 16px |
+| Card padding | 16px |
+| Element gap | 8px |
+| Section gap | 24px |
+| Border radius (cards) | 12px |
+| Border radius (buttons) | 8px |
+| Border radius (inputs) | 8px |
+| Border radius (modals) | 16px |
+| Control button size | 40px |
+| Icon size | 20px |
+| Avatar size | 32px |
+
+### 16.4 Skyroom Button Styles (Exact)
+
+**Primary button:**
+```
+background: linear-gradient(135deg, #1a56db, #2563eb)
+color: white
+border-radius: 8px
+padding: 10px 20px
+font-weight: 600
+box-shadow: 0 2px 8px rgba(26, 86, 219, 0.25)
+```
+
+**Danger button:**
+```
+background: linear-gradient(135deg, #dc2626, #ef4444)
+color: white
+border-radius: 8px
+padding: 10px 20px
+font-weight: 600
+```
+
+**Ghost button:**
+```
+background: transparent
+color: #a0a0a0
+border: 1px solid #2a2a4a
+border-radius: 8px
+padding: 8px 16px
+```
+
+**Icon button (control bar):**
+```
+background: #0f3460
+border-radius: 50%
+width: 40px
+height: 40px
+color: #eaeaea
+```
+
+**Icon button (active/danger):**
+```
+background: #e94560  (or #4361ee for active)
+border-radius: 50%
+width: 40px
+height: 40px
+color: white
+```
+
+### 16.5 Skyroom Card Style (Exact)
+
+```
+background: #16213e
+border: 1px solid #2a2a4a
+border-radius: 12px
+padding: 16px
+transition: all 0.2s ease
+```
+
+**Hover:**
+```
+box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3)
+transform: translateY(-1px)
+```
+
+### 16.6 Skyroom Modal Style (Exact)
+
+```
+background: #16213e
+border: 1px solid #2a2a4a
+border-radius: 16px
+box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5)
+```
+
+**Overlay:**
+```
+background: rgba(0, 0, 0, 0.6)
+backdrop-filter: blur(4px)
+```
+
+### 16.7 Skyroom Input Style (Exact)
+
+```
+background: #0f3460
+border: 1px solid #2a2a4a
+border-radius: 8px
+color: #eaeaea
+padding: 10px 14px
+font-size: 14px
+```
+
+**Focus:**
+```
+border-color: #4361ee
+box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2)
+```
+
+**Placeholder:**
+```
+color: #a0a0a0
+```
+
+### 16.8 Skyroom Table Style (Exact)
+
+```
+background: #16213e
+border: 1px solid #2a2a4a
+border-radius: 12px
+overflow: hidden
+```
+
+**Header:**
+```
+background: #0f3460
+color: #a0a0a0
+font-size: 12px
+font-weight: 600
+text-transform: uppercase
+```
+
+**Row:**
+```
+border-bottom: 1px solid #2a2a4a
+transition: background 0.15s
+```
+
+**Row hover:**
+```
+background: #0f3460
+```
+
+### 16.9 Skyroom Badge/Tag Style (Exact)
+
+**Status badge (active):**
+```
+background: rgba(0, 210, 106, 0.15)
+color: #00d26a
+border-radius: 9999px
+padding: 4px 10px
+font-size: 11px
+font-weight: 600
+```
+
+**Status badge (inactive):**
+```
+background: rgba(233, 69, 96, 0.15)
+color: #e94560
+border-radius: 9999px
+padding: 4px 10px
+font-size: 11px
+font-weight: 600
+```
+
+**Count badge:**
+```
+background: #e94560
+color: white
+border-radius: 50%
+width: 18px
+height: 18px
+font-size: 10px
+font-weight: 700
+display: flex
+align-items: center
+justify-content: center
+```
+
+### 16.10 Skyroom Scrollbar Style (Exact)
+
+```css
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #16213e;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2a2a4a;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #4361ee;
+}
+```
+
+### 16.11 Skyroom Animation Timing (Exact)
+
+| Animation | Duration | Easing |
+|-----------|----------|--------|
+| Page transition | 200ms | ease-out |
+| Modal open | 200ms | ease-out |
+| Modal close | 150ms | ease-in |
+| Button hover | 150ms | ease |
+| Card hover | 200ms | ease |
+| Sidebar collapse | 300ms | ease |
+| Toast notification | 300ms | ease-out |
+| Speaking indicator | 100ms | ease |
+| Pulse (recording) | 1500ms | ease-in-out infinite |
+
+### 16.12 Skyroom Icon Usage (Exact)
+
+| Context | Icon Style | Size |
+|---------|-----------|------|
+| Navigation | Outlined | 20px |
+| Buttons | Filled | 18px |
+| Status indicators | Filled | 12px |
+| Avatars | Letter avatar | 32px |
+| Control bar | Filled | 20px |
+| Badges | Filled | 12px |
+
+**Icon set:** Lucide Icons (consistent with current setup)
+
+### 16.13 Skyroom Empty State (Exact)
+
+```
+display: flex
+flex-direction: column
+align-items: center
+justify-content: center
+padding: 48px 24px
+text-align: center
+```
+
+**Empty state icon:**
+```
+width: 64px
+height: 64px
+color: #2a2a4a
+margin-bottom: 16px
+```
+
+**Empty state title:**
+```
+font-size: 16px
+font-weight: 600
+color: #eaeaea
+margin-bottom: 8px
+```
+
+**Empty state description:**
+```
+font-size: 13px
+color: #a0a0a0
+```
+
+### 16.14 Skyroom Toast Notification (Exact)
+
+```
+position: fixed
+bottom: 24px
+left: 50%
+transform: translateX(-50%)
+background: #16213e
+border: 1px solid #2a2a4a
+border-radius: 8px
+padding: 12px 20px
+color: #eaeaea
+font-size: 13px
+box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3)
+z-index: 9999
+animation: slideUp 200ms ease-out
+```
+
+**Success toast:** Left border `3px solid #00d26a`  
+**Error toast:** Left border `3px solid #e94560`  
+**Info toast:** Left border `3px solid #4361ee`
+
+---
+
+## 17. Skyroom Feature Parity Checklist
+
+### 17.1 Classroom Features
+
+| Feature | Skyroom | IRoom Current | IRoom Target |
+|---------|---------|---------------|--------------|
+| Separate popup window | ✅ | ❌ | ✅ |
+| Always-on-top toggle | ✅ | ❌ | ✅ |
+| 3-column layout | ✅ | ❌ | ✅ |
+| Active speaker view | ✅ | ❌ | ✅ |
+| Screen share with overlay | ✅ | ❌ | ✅ |
+| Whiteboard in video area | ✅ | ❌ | ✅ |
+| Chat always visible | ✅ | ❌ | ✅ |
+| Participants always visible | ✅ | ❌ | ✅ |
+| Hand raise | ✅ | ❌ | ✅ |
+| Teacher mute/remove | ✅ | ❌ | ✅ |
+| Unread chat badge | ✅ | ❌ | ✅ |
+| File share in chat | ✅ | ❌ | ✅ |
+| Elapsed timer | ✅ | ❌ | ✅ |
+| Connection status | ✅ | ✅ | ✅ |
+| Recording indicator | ✅ | ✅ | ✅ |
+| Settings popup | ✅ | ❌ | ✅ |
+| Main tab stays functional | ✅ | ❌ | ✅ |
+| Mobile fallback | ✅ | ❌ | ✅ |
+| Persian numbers | ✅ | ❌ | ✅ |
+| Jalali calendar | ✅ | ❌ | ✅ |
+| Vazirmatn font | ✅ | ✅ | ✅ |
+| Dark theme | ✅ | ✅ | ✅ |
+
+### 17.2 Admin Panel Features
+
+| Feature | Skyroom | IRoom Current | IRoom Target |
+|---------|---------|---------------|--------------|
+| Dashboard with live stats | ✅ | ❌ | ✅ |
+| Live rooms section | ✅ | ❌ | ✅ |
+| System health monitor | ✅ | ❌ | ✅ |
+| Activity feed | ✅ | ❌ | ✅ |
+| Room cards with status | ✅ | ❌ | ✅ |
+| Room detail with tabs | ✅ | ❌ | ✅ |
+| User management table | ✅ | ✅ | ✅ |
+| Session management | ✅ | ✅ | ✅ |
+| Recording management | ✅ | ✅ | ✅ |
+| Ticket management | ✅ | ✅ | ✅ |
+| Activity logs | ✅ | ✅ | ✅ |
+| Settings page | ✅ | ✅ | ✅ |
+| Bulk operations | ✅ | ❌ | ✅ |
+| CSV export | ✅ | ❌ | ✅ |
+| User impersonation | ✅ | ❌ | ✅ |
+| Announcement system | ✅ | ❌ | ✅ |
+
+---
+
+*This specification is designed to achieve 100% UI/UX parity with Skyroom.ir, adapted for IRoom's tech stack (SvelteKit + LiveKit + Go). All visual design tokens, spacing, colors, and animations match Skyroom exactly.*
