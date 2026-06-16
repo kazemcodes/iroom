@@ -65,7 +65,7 @@
 					controls
 					autoplay
 					class="w-full max-h-[70vh]"
-					src="http://localhost:8080/api/v1/recordings/{activeRecording.id}/download"
+					src="{api.getBaseUrl()}/recordings/{activeRecording.id}/download"
 				></video>
 			</div>
 			<div class="p-4 text-sm text-gray-500">

@@ -38,12 +38,17 @@ func (h *RecordingHandler) Upload(c echo.Context) error {
 	}
 	defer src.Close()
 
+	safeName := filepath.Base(file.Filename)
+	if safeName == "." || safeName == ".." || safeName == "/" {
+		return response.BadRequest(c, "نام فایل نامعتبر")
+	}
+
 	recDir := filepath.Join(h.uploadDir, "recordings", strconv.FormatInt(sessionID, 10))
 	if err := os.MkdirAll(recDir, 0755); err != nil {
 		return response.InternalError(c, "خطا در ایجاد پوشه")
 	}
 
-	dstPath := filepath.Join(recDir, file.Filename)
+	dstPath := filepath.Join(recDir, safeName)
 	dst, err := os.Create(dstPath)
 	if err != nil {
 		return response.InternalError(c, "خطا در ذخیره فایل")

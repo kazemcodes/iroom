@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"time"
 
 	"github.com/iroom/iroom/internal/config"
 	"github.com/iroom/iroom/internal/database"
@@ -42,13 +43,15 @@ func main() {
 	recordingRepo := repository.NewRecordingRepo(db)
 	logRepo := repository.NewActivityLogRepo(db)
 	settingsRepo := repository.NewSettingsRepo(db)
+	ticketRepo := repository.NewTicketRepo(db)
+	sessionLogRepo := repository.NewSessionLogRepo(db)
 
 	// Services
 	livekitSvc := services.NewLiveKitService(cfg.LiveKit.APIKey, cfg.LiveKit.APISecret, cfg.LiveKit.URL)
 
 	// Handlers
 	authHandler := handlers.NewAuthHandler(userRepo, logRepo, cfg.JWT.Secret, cfg.JWT.AccessExpiry, cfg.JWT.RefreshExpiry)
-	adminHandler := handlers.NewAdminHandler(userRepo, classRepo, sessionRepo, messageRepo, recordingRepo, logRepo, settingsRepo)
+	adminHandler := handlers.NewAdminHandler(userRepo, classRepo, sessionRepo, messageRepo, recordingRepo, logRepo, settingsRepo, ticketRepo, sessionLogRepo)
 	classHandler := handlers.NewClassHandler(classRepo, sessionRepo)
 	sessionHandler := handlers.NewSessionHandler(sessionRepo, classRepo)
 	messageHandler := handlers.NewMessageHandler(messageRepo)
@@ -57,6 +60,9 @@ func main() {
 	recordingHandler := handlers.NewRecordingHandler(recordingRepo, cfg.Upload.UploadDir)
 	chatHandler := handlers.NewChatHandler(messageRepo, cfg.JWT.Secret)
 	externalHandler := handlers.NewExternalHandler(userRepo, classRepo, sessionRepo, cfg.External.APIKey)
+	ticketHandler := handlers.NewTicketHandler(ticketRepo, sessionLogRepo)
+	adminTicketHandler := handlers.NewAdminTicketHandler(ticketRepo)
+	sessionLogHandler := handlers.NewSessionLogHandler(sessionLogRepo)
 
 	// Echo
 	e := echo.New()
@@ -66,14 +72,18 @@ func main() {
 	e.Use(echoMiddleware.Logger())
 	e.Use(echoMiddleware.Recover())
 	e.Use(middleware.CORS())
+	e.Use(middleware.MaintenanceMode(db))
+	e.Use(middleware.RateLimit(100, time.Minute))
 
 	// Health
 	e.GET("/api/v1/health", handlers.Health)
 
-	// Auth
-	e.POST("/api/v1/auth/register", authHandler.Register)
-	e.POST("/api/v1/auth/login", authHandler.Login)
-	e.POST("/api/v1/auth/refresh", authHandler.Refresh)
+	// Auth (with stricter rate limit)
+	authGroup := e.Group("/api/v1/auth")
+	authGroup.Use(middleware.AuthRateLimit())
+	authGroup.POST("/register", authHandler.Register)
+	authGroup.POST("/login", authHandler.Login)
+	authGroup.POST("/refresh", authHandler.Refresh)
 
 	// Protected routes
 	api := e.Group("/api/v1")
@@ -85,6 +95,7 @@ func main() {
 
 	// Classes
 	api.GET("/classes", classHandler.List)
+	api.GET("/classes/:id", classHandler.GetByID)
 	api.POST("/classes", classHandler.Create)
 	api.PUT("/classes/:id", classHandler.Update)
 	api.DELETE("/classes/:id", classHandler.Delete)
@@ -119,6 +130,18 @@ func main() {
 	api.GET("/sessions/:id/recordings", recordingHandler.ListBySession)
 	api.GET("/recordings/:id/download", recordingHandler.Download)
 
+	// Tickets
+	api.POST("/tickets", ticketHandler.Create)
+	api.GET("/tickets", ticketHandler.ListMy)
+	api.GET("/tickets/:id", ticketHandler.GetByID)
+	api.POST("/tickets/:id/reply", ticketHandler.Reply)
+	api.POST("/tickets/:id/close", ticketHandler.Close)
+
+	// Session logs
+	api.GET("/sessions/:id/logs", sessionLogHandler.ListBySession)
+	api.POST("/sessions/:id/logs/join", sessionLogHandler.LogJoin)
+	api.POST("/sessions/:id/logs/leave", sessionLogHandler.LogLeave)
+
 	// LiveKit webhook
 	e.POST("/api/v1/livekit/webhook", livekitHandler.Webhook)
 
@@ -143,12 +166,14 @@ func main() {
 	admin.GET("/recordings", adminHandler.ListRecordings)
 	admin.DELETE("/recordings/:id", adminHandler.DeleteRecording)
 	admin.GET("/logs", adminHandler.ListLogs)
+	admin.GET("/tickets", adminTicketHandler.ListAll)
 	admin.PUT("/settings", adminHandler.UpdateSettings)
 	admin.GET("/settings", adminHandler.GetSettings)
 
-	// External API (API key auth)
+	// External API (API key auth + rate limit)
 	ext := api.Group("/external")
 	ext.Use(middleware.APIKeyAuth(cfg.External.APIKey))
+	ext.Use(middleware.APIKeyRateLimit())
 	ext.POST("/users", externalHandler.CreateUser)
 	ext.POST("/classes", externalHandler.CreateClass)
 	ext.POST("/sessions", externalHandler.CreateSession)

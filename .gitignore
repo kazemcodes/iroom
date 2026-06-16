@@ -2,6 +2,11 @@
 /server
 *.exe
 
+# Environment
+.env
+.env.local
+.env.production
+
 # Database
 *.db
 *.db-shm

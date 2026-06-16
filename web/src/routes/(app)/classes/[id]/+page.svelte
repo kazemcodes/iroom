@@ -96,9 +96,9 @@
 	async function searchUsers() {
 		if (!enrollSearch) { searchResults = []; return; }
 		enrollLoading = true;
-		const res = await api.get<User[]>('/admin/users', { search: enrollSearch, page: '1', per_page: '10' });
+		const res = await api.get<{ items: User[] }>('/admin/users', { search: enrollSearch, page: '1', per_page: '10' });
 		if (res.success && res.data) {
-			searchResults = Array.isArray(res.data) ? res.data : [];
+			searchResults = res.data.items || [];
 		}
 		enrollLoading = false;
 	}
@@ -106,8 +106,8 @@
 	async function enrollStudent(studentId: number) {
 		const res = await api.post(`/classes/${classId}/enroll`, { student_id: studentId });
 		if (res.success) {
-			const userRes = await api.get<User>(`/admin/users/${studentId}`);
-			if (userRes.success) students = [...students, userRes.data!];
+			const found = searchResults.find(u => u.id === studentId);
+			if (found) students = [...students, found];
 			searchResults = searchResults.filter(u => u.id !== studentId);
 		}
 	}

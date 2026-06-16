@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   livekit:
     image: livekit/livekit-server:latest
@@ -10,20 +8,33 @@ services:
     volumes:
       - ./livekit.yaml:/etc/livekit.yaml
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:7880"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   app:
     build: .
     ports:
       - "8080:8080"
+    env_file:
+      - .env
     environment:
       - TZ=Asia/Tehran
     volumes:
-      - ./data:/app/iroom.db
+      - ./data:/app/data
       - ./uploads:/app/uploads
       - ./recordings:/app/recordings
     depends_on:
-      - livekit
+      livekit:
+        condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/api/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   caddy:
     image: caddy:2-alpine
@@ -35,7 +46,8 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
-      - app
+      app:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:

@@ -234,24 +234,28 @@ func validateRegister(req *models.RegisterRequest) string {
 // Admin handlers
 
 type AdminHandler struct {
-	userRepo    *repository.UserRepo
-	classRepo   *repository.ClassRepo
-	sessionRepo *repository.SessionRepo
-	messageRepo *repository.MessageRepo
+	userRepo      *repository.UserRepo
+	classRepo     *repository.ClassRepo
+	sessionRepo   *repository.SessionRepo
+	messageRepo   *repository.MessageRepo
 	recordingRepo *repository.RecordingRepo
-	logRepo     *repository.ActivityLogRepo
-	settingsRepo *repository.SettingsRepo
+	logRepo       *repository.ActivityLogRepo
+	settingsRepo  *repository.SettingsRepo
+	ticketRepo    *repository.TicketRepo
+	sessionLogRepo *repository.SessionLogRepo
 }
 
-func NewAdminHandler(userRepo *repository.UserRepo, classRepo *repository.ClassRepo, sessionRepo *repository.SessionRepo, messageRepo *repository.MessageRepo, recordingRepo *repository.RecordingRepo, logRepo *repository.ActivityLogRepo, settingsRepo *repository.SettingsRepo) *AdminHandler {
+func NewAdminHandler(userRepo *repository.UserRepo, classRepo *repository.ClassRepo, sessionRepo *repository.SessionRepo, messageRepo *repository.MessageRepo, recordingRepo *repository.RecordingRepo, logRepo *repository.ActivityLogRepo, settingsRepo *repository.SettingsRepo, ticketRepo *repository.TicketRepo, sessionLogRepo *repository.SessionLogRepo) *AdminHandler {
 	return &AdminHandler{
-		userRepo:    userRepo,
-		classRepo:   classRepo,
-		sessionRepo: sessionRepo,
-		messageRepo: messageRepo,
+		userRepo:      userRepo,
+		classRepo:     classRepo,
+		sessionRepo:   sessionRepo,
+		messageRepo:   messageRepo,
 		recordingRepo: recordingRepo,
-		logRepo:     logRepo,
-		settingsRepo: settingsRepo,
+		logRepo:       logRepo,
+		settingsRepo:  settingsRepo,
+		ticketRepo:    ticketRepo,
+		sessionLogRepo: sessionLogRepo,
 	}
 }
 
@@ -661,6 +665,51 @@ func (h *AdminHandler) UpdateSettings(c echo.Context) error {
 	return response.Success(c, map[string]string{"message": "تنظیمات بروزرسانی شد"})
 }
 
+func (h *AdminHandler) ListTickets(c echo.Context) error {
+	page, _ := strconv.Atoi(c.QueryParam("page"))
+	if page < 1 {
+		page = 1
+	}
+	perPage, _ := strconv.Atoi(c.QueryParam("per_page"))
+	if perPage < 1 {
+		perPage = 20
+	}
+	search := c.QueryParam("search")
+
+	tickets, total, err := h.ticketRepo.ListAll(page, perPage, search)
+	if err != nil {
+		return response.InternalError(c, "خطا در دریافت تیکت‌ها")
+	}
+	if tickets == nil {
+		tickets = []models.Ticket{}
+	}
+
+	return response.Success(c, models.PaginatedResponse{
+		Items:      tickets,
+		Total:      total,
+		Page:       page,
+		PerPage:    perPage,
+		TotalPages: int((total + int64(perPage) - 1) / int64(perPage)),
+	})
+}
+
+func (h *AdminHandler) ListSessionLogs(c echo.Context) error {
+	sessionID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return response.BadRequest(c, "شناسه نامعتبر")
+	}
+
+	logs, err := h.sessionLogRepo.ListBySession(sessionID)
+	if err != nil {
+		return response.InternalError(c, "خطا در دریافت لاگ‌ها")
+	}
+	if logs == nil {
+		logs = []models.SessionLog{}
+	}
+
+	return response.Success(c, logs)
+}
+
 // Class handlers
 
 type ClassHandler struct {
@@ -672,6 +721,20 @@ func NewClassHandler(classRepo *repository.ClassRepo, sessionRepo *repository.Se
 	return &ClassHandler{classRepo: classRepo, sessionRepo: sessionRepo}
 }
 
+func (h *ClassHandler) GetByID(c echo.Context) error {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return response.BadRequest(c, "شناسه نامعتبر")
+	}
+
+	class, err := h.classRepo.GetByID(id)
+	if err != nil {
+		return response.NotFound(c, "کلاس یافت نشد")
+	}
+
+	return response.Success(c, class)
+}
+
 func (h *ClassHandler) List(c echo.Context) error {
 	userID := c.Get("user_id").(int64)
 	role, _ := c.Get("role").(string)
@@ -681,27 +744,10 @@ func (h *ClassHandler) List(c echo.Context) error {
 
 	switch role {
 	case "admin":
-		page, _ := strconv.Atoi(c.QueryParam("page"))
-		if page < 1 {
-			page = 1
-		}
-		perPage, _ := strconv.Atoi(c.QueryParam("per_page"))
-		if perPage < 1 {
-			perPage = 20
-		}
-		search := c.QueryParam("search")
-		var total int64
-		classes, total, err = h.classRepo.ListAll(page, perPage, search)
+		classes, _, err = h.classRepo.ListAll(1, 10000, "")
 		if err != nil {
 			return response.InternalError(c, "خطا در دریافت کلاس‌ها")
 		}
-		return response.Success(c, models.PaginatedResponse{
-			Items:      classes,
-			Total:      total,
-			Page:       page,
-			PerPage:    perPage,
-			TotalPages: int((total + int64(perPage) - 1) / int64(perPage)),
-		})
 	case "teacher":
 		classes, err = h.classRepo.ListByTeacher(userID)
 	default:
@@ -865,29 +911,38 @@ func (h *SessionHandler) List(c echo.Context) error {
 	}
 
 	if role == "admin" {
-		page, _ := strconv.Atoi(c.QueryParam("page"))
-		if page < 1 {
-			page = 1
-		}
-		perPage, _ := strconv.Atoi(c.QueryParam("per_page"))
-		if perPage < 1 {
-			perPage = 20
-		}
-		search := c.QueryParam("search")
-		sessions, total, err := h.sessionRepo.ListAll(page, perPage, search)
+		sessions, _, err := h.sessionRepo.ListAll(1, 10000, "")
 		if err != nil {
 			return response.InternalError(c, "خطا در دریافت جلسات")
 		}
-		return response.Success(c, models.PaginatedResponse{
-			Items:      sessions,
-			Total:      total,
-			Page:       page,
-			PerPage:    perPage,
-			TotalPages: int((total + int64(perPage) - 1) / int64(perPage)),
-		})
+		return response.Success(c, sessions)
 	}
 
-	return response.Success(c, []models.Session{})
+	userID := c.Get("user_id").(int64)
+	switch role {
+	case "teacher":
+		classes, _ := h.classRepo.ListByTeacher(userID)
+		var allSessions []models.Session
+		for _, cls := range classes {
+			sessions, _ := h.sessionRepo.ListByClass(cls.ID)
+			allSessions = append(allSessions, sessions...)
+		}
+		if allSessions == nil {
+			allSessions = []models.Session{}
+		}
+		return response.Success(c, allSessions)
+	default:
+		classes, _ := h.classRepo.ListByStudent(userID)
+		var allSessions []models.Session
+		for _, cls := range classes {
+			sessions, _ := h.sessionRepo.ListByClass(cls.ID)
+			allSessions = append(allSessions, sessions...)
+		}
+		if allSessions == nil {
+			allSessions = []models.Session{}
+		}
+		return response.Success(c, allSessions)
+	}
 }
 
 func (h *SessionHandler) Create(c echo.Context) error {

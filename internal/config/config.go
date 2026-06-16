@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"strconv"
 
 	"gopkg.in/yaml.v3"
 )
@@ -46,16 +47,62 @@ type ExternalConfig struct {
 }
 
 func Load(path string) (*Config, error) {
+	cfg := Default()
+
 	data, err := os.ReadFile(path)
-	if err != nil {
-		return Default(), nil
+	if err == nil {
+		_ = yaml.Unmarshal(data, cfg)
 	}
 
-	cfg := Default()
-	if err := yaml.Unmarshal(data, cfg); err != nil {
-		return nil, err
-	}
+	applyEnvOverrides(cfg)
 	return cfg, nil
+}
+
+func applyEnvOverrides(cfg *Config) {
+	if v := os.Getenv("SERVER_HOST"); v != "" {
+		cfg.Server.Host = v
+	}
+	if v := os.Getenv("SERVER_PORT"); v != "" {
+		if p, err := strconv.Atoi(v); err == nil {
+			cfg.Server.Port = p
+		}
+	}
+	if v := os.Getenv("DATABASE_PATH"); v != "" {
+		cfg.Database.Path = v
+	}
+	if v := os.Getenv("JWT_SECRET"); v != "" {
+		cfg.JWT.Secret = v
+	}
+	if v := os.Getenv("JWT_ACCESS_EXPIRY"); v != "" {
+		if p, err := strconv.Atoi(v); err == nil {
+			cfg.JWT.AccessExpiry = p
+		}
+	}
+	if v := os.Getenv("JWT_REFRESH_EXPIRY"); v != "" {
+		if p, err := strconv.Atoi(v); err == nil {
+			cfg.JWT.RefreshExpiry = p
+		}
+	}
+	if v := os.Getenv("LIVEKIT_API_KEY"); v != "" {
+		cfg.LiveKit.APIKey = v
+	}
+	if v := os.Getenv("LIVEKIT_API_SECRET"); v != "" {
+		cfg.LiveKit.APISecret = v
+	}
+	if v := os.Getenv("LIVEKIT_URL"); v != "" {
+		cfg.LiveKit.URL = v
+	}
+	if v := os.Getenv("UPLOAD_MAX_SIZE"); v != "" {
+		if p, err := strconv.ParseInt(v, 10, 64); err == nil {
+			cfg.Upload.MaxSize = p
+		}
+	}
+	if v := os.Getenv("UPLOAD_DIR"); v != "" {
+		cfg.Upload.UploadDir = v
+	}
+	if v := os.Getenv("EXTERNAL_API_KEY"); v != "" {
+		cfg.External.APIKey = v
+	}
 }
 
 func Default() *Config {

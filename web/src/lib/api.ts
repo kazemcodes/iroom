@@ -1,7 +1,20 @@
 import { browser } from '$app/environment';
 import type { APIResponse } from './types';
 
-const BASE = 'http://localhost:8080/api/v1';
+function getBaseUrl(): string {
+	if (!browser) return '';
+	return window.location.origin + '/api/v1';
+}
+
+function getWsUrl(): string {
+	if (!browser) return '';
+	const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+	return `${proto}//${window.location.host}`;
+}
+
+function getApiUrl(path: string): string {
+	return getBaseUrl() + path;
+}
 
 function getToken(): string | null {
 	if (!browser) return null;
@@ -14,7 +27,7 @@ async function request<T>(
 	body?: any,
 	params?: Record<string, string>
 ): Promise<APIResponse<T>> {
-	let url = BASE + path;
+	let url = getApiUrl(path);
 	if (params) {
 		const qs = new URLSearchParams(params).toString();
 		if (qs) url += '?' + qs;
@@ -55,5 +68,7 @@ export const api = {
 	get: <T>(path: string, params?: Record<string, string>) => request<T>('GET', path, undefined, params),
 	post: <T>(path: string, body?: any) => request<T>('POST', path, body),
 	put: <T>(path: string, body?: any) => request<T>('PUT', path, body),
-	delete: <T>(path: string) => request<T>('DELETE', path)
+	delete: <T>(path: string) => request<T>('DELETE', path),
+	getWsUrl: () => getWsUrl(),
+	getBaseUrl: () => getBaseUrl(),
 };

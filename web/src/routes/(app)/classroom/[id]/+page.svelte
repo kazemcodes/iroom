@@ -190,7 +190,7 @@
 			formData.append('duration', String(duration));
 
 			const token = localStorage.getItem('access_token');
-			await fetch(`http://localhost:8080/api/v1/sessions/${sessionId}/recordings`, {
+			await fetch(`${api.getBaseUrl()}/sessions/${sessionId}/recordings`, {
 				method: 'POST',
 				headers: { 'Authorization': `Bearer ${token}` },
 				body: formData

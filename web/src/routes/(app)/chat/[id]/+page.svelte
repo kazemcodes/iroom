@@ -38,7 +38,8 @@
 		const token = localStorage.getItem('access_token');
 		if (!token) return;
 
-		ws = new WebSocket(`ws://localhost:8080/ws/sessions/${sessionId}?token=${token}`);
+		const wsProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+		ws = new WebSocket(`${wsProto}//${window.location.host}/ws/sessions/${sessionId}?token=${token}`);
 
 		ws.onmessage = async (event) => {
 			const data = JSON.parse(event.data);
@@ -116,7 +117,7 @@
 				</div>
 			{:else}
 				{#each messages as msg}
-					<div class="flex {isOwnMessage(msg) ? 'justify-start' : 'justify-end'}">
+					<div class="flex {isOwnMessage(msg) ? 'justify-end' : 'justify-start'}">
 						<div class="max-w-[70%] {isOwnMessage(msg) ? 'bg-blue-50 text-blue-900' : 'bg-gray-100 text-gray-900'} rounded-2xl px-4 py-2.5">
 							<p class="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
 							<p class="text-[10px] mt-1 {isOwnMessage(msg) ? 'text-blue-400' : 'text-gray-400'}">{formatTime(msg.created_at)}</p>

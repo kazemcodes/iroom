@@ -101,3 +101,37 @@ export interface Recording {
 	status: 'processing' | 'ready' | 'failed';
 	created_at: string;
 }
+
+export interface Ticket {
+	id: number;
+	user_id: number;
+	title: string;
+	category: string;
+	status: 'open' | 'answered' | 'closed';
+	priority: 'low' | 'normal' | 'high' | 'urgent';
+	created_at: string;
+	updated_at: string;
+	user_display_name: string;
+	messages?: TicketMessage[];
+}
+
+export interface TicketMessage {
+	id: number;
+	ticket_id: number;
+	user_id: number;
+	content: string;
+	is_admin: boolean;
+	created_at: string;
+	user_display_name: string;
+}
+
+export interface SessionLog {
+	id: number;
+	session_id: number;
+	user_id: number;
+	joined_at: string;
+	left_at: string | null;
+	duration: number;
+	ip_address: string;
+	user_display_name: string;
+}

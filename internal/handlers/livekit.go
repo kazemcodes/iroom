@@ -38,9 +38,9 @@ func (h *LiveKitHandler) GetJoinToken(c echo.Context) error {
 
 	userID := c.Get("user_id").(int64)
 	role := c.Get("role").(string)
-	displayName := c.Get("display_name").(string)
-	if displayName == "" {
-		displayName = "کاربر"
+	displayName := "کاربر"
+	if name, ok := c.Get("display_name").(string); ok && name != "" {
+		displayName = name
 	}
 
 	roomName := session.LivekitRoom

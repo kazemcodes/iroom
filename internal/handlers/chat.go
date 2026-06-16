@@ -156,12 +156,17 @@ func (h *FileHandler) Upload(c echo.Context) error {
 	}
 	defer src.Close()
 
+	safeName := filepath.Base(file.Filename)
+	if safeName == "." || safeName == ".." || safeName == "/" {
+		return response.BadRequest(c, "نام فایل نامعتبر")
+	}
+
 	sessionDir := filepath.Join(h.uploadDir, strconv.FormatInt(sessionID, 10))
 	if err := os.MkdirAll(sessionDir, 0755); err != nil {
 		return response.InternalError(c, "خطا در ایجاد پوشه")
 	}
 
-	dstPath := filepath.Join(sessionDir, file.Filename)
+	dstPath := filepath.Join(sessionDir, safeName)
 	dst, err := os.Create(dstPath)
 	if err != nil {
 		return response.InternalError(c, "خطا در ذخیره فایل")
