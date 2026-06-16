@@ -23,13 +23,21 @@
 	let filterCategory = $state<string>('all');
 	let searchQuery = $state('');
 
+	let currentPage = $state(1);
+	let totalTickets = $state(0);
+	const perPage = 20;
+
+	const totalPages = $derived(Math.ceil(totalTickets / perPage));
+
 	onMount(() => loadTickets());
 
 	async function loadTickets() {
 		loading = true;
-		const res = await api.get<Ticket[]>('/tickets');
+		const params: Record<string, string> = { page: String(currentPage), per_page: String(perPage) };
+		const res = await api.get<{ items: Ticket[]; total: number }>('/tickets', params);
 		if (res.success && res.data) {
-			tickets = Array.isArray(res.data) ? res.data : [];
+			tickets = res.data.items || (Array.isArray(res.data) ? res.data : []);
+			totalTickets = res.data.total || tickets.length;
 		}
 		loading = false;
 	}
@@ -307,6 +315,17 @@
 						</div>
 					</button>
 				{/each}
+			</div>
+		{/if}
+
+		{#if totalPages > 1}
+			<div class="flex items-center justify-between text-sm text-gray-500">
+				<span>{totalTickets} تیکت</span>
+				<div class="flex gap-1">
+					<button disabled={currentPage <= 1} onclick={() => { currentPage--; loadTickets(); }} class="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50">قبلی</button>
+					<span class="px-3 py-1">صفحه {currentPage} از {totalPages}</span>
+					<button disabled={currentPage >= totalPages} onclick={() => { currentPage++; loadTickets(); }} class="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50">بعدی</button>
+				</div>
 			</div>
 		{/if}
 

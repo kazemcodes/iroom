@@ -51,12 +51,31 @@
 		upload_recording: 'bg-pink-100 text-pink-700',
 		update_settings: 'bg-orange-100 text-orange-700',
 	};
+
+	function exportCSV() {
+		const headers = ['تاریخ', 'عملیات', 'نوع', 'شناسه', 'جزئیات'];
+		const rows = logs.map(l => [formatDate(l.created_at), l.action, l.entity_type, l.entity_id, l.details]);
+		const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+		const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement('a');
+		a.href = url; a.download = 'activity-logs.csv'; a.click();
+		URL.revokeObjectURL(url);
+	}
 </script>
 
 <div class="space-y-6">
-	<div>
-		<h1 class="text-2xl font-bold text-gray-900">لاگ فعالیت‌ها</h1>
-		<p class="text-gray-500 mt-1">{total} رویداد</p>
+	<div class="flex items-center justify-between">
+		<div>
+			<h1 class="text-2xl font-bold text-gray-900">لاگ فعالیت‌ها</h1>
+			<p class="text-gray-500 mt-1">{total} رویداد</p>
+		</div>
+		{#if !loading && logs.length > 0}
+			<button onclick={exportCSV} class="px-4 py-2.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 flex items-center gap-2">
+				<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+				دانلود CSV
+			</button>
+		{/if}
 	</div>
 
 	{#if loading}

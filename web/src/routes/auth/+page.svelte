@@ -95,6 +95,14 @@
 					<input type="password" bind:value={password} class="input-field" placeholder="حداقل ۶ کاراکتر" dir="ltr" required minlength="6" />
 				</div>
 
+				{#if !isRegister}
+					<div class="text-center text-sm mb-4">
+						<a href="/auth/forgot-password" class="text-blue-600 hover:text-blue-700 font-medium">
+							رمز عبور خود را فراموش کرده‌اید؟
+						</a>
+					</div>
+				{/if}
+
 				<button type="submit" disabled={loading}
 					class="btn-primary w-full py-3 text-center disabled:opacity-50 disabled:cursor-not-allowed">
 					{#if loading}

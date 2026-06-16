@@ -8,6 +8,7 @@
 	let files = $state<FileItem[]>([]);
 	let loading = $state(false);
 	let uploading = $state(false);
+	let uploadProgress = $state(0);
 	let fileInput = $state<HTMLInputElement | null>(null);
 
 	let currentPage = $state(1);
@@ -43,26 +44,34 @@
 		loading = false;
 	}
 
+	function uploadWithProgress(file: File, sessionId: number): Promise<any> {
+		return new Promise((resolve, reject) => {
+			const xhr = new XMLHttpRequest();
+			const formData = new FormData();
+			formData.append('file', file);
+			xhr.upload.onprogress = (e) => {
+				if (e.lengthComputable) uploadProgress = Math.round((e.loaded / e.total) * 100);
+			};
+			xhr.onload = () => resolve(JSON.parse(xhr.responseText));
+			xhr.onerror = () => reject(new Error('Upload failed'));
+			xhr.open('POST', `/api/v1/sessions/${sessionId}/files`);
+			const token = localStorage.getItem('access_token');
+			if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+			xhr.send(formData);
+		});
+	}
+
 	async function handleUpload(e: Event) {
 		const input = e.target as HTMLInputElement;
 		if (!input.files?.length || !selectedSessionId) return;
 
 		uploading = true;
+		uploadProgress = 0;
 
 		for (let i = 0; i < input.files.length; i++) {
 			const file = input.files[i];
-			const formData = new FormData();
-			formData.append('file', file);
-
 			try {
-				const token = localStorage.getItem('access_token');
-				const res = await fetch(`/api/v1/sessions/${selectedSessionId}/files`, {
-					method: 'POST',
-					headers: token ? { Authorization: `Bearer ${token}` } : {},
-					body: formData
-				});
-
-				const data = await res.json();
+				const data = await uploadWithProgress(file, selectedSessionId);
 				if (data.success && data.data) {
 					files = [data.data, ...files];
 				}
@@ -72,6 +81,7 @@
 		}
 
 		uploading = false;
+		uploadProgress = 0;
 		input.value = '';
 	}
 
@@ -118,6 +128,18 @@
 			</button>
 		</div>
 	</div>
+
+	{#if uploading}
+		<div class="bg-white border border-gray-200 rounded-xl p-4">
+			<div class="flex items-center justify-between mb-2">
+				<span class="text-sm text-gray-600">در حال آپلود...</span>
+				<span class="text-sm font-medium text-blue-600">{uploadProgress}%</span>
+			</div>
+			<div class="w-full bg-gray-200 rounded-full h-2">
+				<div class="h-2 bg-blue-600 rounded transition-all" style="width: {uploadProgress}%"></div>
+			</div>
+		</div>
+	{/if}
 
 	<!-- Session Selector -->
 	<div class="bg-white border border-gray-200 rounded-xl p-5">

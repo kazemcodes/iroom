@@ -4,6 +4,7 @@
 	import { onMount } from 'svelte';
 	import type { Session } from '$lib/types';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
+	import { classroomWindow } from '$lib/classroom/ClassroomWindow';
 
 	let sessions = $state<Session[]>([]);
 	let loading = $state(true);
@@ -133,7 +134,7 @@
 						<div class="flex items-center gap-2">
 							<span class="text-xs px-2.5 py-1 rounded-full font-medium {statusColors[s.status]}">{statusLabels[s.status]}</span>
 							{#if s.status === 'live'}
-								<a href="/classroom/{s.id}" class="px-3 py-1.5 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700 transition-colors">پیوستن</a>
+								<button onclick={() => classroomWindow.open(String(s.id), s.title)} class="px-3 py-1.5 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700 transition-colors">پیوستن</button>
 							{/if}
 							{#if ($isAdmin || $isTeacher) && s.status === 'scheduled'}
 								<button onclick={() => startSession(s.id)} class="px-3 py-1.5 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700">شروع</button>

@@ -84,6 +84,8 @@ func main() {
 	authGroup.POST("/register", authHandler.Register)
 	authGroup.POST("/login", authHandler.Login)
 	authGroup.POST("/refresh", authHandler.Refresh)
+	authGroup.POST("/forgot-password", authHandler.ForgotPassword)
+	authGroup.POST("/reset-password", authHandler.ResetPassword)
 
 	// Protected routes
 	api := e.Group("/api/v1")
@@ -92,6 +94,7 @@ func main() {
 	// Profile
 	api.GET("/auth/me", authHandler.Me)
 	api.PUT("/auth/me", authHandler.UpdateProfile)
+	api.POST("/auth/change-password", authHandler.ChangePassword)
 
 	// Classes
 	api.GET("/classes", classHandler.List)

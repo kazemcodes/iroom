@@ -158,6 +158,53 @@ func (h *AuthHandler) Refresh(c echo.Context) error {
 	return response.Success(c, tokens)
 }
 
+func (h *AuthHandler) ForgotPassword(c echo.Context) error {
+	var req struct {
+		Email string `json:"email"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return response.BadRequest(c, "داده‌های نامعتبر")
+	}
+	user, err := h.userRepo.GetByEmail(req.Email)
+	if err != nil {
+		return response.Success(c, map[string]string{"message": "اگر ایمیل شما ثبت شده باشد، لینک بازنشانی ارسال شده است"})
+	}
+	claims := jwt.Claims{UserID: user.ID, Email: user.Email, Role: "reset"}
+	token, err := jwt.Generate(h.jwtCfg.secret, claims, 30)
+	if err != nil {
+		return response.InternalError(c, "خطای داخلی")
+	}
+	return response.Success(c, map[string]string{"token": token, "message": "لینک بازنشانی ایجاد شد"})
+}
+
+func (h *AuthHandler) ResetPassword(c echo.Context) error {
+	var req struct {
+		Token    string `json:"token"`
+		Password string `json:"password"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return response.BadRequest(c, "داده‌های نامعتبر")
+	}
+	if len(req.Password) < 6 {
+		return response.BadRequest(c, "رمز عبور باید حداقل ۶ کاراکتر باشد")
+	}
+	claims, err := jwt.Validate(h.jwtCfg.secret, req.Token)
+	if err != nil {
+		return response.Unauthorized(c, "توکن نامعتبر یا منقضی شده")
+	}
+	if claims.Role != "reset" {
+		return response.Unauthorized(c, "توکن نامعتبر")
+	}
+	hashedPassword, err := hash.Hash(req.Password)
+	if err != nil {
+		return response.InternalError(c, "خطای داخلی")
+	}
+	if err := h.userRepo.UpdatePassword(claims.UserID, hashedPassword); err != nil {
+		return response.InternalError(c, "خطا در بروزرسانی رمز")
+	}
+	return response.Success(c, map[string]string{"message": "رمز عبور با موفقیت تغییر کرد"})
+}
+
 func (h *AuthHandler) Me(c echo.Context) error {
 	userID := c.Get("user_id").(int64)
 	user, err := h.userRepo.GetByID(userID)
@@ -165,6 +212,38 @@ func (h *AuthHandler) Me(c echo.Context) error {
 		return response.NotFound(c, "کاربر یافت نشد")
 	}
 	return response.Success(c, user)
+}
+
+func (h *AuthHandler) ChangePassword(c echo.Context) error {
+	userID := c.Get("user_id").(int64)
+	var req struct {
+		CurrentPassword string `json:"current_password"`
+		NewPassword     string `json:"new_password"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return response.BadRequest(c, "داده‌های نامعتبر")
+	}
+	if req.CurrentPassword == "" || req.NewPassword == "" {
+		return response.BadRequest(c, "رمز عبور فعلی و جدید الزامی است")
+	}
+	if len(req.NewPassword) < 6 {
+		return response.BadRequest(c, "رمز عبور جدید باید حداقل ۶ کاراکتر باشد")
+	}
+	user, err := h.userRepo.GetByID(userID)
+	if err != nil {
+		return response.NotFound(c, "کاربر یافت نشد")
+	}
+	if !hash.Check(req.CurrentPassword, user.PasswordHash) {
+		return response.BadRequest(c, "رمز عبور فعلی اشتباه است")
+	}
+	hashedPassword, err := hash.Hash(req.NewPassword)
+	if err != nil {
+		return response.InternalError(c, "خطای داخلی")
+	}
+	if err := h.userRepo.UpdatePassword(userID, hashedPassword); err != nil {
+		return response.InternalError(c, "خطا در بروزرسانی رمز")
+	}
+	return response.Success(c, map[string]string{"message": "رمز عبور با موفقیت تغییر کرد"})
 }
 
 func (h *AuthHandler) UpdateProfile(c echo.Context) error {

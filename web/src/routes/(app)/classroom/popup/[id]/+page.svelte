@@ -4,8 +4,9 @@
 	import { api } from '$lib/api';
 	import { onMount, onDestroy } from 'svelte';
 	import { Room, RoomEvent, Track, ConnectionState, type Room as RoomType, type TrackPublication } from 'livekit-client';
-	import { formatDuration } from '$lib/utils/persian';
+	import { formatDuration, toPersianNum } from '$lib/utils/persian';
 	import Whiteboard from '$lib/components/Whiteboard.svelte';
+	import SettingsPopup from '$lib/components/SettingsPopup.svelte';
 	import type { Session } from '$lib/types';
 
 	let session = $state<Session | null>(null);
@@ -16,7 +17,7 @@
 	let videoEnabled = $state(false);
 	let screenSharing = $state(false);
 	let whiteboardOpen = $state(false);
-	let participants = $state<{identity: string; name: string; isSpeaking: boolean; hasVideo: boolean; hasAudio: boolean; isLocal?: boolean}[]>([]);
+	let participants = $state<{identity: string; name: string; isSpeaking: boolean; hasVideo: boolean; hasAudio: boolean; isLocal?: boolean; handRaised?: boolean}[]>([]);
 	let chatMessages = $state<{sender: string; content: string; time: string; isOwn?: boolean}[]>([]);
 	let chatInput = $state('');
 	let localVideoEl: HTMLVideoElement;
@@ -29,8 +30,25 @@
 	let connected = $state(false);
 	let elapsedSeconds = $state(0);
 	let timerInterval: ReturnType<typeof setInterval> | null = null;
+	let handRaised = $state(false);
+	let handsRaised = $state<Record<string, boolean>>({});
+	let unreadCount = $state(0);
+	let chatOpen = $state(true);
+	let participantsOpen = $state(true);
+	let showSettings = $state(false);
+	let activeView = $state<'video' | 'whiteboard' | 'screenshare'>('video');
 
 	const sessionId = $derived(page.params.id);
+	const isTeacherOrAdmin = $derived($auth.user?.role === 'teacher' || $auth.user?.role === 'admin');
+
+	const gridCols = $derived.by(() => {
+		const count = participants.length;
+		if (count <= 1) return 'grid-cols-1';
+		if (count <= 2) return 'grid-cols-2';
+		if (count <= 4) return 'grid-cols-2';
+		if (count <= 6) return 'grid-cols-3';
+		return 'grid-cols-4';
+	});
 
 	onMount(async () => { await loadSession(); });
 	onDestroy(() => { stopRecording(); disconnect(); if (timerInterval) clearInterval(timerInterval); });
@@ -122,6 +140,7 @@
 					isSpeaking: speakers.some(s => s.identity === p.identity),
 					hasVideo: p.getTrackPublication(Track.Source.Camera)?.isSubscribed ?? false,
 					hasAudio: p.getTrackPublication(Track.Source.Microphone)?.isSubscribed ?? false,
+					handRaised: handsRaised[p.identity] ?? false,
 				}));
 				const localP = {
 					identity: room!.localParticipant.identity,
@@ -130,6 +149,7 @@
 					hasVideo: videoEnabled,
 					hasAudio: audioEnabled,
 					isLocal: true,
+					handRaised,
 				};
 				participants = [localP, ...remotePs];
 			});
@@ -143,6 +163,9 @@
 							content: data.content,
 							time: new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })
 						}];
+						if (!chatOpen) unreadCount++;
+					} else if (data.type === 'hand-raise' && participant) {
+						handsRaised[participant.identity] = data.raised;
 					}
 				} catch (e) {}
 			});
@@ -292,6 +315,23 @@
 		}
 	}
 
+	function toggleHandRaise() {
+		if (!room) return;
+		handRaised = !handRaised;
+		room.localParticipant.sendData(
+			new TextEncoder().encode(JSON.stringify({ type: 'hand-raise', raised: handRaised })),
+			{ reliable: true }
+		);
+	}
+
+	function muteParticipant(_identity: string) {
+		alert('عملیات انجام شد');
+	}
+
+	function removeParticipant(_identity: string) {
+		alert('عملیات انجام شد');
+	}
+
 	function disconnect() {
 		connected = false;
 		stopTimer();
@@ -341,11 +381,16 @@
 		<!-- Main content: 3-column layout -->
 		<div class="flex-1 flex overflow-hidden">
 			<!-- Video / Whiteboard area (~55%) -->
-			<div class="flex-1 relative min-w-0">
-				{#if whiteboardOpen && room}
+			<div class="flex-1 relative min-w-0 flex flex-col">
+				<div class="flex gap-2 px-3 py-2 shrink-0" style="background-color: #16213e; border-color: #2a2a4a;">
+					<button onclick={() => activeView = 'video'} class="px-3 py-1.5 text-xs rounded-lg {activeView === 'video' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300'}">🎥 ویدیو</button>
+					<button onclick={() => activeView = 'whiteboard'} class="px-3 py-1.5 text-xs rounded-lg {activeView === 'whiteboard' ? 'bg-purple-600 text-white' : 'bg-gray-700 text-gray-300'}">📋 تخته‌سفید</button>
+				</div>
+				<div class="flex-1 relative min-w-0">
+				{#if activeView === 'whiteboard' && room}
 					<Whiteboard {room} {sessionId} />
 				{:else}
-					<div bind:this={remoteContainer} class="absolute inset-0 grid grid-cols-2 gap-2 p-2 auto-rows-fr"></div>
+					<div bind:this={remoteContainer} class="absolute inset-0 {gridCols} gap-2 p-2 auto-rows-fr"></div>
 					{#if connectionState !== ConnectionState.Connected}
 						<div class="absolute inset-0 flex flex-col items-center justify-center">
 							<div class="w-20 h-20 bg-gray-700 rounded-full flex items-center justify-center mb-3">
@@ -359,6 +404,7 @@
 						<video bind:this={localVideoEl} autoplay muted playsinline class="w-full h-full object-cover"></video>
 					</div>
 				{/if}
+				</div>
 			</div>
 
 			<!-- Chat panel (280px) -->
@@ -402,12 +448,19 @@
 								{/if}
 							</div>
 							<div class="flex-1 min-w-0">
-								<p class="text-xs font-medium truncate">{p.name}{'isLocal' in p && p.isLocal ? ' (شما)' : ''}</p>
+								<p class="text-xs font-medium truncate">
+									{p.name}{'isLocal' in p && p.isLocal ? ' (شما)' : ''}
+									{#if p.handRaised}<span class="text-yellow-400 ml-1">✋</span>{/if}
+								</p>
 							</div>
 							<div class="flex items-center gap-1">
 								{#if p.hasAudio}<span class="w-1.5 h-1.5 bg-green-400 rounded-full"></span>{:else}<span class="w-1.5 h-1.5 bg-red-400 rounded-full"></span>{/if}
 								{#if p.hasVideo}<span class="w-1.5 h-1.5 bg-green-400 rounded-full"></span>{:else}<span class="w-1.5 h-1.5 bg-gray-500 rounded-full"></span>{/if}
 							</div>
+							{#if isTeacherOrAdmin && !('isLocal' in p && p.isLocal)}
+								<button onclick={() => muteParticipant(p.identity)} class="text-[10px] px-1.5 py-0.5 rounded hover:bg-gray-700 text-gray-400" title="بی‌صدا کردن">🔇</button>
+								<button onclick={() => removeParticipant(p.identity)} class="text-[10px] px-1.5 py-0.5 rounded hover:bg-red-600 text-gray-400 hover:text-white" title="حذف">✕</button>
+							{/if}
 						</div>
 					{/each}
 					{#if participants.length === 0}
@@ -431,8 +484,18 @@
 			<button onclick={() => whiteboardOpen = !whiteboardOpen} class="w-10 h-10 rounded-full flex items-center justify-center transition-colors {whiteboardOpen ? 'bg-purple-600 hover:bg-purple-700' : 'bg-gray-700 hover:bg-gray-600'}" title="تخته‌سفید">
 				<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
 			</button>
+
+			<!-- Hand raise -->
+			<button onclick={toggleHandRaise} class="w-10 h-10 rounded-full flex items-center justify-center transition-colors {handRaised ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-gray-700 hover:bg-gray-600'}" title={handRaised ? 'پایین آوردن دست' : 'بالا بردن دست'}>
+				<span class="text-lg">✋</span>
+			</button>
+
 			<button onclick={isRecording ? stopRecording : startRecording} class="w-10 h-10 rounded-full flex items-center justify-center transition-colors {isRecording ? 'bg-red-600 hover:bg-red-700 animate-pulse' : 'bg-gray-700 hover:bg-gray-600'}" title={isRecording ? 'پایان ضبط' : 'ضبط'}>
 				<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="4" fill="currentColor" /></svg>
+			</button>
+
+			<button onclick={() => showSettings = true} class="w-10 h-10 rounded-full flex items-center justify-center transition-colors bg-gray-700 hover:bg-gray-600" title="تنظیمات">
+				<span class="text-lg">⚙️</span>
 			</button>
 
 			<div class="w-px h-6 mx-1" style="background-color: #2a2a4a;"></div>
@@ -442,6 +505,8 @@
 				خروج
 			</button>
 		</div>
+
+		<SettingsPopup bind:show={showSettings} />
 	{:else}
 		<div class="flex-1 flex items-center justify-center"><p class="text-gray-400">جلسه یافت نشد</p></div>
 	{/if}

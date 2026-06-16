@@ -47,6 +47,7 @@
 
 	onMount(async () => {
 		await Promise.all([loadDashboard(), loadUsers(), loadClasses(), loadSessions()]);
+		await loadHealth();
 	});
 
 	async function loadDashboard() {
@@ -217,8 +218,56 @@
 		return map[action] || 'bg-gray-400';
 	}
 
+	// System Health
+	let healthLoading = $state(true);
+	let healthData = $state({
+		serverUptime: '',
+		dbSize: '',
+		livekitStatus: 'disconnected',
+		activeRooms: 0,
+		totalUsers: 0,
+		totalSessions: 0,
+		totalClasses: 0
+	});
+
 	const roleLabels: Record<string, string> = { admin: 'مدیر', teacher: 'مدرس', student: 'دانش‌آموز' };
 	const roleColors: Record<string, string> = { admin: 'bg-red-100 text-red-700', teacher: 'bg-purple-100 text-purple-700', student: 'bg-blue-100 text-blue-700' };
+
+	function toPersian(n: number): string {
+		return n.toLocaleString('fa-IR');
+	}
+
+	let loading = $state(true);
+	let stats = $state<DashboardStats>({ users: 0, classes: 0, sessions: 0, messages: 0 });
+	let todaySessions = $state(0);
+	let recordings = $state(0);
+	let liveRooms = $state<any[]>([]);
+	let activityLogs = $state<ActivityLog[]>([]);
+
+	async function loadHealth() {
+		healthLoading = true;
+		const res = await api.get<any>('/health');
+		if (res.success && res.data) {
+			healthData = {
+				serverUptime: res.data.uptime || res.data.server_uptime || '',
+				dbSize: res.data.db_size || '',
+				livekitStatus: res.data.livekit_status || 'unknown',
+				activeRooms: res.data.active_rooms ?? liveRooms.length,
+				totalUsers: res.data.total_users ?? stats.users,
+				totalSessions: res.data.total_sessions ?? stats.sessions,
+				totalClasses: res.data.total_classes ?? stats.classes
+			};
+		} else {
+			healthData = {
+				...healthData,
+				activeRooms: liveRooms.length,
+				totalUsers: stats.users,
+				totalSessions: stats.sessions,
+				totalClasses: stats.classes
+			};
+		}
+		healthLoading = false;
+	}
 </script>
 
 <div class="space-y-6">
@@ -281,6 +330,35 @@
 					</div>
 				</div>
 			</div>
+		</div>
+
+		<!-- System Health -->
+		<div class="bg-white rounded-xl border p-5">
+			<h2 class="font-bold text-gray-900 mb-4">وضعیت سیستم</h2>
+			{#if healthLoading}
+				<div class="flex items-center justify-center py-4"><div class="animate-spin h-6 w-6 border-4 border-blue-600 border-t-transparent rounded-full"></div></div>
+			{:else}
+				<div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+					<div class="text-center p-3 bg-gray-50 rounded-lg">
+						<p class="text-xs text-gray-500 mb-1">آپتایم سرور</p>
+						<p class="text-sm font-bold text-gray-900">{healthData.serverUptime || '—'}</p>
+					</div>
+					<div class="text-center p-3 bg-gray-50 rounded-lg">
+						<p class="text-xs text-gray-500 mb-1">وضعیت LiveKit</p>
+						<p class="text-sm font-bold {healthData.livekitStatus === 'connected' ? 'text-green-600' : 'text-red-600'}">
+							{healthData.livekitStatus === 'connected' ? 'متصل' : 'قطع'}
+						</p>
+					</div>
+					<div class="text-center p-3 bg-gray-50 rounded-lg">
+						<p class="text-xs text-gray-500 mb-1">حجم پایگاه داده</p>
+						<p class="text-sm font-bold text-gray-900">{healthData.dbSize || '—'}</p>
+					</div>
+					<div class="text-center p-3 bg-gray-50 rounded-lg">
+						<p class="text-xs text-gray-500 mb-1">اتاق‌های فعال</p>
+						<p class="text-sm font-bold text-gray-900">{toPersian(healthData.activeRooms)}</p>
+					</div>
+				</div>
+			{/if}
 		</div>
 
 		<!-- Live Rooms + Activity Feed -->

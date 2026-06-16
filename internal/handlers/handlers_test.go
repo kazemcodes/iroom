@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/iroom/iroom/internal/config"
 	"github.com/iroom/iroom/internal/database"
 	"github.com/iroom/iroom/internal/handlers"
 	"github.com/iroom/iroom/internal/middleware"
+	"github.com/iroom/iroom/internal/pkg/hash"
 	"github.com/iroom/iroom/internal/pkg/jwt"
 	"github.com/iroom/iroom/internal/repository"
 	"github.com/labstack/echo/v4"
@@ -425,5 +427,173 @@ func TestHealth(t *testing.T) {
 	resp := jsonBody(t, w)
 	if resp["status"] != "ok" {
 		t.Errorf("expected status=ok, got %v", resp["status"])
+	}
+}
+
+// ==================== MIDDLEWARE ====================
+
+func TestMiddlewareAuth(t *testing.T) {
+	env := setup(t)
+
+	g := env.e.Group("/api/v1/test-auth")
+	g.Use(middleware.Auth(env.cfg.JWT.Secret))
+	g.GET("/ping", func(c echo.Context) error {
+		return c.JSON(200, map[string]string{"msg": "ok"})
+	})
+
+	t.Run("valid token", func(t *testing.T) {
+		w := req(env.e, "GET", "/api/v1/test-auth/ping", nil, env.token)
+		if w.Code != 200 {
+			t.Errorf("expected 200, got %d: %s", w.Code, w.Body.String())
+		}
+	})
+
+	t.Run("no token", func(t *testing.T) {
+		w := req(env.e, "GET", "/api/v1/test-auth/ping", nil, "")
+		if w.Code != 401 {
+			t.Errorf("expected 401, got %d", w.Code)
+		}
+	})
+
+	t.Run("invalid token", func(t *testing.T) {
+		w := req(env.e, "GET", "/api/v1/test-auth/ping", nil, "not.a.valid.jwt")
+		if w.Code != 401 {
+			t.Errorf("expected 401, got %d", w.Code)
+		}
+	})
+
+	t.Run("expired token", func(t *testing.T) {
+		expiredToken, err := jwt.Generate(env.cfg.JWT.Secret, jwt.Claims{UserID: 1, Email: "test@test.com", Role: "admin"}, -60)
+		if err != nil {
+			t.Fatalf("generate expired token: %v", err)
+		}
+		w := req(env.e, "GET", "/api/v1/test-auth/ping", nil, expiredToken)
+		if w.Code != 401 {
+			t.Errorf("expected 401, got %d", w.Code)
+		}
+	})
+}
+
+func TestMiddlewareAdminOnly(t *testing.T) {
+	env := setup(t)
+
+	g := env.e.Group("/api/v1/test-admin")
+	g.Use(middleware.Auth(env.cfg.JWT.Secret))
+	g.Use(middleware.AdminOnly())
+	g.GET("/secret", func(c echo.Context) error {
+		return c.JSON(200, map[string]string{"msg": "admin ok"})
+	})
+
+	t.Run("admin passes", func(t *testing.T) {
+		w := req(env.e, "GET", "/api/v1/test-admin/secret", nil, env.token)
+		if w.Code != 200 {
+			t.Errorf("admin: expected 200, got %d: %s", w.Code, w.Body.String())
+		}
+	})
+
+	t.Run("student gets 403", func(t *testing.T) {
+		studentToken, err := jwt.Generate(env.cfg.JWT.Secret, jwt.Claims{UserID: 2, Email: "student@test.com", Role: "student"}, 60)
+		if err != nil {
+			t.Fatalf("generate student token: %v", err)
+		}
+		w := req(env.e, "GET", "/api/v1/test-admin/secret", nil, studentToken)
+		if w.Code != 403 {
+			t.Errorf("student: expected 403, got %d", w.Code)
+		}
+	})
+}
+
+func TestRateLimit(t *testing.T) {
+	env := setup(t)
+
+	g := env.e.Group("/api/v1/test-rl")
+	g.Use(middleware.RateLimit(5, time.Minute))
+	g.GET("/ok", func(c echo.Context) error {
+		return c.JSON(200, map[string]string{"msg": "ok"})
+	})
+
+	t.Run("5 requests pass", func(t *testing.T) {
+		for i := 0; i < 5; i++ {
+			w := req(env.e, "GET", "/api/v1/test-rl/ok", nil, "")
+			if w.Code != 200 {
+				t.Fatalf("request %d: expected 200, got %d", i+1, w.Code)
+			}
+		}
+	})
+
+	t.Run("6th request gets 429", func(t *testing.T) {
+		w := req(env.e, "GET", "/api/v1/test-rl/ok", nil, "")
+		if w.Code != 429 {
+			t.Errorf("expected 429, got %d", w.Code)
+		}
+	})
+
+	t.Run("100 requests hit rate limit", func(t *testing.T) {
+		rl := env.e.Group("/api/v1/test-rl2")
+		rl.Use(middleware.RateLimit(5, time.Minute))
+		rl.GET("/ok", func(c echo.Context) error {
+			return c.JSON(200, map[string]string{"msg": "ok"})
+		})
+
+		limited := 0
+		for i := 0; i < 100; i++ {
+			w := req(env.e, "GET", "/api/v1/test-rl2/ok", nil, "")
+			if w.Code == 429 {
+				limited++
+			}
+		}
+		if limited == 0 {
+			t.Error("expected some 429 responses in 100 requests")
+		}
+	})
+}
+
+func TestPasswordHash(t *testing.T) {
+	h, err := hash.Hash("password")
+	if err != nil {
+		t.Fatalf("Hash error: %v", err)
+	}
+	if h == "" {
+		t.Fatal("Hash returned empty string")
+	}
+
+	if !hash.Check("password", h) {
+		t.Error("Check with correct password should return true")
+	}
+
+	if hash.Check("wrong", h) {
+		t.Error("Check with wrong password should return false")
+	}
+}
+
+func TestJWTGenerate(t *testing.T) {
+	secret := "test-secret"
+	claims := jwt.Claims{UserID: 42, Email: "test@test.com", Role: "teacher"}
+
+	tokenStr, err := jwt.Generate(secret, claims, 60)
+	if err != nil {
+		t.Fatalf("Generate error: %v", err)
+	}
+	if tokenStr == "" {
+		t.Fatal("Generate returned empty string")
+	}
+
+	got, err := jwt.Validate(secret, tokenStr)
+	if err != nil {
+		t.Fatalf("Validate error: %v", err)
+	}
+	if got.UserID != 42 {
+		t.Errorf("expected UserID=42, got %d", got.UserID)
+	}
+	if got.Email != "test@test.com" {
+		t.Errorf("expected Email=test@test.com, got %s", got.Email)
+	}
+	if got.Role != "teacher" {
+		t.Errorf("expected Role=teacher, got %s", got.Role)
+	}
+
+	_, err = jwt.Validate("wrong-secret", tokenStr)
+	if err == nil {
+		t.Error("Validate with wrong secret should return error")
 	}
 }

@@ -6,6 +6,7 @@
 	import { onMount } from 'svelte';
 	import type { Class, Session, User } from '$lib/types';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
+	import { classroomWindow } from '$lib/classroom/ClassroomWindow';
 
 	let classData = $state<Class | null>(null);
 	let sessions = $state<Session[]>([]);
@@ -217,9 +218,12 @@
 								{#if ($isAdmin || $isTeacher) && s.status === 'scheduled'}
 									<button onclick={() => startSession(s.id)} class="px-3 py-1.5 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700 transition-colors">شروع</button>
 								{/if}
-								{#if ($isAdmin || $isTeacher) && s.status === 'live'}
-									<a href="/classroom/{s.id}" class="px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 transition-colors">ورود</a>
+							{#if ($isAdmin || $isTeacher) && s.status === 'live'}
+									<button onclick={() => classroomWindow.open(String(s.id), s.title)} class="px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 transition-colors">ورود</button>
 									<button onclick={() => endSession(s.id)} class="px-3 py-1.5 bg-red-600 text-white text-xs rounded-lg hover:bg-red-700 transition-colors">پایان</button>
+								{/if}
+								{#if s.status === 'live'}
+									<button onclick={() => classroomWindow.open(String(s.id), s.title)} class="px-3 py-1.5 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700 transition-colors">پیوستن</button>
 								{/if}
 								{#if s.status === 'live'}
 									<a href="/classroom/{s.id}" class="px-3 py-1.5 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700 transition-colors">پیوستن</a>
