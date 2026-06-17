@@ -35,37 +35,36 @@
 	}
 </script>
 
-<div class="min-h-screen flex items-center justify-center px-4 py-12"
-	style="background: linear-gradient(135deg, #eff6ff 0%, #faf5ff 40%, #fefce8 100%);">
+<div class="min-h-screen flex items-center justify-center px-4 py-12" style="background: var(--sky-bg-dark);">
 	<div class="w-full max-w-md">
-		<!-- Logo -->
 		<div class="text-center mb-8">
-			<div class="w-16 h-16 rounded-2xl flex items-center justify-center text-white font-extrabold text-2xl mx-auto mb-4 shadow-xl shadow-blue-500/20"
-				style="background: linear-gradient(135deg, #1a56db, #0891b2);">
+			<div class="w-16 h-16 rounded-2xl flex items-center justify-center text-white font-extrabold text-2xl mx-auto mb-4"
+				style="background: linear-gradient(135deg, #1a56db, #2563eb); box-shadow: 0 4px 20px rgba(26, 86, 219, 0.4);">
 				آ
 			</div>
-			<h1 class="text-3xl font-extrabold gradient-text">آی‌روم</h1>
-			<p class="text-gray-400 mt-2 font-medium">کلاس آنلاین هوشمند برای آموزش</p>
+			<h1 class="text-3xl font-extrabold" style="color: var(--sky-text-primary);">آی‌روم</h1>
+			<p class="mt-2 font-medium" style="color: var(--sky-text-secondary);">کلاس آنلاین هوشمند برای آموزش</p>
 		</div>
 
-		<!-- Card -->
 		<div class="card p-8">
-			<!-- Tabs -->
-			<div class="flex mb-6 bg-gray-100 rounded-xl p-1">
+			<div class="flex mb-6 p-1" style="background: var(--sky-bg-dark); border-radius: 0.75rem;">
 				<button class="flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200
-					{!isRegister ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}"
+					{!isRegister ? 'text-white' : ''}"
+					style={!isRegister ? 'background: var(--sky-bg-input);' : 'color: var(--sky-text-secondary);'}
 					onclick={() => { isRegister = false; error = ''; }}>
 					ورود
 				</button>
 				<button class="flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200
-					{isRegister ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}"
+					{isRegister ? 'text-white' : ''}"
+					style={isRegister ? 'background: var(--sky-bg-input);' : 'color: var(--sky-text-secondary);'}
 					onclick={() => { isRegister = true; error = ''; }}>
 					ثبت‌نام
 				</button>
 			</div>
 
 			{#if error}
-				<div class="mb-5 p-3 bg-red-50 text-red-600 rounded-xl text-sm font-medium flex items-center gap-2 border border-red-100">
+				<div class="mb-5 p-3 rounded-xl text-sm font-medium flex items-center gap-2"
+					style="background: rgba(233, 69, 96, 0.15); color: var(--sky-accent-red); border: 1px solid rgba(233, 69, 96, 0.2);">
 					<svg class="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
 						<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
 					</svg>
@@ -76,28 +75,28 @@
 			<form onsubmit={(e) => { e.preventDefault(); handleSubmit(); }} class="space-y-4">
 				{#if isRegister}
 					<div>
-						<label class="block text-sm font-semibold text-gray-700 mb-1.5">نام نمایشی</label>
+						<label class="block text-sm font-semibold mb-1.5" style="color: var(--sky-text-secondary);">نام نمایشی</label>
 						<input type="text" bind:value={displayName} class="input-field" placeholder="نام خود را وارد کنید" required />
 					</div>
 					<div>
-						<label class="block text-sm font-semibold text-gray-700 mb-1.5">شماره تلفن</label>
+						<label class="block text-sm font-semibold mb-1.5" style="color: var(--sky-text-secondary);">شماره تلفن</label>
 						<input type="tel" bind:value={phone} class="input-field" placeholder="09120000000" dir="ltr" />
 					</div>
 				{/if}
 
 				<div>
-					<label class="block text-sm font-semibold text-gray-700 mb-1.5">ایمیل</label>
+					<label class="block text-sm font-semibold mb-1.5" style="color: var(--sky-text-secondary);">ایمیل</label>
 					<input type="email" bind:value={email} class="input-field" placeholder="example@email.com" dir="ltr" required />
 				</div>
 
 				<div>
-					<label class="block text-sm font-semibold text-gray-700 mb-1.5">رمز عبور</label>
+					<label class="block text-sm font-semibold mb-1.5" style="color: var(--sky-text-secondary);">رمز عبور</label>
 					<input type="password" bind:value={password} class="input-field" placeholder="حداقل ۶ کاراکتر" dir="ltr" required minlength="6" />
 				</div>
 
 				{#if !isRegister}
 					<div class="text-center text-sm mb-4">
-						<a href="/auth/forgot-password" class="text-blue-600 hover:text-blue-700 font-medium">
+						<a href="/auth/forgot-password" class="font-medium hover:underline" style="color: var(--sky-accent-blue);">
 							رمز عبور خود را فراموش کرده‌اید؟
 						</a>
 					</div>
@@ -120,6 +119,6 @@
 			</form>
 		</div>
 
-		<p class="text-center text-xs text-gray-400 mt-6 font-medium">نسخه ۰.۱.۰ — متن‌باز و رایگان</p>
+		<p class="text-center text-xs mt-6 font-medium" style="color: var(--sky-text-secondary);">نسخه ۰.۱.۰ — متن‌باز و رایگان</p>
 	</div>
 </div>

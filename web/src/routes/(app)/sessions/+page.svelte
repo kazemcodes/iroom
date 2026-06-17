@@ -80,23 +80,23 @@
 	);
 
 	const statusLabels: Record<string, string> = { scheduled: 'برنامه‌ریزی شده', live: 'در حال برگزاری', ended: 'پایان یافته' };
-	const statusColors: Record<string, string> = { scheduled: 'bg-blue-100 text-blue-700', live: 'bg-green-100 text-green-700', ended: 'bg-gray-100 text-gray-500' };
+	const statusClasses: Record<string, string> = { scheduled: 'badge-info', live: 'badge-success', ended: 'badge' };
 </script>
 
 <div class="space-y-6">
 	<div class="flex items-center justify-between">
 		<div>
-			<h1 class="text-2xl font-bold text-gray-900">جلسات</h1>
-			<p class="text-gray-500 mt-1">{toPersianNum(totalSessions)} جلسه</p>
+			<h1 class="text-2xl font-bold" style="color: var(--sky-text-primary);">جلسات</h1>
+			<p style="color: var(--sky-text-secondary);">{toPersianNum(totalSessions)} جلسه</p>
 		</div>
 	</div>
 
-	<!-- Filters -->
 	<div class="flex flex-wrap gap-3">
-		<div class="flex gap-1 bg-gray-100 p-1 rounded-lg">
+		<div class="flex gap-1 p-1 rounded-lg" style="background: var(--sky-bg-dark);">
 			{#each [['all', 'همه'], ['scheduled', 'برنامه‌ریزی شده'], ['live', 'در حال برگزاری'], ['ended', 'پایان یافته']] as [val, label]}
 				<button
-					class="px-3 py-1.5 rounded-md text-xs font-medium transition-all {filter === val ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}"
+					class="px-3 py-1.5 rounded-md text-xs font-medium transition-all"
+					style={filter === val ? 'background: var(--sky-bg-input); color: var(--sky-accent-blue);' : 'color: var(--sky-text-secondary);'}
 					onclick={() => filter = val as any}
 				>{label}</button>
 			{/each}
@@ -105,63 +105,61 @@
 			type="text"
 			bind:value={search}
 			onkeydown={(e) => e.key === 'Enter' && loadSessions()}
-			class="flex-1 min-w-[200px] px-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white"
+			class="input-field flex-1 min-w-[200px]"
 			placeholder="جستجو..."
 		/>
 	</div>
 
 	{#if loading}
 		<div class="flex items-center justify-center py-20">
-			<div class="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full"></div>
+			<div class="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full"></div>
 		</div>
 	{:else if filtered.length === 0}
-		<div class="text-center py-20 bg-white rounded-xl border">
-			<p class="text-gray-500">جلسه‌ای یافت نشد</p>
+		<div class="text-center py-20 card">
+			<p style="color: var(--sky-text-secondary);">جلسه‌ای یافت نشد</p>
 		</div>
 	{:else}
 		<div class="space-y-3">
 			{#each filtered as s}
-				<div class="bg-white rounded-xl border p-5">
+				<div class="card p-5">
 					<div class="flex items-center justify-between">
 						<div class="flex items-center gap-4">
-							<div class="w-12 h-12 rounded-xl flex items-center justify-center {s.status === 'live' ? 'bg-green-100' : 'bg-gray-100'}">
+							<div class="w-12 h-12 rounded-xl flex items-center justify-center" style="background: {s.status === 'live' ? 'rgba(0, 210, 106, 0.15)' : 'var(--sky-bg-input)'};">
 								{#if s.status === 'live'}
 									<div class="relative">
-										<svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<svg class="w-6 h-6" style="color: var(--sky-accent-green);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
 										</svg>
 										<span class="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse"></span>
 									</div>
 								{:else}
-									<svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<svg class="w-6 h-6" style="color: var(--sky-text-secondary);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
 									</svg>
 								{/if}
 							</div>
 							<div>
-								<h3 class="font-bold text-gray-900">{s.title}</h3>
-								<p class="text-sm text-gray-500 mt-0.5">{formatDate(s.scheduled_at)} • {toPersianNum(s.duration)} دقیقه</p>
+								<h3 class="font-bold" style="color: var(--sky-text-primary);">{s.title}</h3>
+								<p class="text-sm mt-0.5" style="color: var(--sky-text-secondary);">{formatDate(s.scheduled_at)} • {toPersianNum(s.duration)} دقیقه</p>
 							</div>
 						</div>
 						<div class="flex items-center gap-2">
-							<span class="text-xs px-2.5 py-1 rounded-full font-medium {statusColors[s.status]}">{statusLabels[s.status]}</span>
+							<span class="text-xs px-2.5 py-1 rounded-full font-medium {statusClasses[s.status]}">{statusLabels[s.status]}</span>
 							{#if s.status === 'live'}
-								<button onclick={() => classroomWindow.open(String(s.id), s.title)} class="px-3 py-1.5 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700 transition-colors">پیوستن</button>
+								<button onclick={() => classroomWindow.open(String(s.id), s.title)} class="btn-primary" style="padding: 0.375rem 0.75rem; font-size: 0.75rem; background: linear-gradient(135deg, #10b981, #059669);">پیوستن</button>
 							{/if}
 							{#if ($isAdmin || $isTeacher) && s.status === 'scheduled'}
-								<button onclick={() => startSession(s.id)} class="px-3 py-1.5 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700">شروع</button>
+								<button onclick={() => startSession(s.id)} class="btn-primary" style="padding: 0.375rem 0.75rem; font-size: 0.75rem; background: linear-gradient(135deg, #10b981, #059669);">شروع</button>
 							{/if}
 							{#if ($isAdmin || $isTeacher) && s.status === 'live'}
-								<button onclick={() => endSession(s.id)} class="px-3 py-1.5 bg-red-600 text-white text-xs rounded-lg hover:bg-red-700">پایان</button>
+								<button onclick={() => endSession(s.id)} class="btn-danger" style="padding: 0.375rem 0.75rem; font-size: 0.75rem;">پایان</button>
 							{/if}
-						<a href="/sessions/{s.id}/logs" class="px-3 py-1.5 text-xs text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors font-medium">
-							جزئیات
-						</a>
-						{#if $isAdmin}
-							<button onclick={() => confirmDeleteSession(s.id)} class="p-1.5 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors">
-								<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-							</button>
-						{/if}
+							<a href="/sessions/{s.id}/logs" class="btn-ghost" style="padding: 0.375rem 0.75rem; font-size: 0.75rem;">جزئیات</a>
+							{#if $isAdmin}
+								<button onclick={() => confirmDeleteSession(s.id)} class="btn-icon" style="width: 32px; height: 32px;">
+									<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+								</button>
+							{/if}
 						</div>
 					</div>
 				</div>
@@ -170,12 +168,12 @@
 	{/if}
 
 	{#if totalPages > 0}
-		<div class="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-gray-500">
+		<div class="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm" style="color: var(--sky-text-secondary);">
 			<div class="flex items-center gap-3">
 				<span>{toPersianNum(totalSessions)} جلسه</span>
 				<div class="flex items-center gap-1">
 					<span class="text-xs">نمایش:</span>
-					<select bind:value={perPage} class="border border-gray-200 rounded-lg px-2 py-1 text-xs focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white">
+					<select bind:value={perPage} class="input-field" style="width: auto; padding: 0.25rem 0.5rem; font-size: 0.75rem;">
 						<option value={10}>{toPersianNum(10)}</option>
 						<option value={25}>{toPersianNum(25)}</option>
 						<option value={50}>{toPersianNum(50)}</option>
@@ -183,14 +181,15 @@
 				</div>
 			</div>
 			<div class="flex items-center gap-1">
-				<button disabled={currentPage <= 1} onclick={() => { currentPage--; loadSessions(); }} class="px-3 py-1.5 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-medium">قبلی</button>
+				<button disabled={currentPage <= 1} onclick={() => { currentPage--; loadSessions(); }} class="btn-ghost" style="padding: 0.375rem 0.75rem; font-size: 0.75rem;">قبلی</button>
 				{#each Array.from({ length: totalPages }, (_, i) => i + 1) as p}
 					<button
 						onclick={() => { currentPage = p; loadSessions(); }}
-						class="w-8 h-8 rounded-lg text-xs font-medium transition-all {currentPage === p ? 'bg-blue-600 text-white shadow-sm' : 'border border-gray-200 hover:bg-gray-50 text-gray-600'}"
+						class="w-8 h-8 rounded-lg text-xs font-medium transition-all"
+						style={currentPage === p ? 'background: var(--sky-primary); color: white;' : 'border: 1px solid var(--sky-border); color: var(--sky-text-secondary);'}
 					>{toPersianNum(p)}</button>
 				{/each}
-				<button disabled={currentPage >= totalPages} onclick={() => { currentPage++; loadSessions(); }} class="px-3 py-1.5 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-medium">بعدی</button>
+				<button disabled={currentPage >= totalPages} onclick={() => { currentPage++; loadSessions(); }} class="btn-ghost" style="padding: 0.375rem 0.75rem; font-size: 0.75rem;">بعدی</button>
 			</div>
 			<span class="text-xs">صفحه {toPersianNum(currentPage)} از {toPersianNum(totalPages)}</span>
 		</div>

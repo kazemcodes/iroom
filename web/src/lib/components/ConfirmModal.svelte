@@ -25,23 +25,21 @@
 </script>
 
 {#if show}
-	<!-- svelte-ignore a11y_click_events_have_key_events -->
-	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div class="fixed inset-0 z-50 flex items-center justify-center p-4" onclick={cancel}>
 		<div class="fixed inset-0 bg-black/40 backdrop-blur-sm"></div>
 		<div
-			class="relative bg-white rounded-2xl w-full max-w-sm shadow-xl animate-slide-up"
+			class="modal-content"
 			onclick={(e) => e.stopPropagation()}
 		>
 			<div class="px-6 pt-6 pb-2">
-				<h2 class="font-bold text-lg text-gray-900">{title}</h2>
+				<h2 class="font-bold text-lg" style="color: var(--sky-text-primary);">{title}</h2>
 			</div>
 			<div class="px-6 pb-6">
-				<p class="text-sm text-gray-500 mt-1">{message}</p>
+				<p class="text-sm mt-1" style="color: var(--sky-text-secondary);">{message}</p>
 			</div>
-			<div class="px-6 py-4 border-t flex justify-end gap-3">
-				<button onclick={cancel} class="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">انصراف</button>
-				<button onclick={confirm} class="px-4 py-2 bg-red-600 text-white text-sm rounded-lg font-medium hover:bg-red-700 transition-colors">تایید</button>
+			<div class="px-6 py-4 flex justify-end gap-3" style="border-top: 1px solid var(--sky-border);">
+				<button onclick={cancel} class="btn-ghost">انصراف</button>
+				<button onclick={confirm} class="btn-danger">تایید</button>
 			</div>
 		</div>
 	</div>

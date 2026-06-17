@@ -245,8 +245,8 @@
 <div class="space-y-6">
 	<div class="flex items-center justify-between">
 		<div>
-			<h1 class="text-2xl font-bold text-gray-900">فایل‌ها</h1>
-			<p class="text-gray-500 mt-1">{toPersianNum(totalFiles)} فایل</p>
+			<h1 class="text-2xl font-bold" style="color: var(--sky-text-primary);">فایل‌ها</h1>
+			<p style="color: var(--sky-text-secondary);">{toPersianNum(totalFiles)} فایل</p>
 		</div>
 		<div class="flex items-center gap-3">
 			<input type="file" multiple bind:this={fileInput} onchange={handleUpload} class="hidden" />
@@ -260,9 +260,10 @@
 		ondragleave={handleDragLeave}
 		ondrop={handleDrop}
 		onclick={() => fileInput?.click()}
-		class="relative border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all duration-200 {isDragging
-			? 'border-blue-500 bg-blue-50 scale-[1.01]'
-			: 'border-gray-300 bg-white hover:border-blue-400 hover:bg-blue-50/50'}"
+		class="relative border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all duration-200"
+		style={isDragging
+			? 'border-color: var(--sky-accent-blue); background: rgba(67, 97, 238, 0.1);'
+			: 'border-color: var(--sky-border); background: var(--sky-bg-panel);'}
 	>
 		{#if isDragging}
 			<div class="pointer-events-none">
@@ -280,17 +281,17 @@
 
 	<!-- Upload Progress -->
 	{#if uploads.length > 0}
-		<div class="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
+		<div class="card p-4 space-y-3">
 			{#each uploads as upload, i}
 				<div class="flex items-center gap-3">
 					<div class="flex-1 min-w-0">
 						<div class="flex items-center justify-between mb-1">
-							<span class="text-sm text-gray-700 truncate">{upload.filename}</span>
-							<span class="text-sm font-medium {upload.status === 'success'
-								? 'text-green-600'
+							<span class="text-sm truncate" style="color: var(--sky-text-primary);">{upload.filename}</span>
+							<span class="text-sm font-medium" style="color: {upload.status === 'success'
+								? 'var(--sky-accent-green)'
 								: upload.status === 'error'
-									? 'text-red-600'
-									: 'text-blue-600'}">
+									? 'var(--sky-accent-red)'
+									: 'var(--sky-accent-blue)'};">
 								{#if upload.status === 'success'}
 									✓ آپلود شد
 								{:else if upload.status === 'error'}
@@ -317,13 +318,13 @@
 	{/if}
 
 	<!-- Session Selector -->
-	<div class="bg-white border border-gray-200 rounded-xl p-5">
+	<div class="card p-5">
 		<div class="flex items-center gap-3">
-			<label class="text-sm font-medium text-gray-700">جلسه:</label>
+			<label class="text-sm font-medium" style="color: var(--sky-text-secondary);">جلسه:</label>
 			<select
 				bind:value={selectedSessionId}
 				onchange={() => { currentPage = 1; activeFilter = 'all'; loadFiles(); }}
-				class="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white"
+				class="input-field flex-1"
 			>
 				{#if sessions.length === 0}
 					<option value={null}>جلسه‌ای موجود نیست</option>
@@ -341,9 +342,10 @@
 		{#each filters as filter}
 			<button
 				onclick={() => { activeFilter = filter.key; }}
-				class="px-4 py-2 text-sm rounded-xl font-medium transition-colors {activeFilter === filter.key
-					? 'bg-blue-600 text-white shadow-sm'
-					: 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'}"
+				class="px-4 py-2 text-sm rounded-xl font-medium transition-colors"
+				style={activeFilter === filter.key
+					? 'background: var(--sky-primary); color: white;'
+					: 'background: var(--sky-bg-panel); color: var(--sky-text-secondary); border: 1px solid var(--sky-border);'}
 			>
 				{filter.label}
 				{#if filter.key !== 'all'}
@@ -362,36 +364,37 @@
 			<div class="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full"></div>
 		</div>
 	{:else if filteredFiles.length === 0}
-		<div class="text-center py-20 bg-white rounded-xl border">
-			<svg class="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m6.75 12H9.75m0-3h6m-6 6h6M3.375 6.75h17.25a.375.375 0 01.375.375v11.25a.375.375 0 01-.375.375H3.375a.375.375 0 01-.375-.375V7.125a.375.375 0 01.375-.375z" /></svg>
-			<p class="text-gray-500">فایلی وجود ندارد</p>
+		<div class="text-center py-20 card">
+			<svg class="w-12 h-12 mx-auto mb-3" style="color: var(--sky-text-secondary);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m6.75 12H9.75m0-3h6m-6 6h6M3.375 6.75h17.25a.375.375 0 01.375.375v11.25a.375.375 0 01-.375.375H3.375a.375.375 0 01-.375-.375V7.125a.375.375 0 01.375-.375z" /></svg>
+			<p style="color: var(--sky-text-secondary);">فایلی وجود ندارد</p>
 		</div>
 	{:else}
-		<div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+		<div class="overflow-hidden" style="background: var(--sky-bg-panel); border: 1px solid var(--sky-border); border-radius: 0.75rem;">
 			<table class="w-full">
 				<thead>
-					<tr class="border-b border-gray-100">
-						<th class="text-right px-5 py-3 text-xs font-semibold text-gray-500">فایل</th>
-						<th class="text-right px-5 py-3 text-xs font-semibold text-gray-500">اندازه</th>
-						<th class="text-right px-5 py-3 text-xs font-semibold text-gray-500">تاریخ</th>
-						<th class="text-right px-5 py-3 text-xs font-semibold text-gray-500">عملیات</th>
+					<tr style="border-bottom: 1px solid var(--sky-border);">
+						<th class="text-right px-5 py-3 text-xs font-semibold" style="color: var(--sky-text-secondary);">فایل</th>
+						<th class="text-right px-5 py-3 text-xs font-semibold" style="color: var(--sky-text-secondary);">اندازه</th>
+						<th class="text-right px-5 py-3 text-xs font-semibold" style="color: var(--sky-text-secondary);">تاریخ</th>
+						<th class="text-right px-5 py-3 text-xs font-semibold" style="color: var(--sky-text-secondary);">عملیات</th>
 					</tr>
 				</thead>
 				<tbody>
 					{#each filteredFiles as file}
-						<tr class="border-b border-gray-50 hover:bg-gray-50 transition-colors">
+						<tr class="table-row" style="border-bottom: 1px solid var(--sky-border);">
 							<td class="px-5 py-3.5">
 								<div class="flex items-center gap-3">
 									<span class="text-xl">{getFileIcon(file.filename)}</span>
-									<span class="text-sm font-medium text-gray-800 truncate max-w-[300px]">{file.filename}</span>
+									<span class="text-sm font-medium truncate max-w-[300px]" style="color: var(--sky-text-primary);">{file.filename}</span>
 								</div>
 							</td>
-							<td class="px-5 py-3.5 text-sm text-gray-500">{formatSize(file.filesize)}</td>
-							<td class="px-5 py-3.5 text-sm text-gray-500">{toPersianDateTime(file.created_at)}</td>
+							<td class="px-5 py-3.5 text-sm" style="color: var(--sky-text-secondary);">{formatSize(file.filesize)}</td>
+							<td class="px-5 py-3.5 text-sm" style="color: var(--sky-text-secondary);">{toPersianDateTime(file.created_at)}</td>
 							<td class="px-5 py-3.5">
 								<button
 									onclick={() => confirmDelete(file)}
-									class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+									class="p-2 rounded-lg transition-colors"
+									style="color: var(--sky-text-secondary);"
 									title="حذف فایل"
 								>
 									<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
