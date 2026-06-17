@@ -5,10 +5,8 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
-	"github.com/iroom/iroom/internal/services"
 	"github.com/labstack/echo/v4"
 )
 
@@ -17,28 +15,26 @@ type HealthHandler struct {
 	db        *sql.DB
 	startTime time.Time
 	dbPath    string
-	janusSvc  *services.JanusService
 }
 
-func NewHealthHandler(db *sql.DB, dbPath string, janusSvc *services.JanusService) *HealthHandler {
+func NewHealthHandler(db *sql.DB, dbPath string) *HealthHandler {
 	return &HealthHandler{
 		db:        db,
 		startTime: time.Now(),
 		dbPath:    dbPath,
-		janusSvc:  janusSvc,
 	}
 }
 
 // HealthResponse represents the JSON response from the health endpoint.
 type HealthResponse struct {
-	Status      string `json:"status"`
-	Uptime      string `json:"uptime"`
-	DBSize      string `json:"db_size"`
-	JanusStatus string `json:"janus_status"`
-	ActiveRooms int64  `json:"active_rooms"`
-	TotalUsers  int64  `json:"total_users"`
-	TotalSessions int64 `json:"total_sessions"`
-	TotalClasses int64  `json:"total_classes"`
+	Status        string `json:"status"`
+	Uptime        string `json:"uptime"`
+	DBSize        string `json:"db_size"`
+	WebRTCStatus  string `json:"webrtc_status"`
+	ActiveRooms   int64  `json:"active_rooms"`
+	TotalUsers    int64  `json:"total_users"`
+	TotalSessions int64  `json:"total_sessions"`
+	TotalClasses  int64  `json:"total_classes"`
 }
 
 // Health returns detailed health and metrics information about the server.
@@ -50,8 +46,6 @@ func (h *HealthHandler) Health(c echo.Context) error {
 		dbSize = "unknown"
 	}
 
-	lkStatus := h.checkJanus()
-
 	activeRooms, _ := h.countActiveRooms()
 	totalUsers, _ := h.countUsers()
 	totalSessions, _ := h.countSessions()
@@ -61,7 +55,7 @@ func (h *HealthHandler) Health(c echo.Context) error {
 		Status:        "ok",
 		Uptime:        formatUptime(uptime),
 		DBSize:        dbSize,
-		JanusStatus:   lkStatus,
+		WebRTCStatus:  "pion_builtin",
 		ActiveRooms:   activeRooms,
 		TotalUsers:    totalUsers,
 		TotalSessions: totalSessions,
@@ -75,26 +69,6 @@ func (h *HealthHandler) getDBSize() (string, error) {
 		return "", err
 	}
 	return formatBytes(info.Size()), nil
-}
-
-func (h *HealthHandler) checkJanus() string {
-	url := h.janusSvc.GetWSURL()
-	if url == "" {
-		return "not_configured"
-	}
-
-	httpURL := "http://" + strings.TrimPrefix(strings.TrimPrefix(url, "ws://"), "wss://") + "/janus/info"
-	client := &http.Client{Timeout: 3 * time.Second}
-	resp, err := client.Get(httpURL)
-	if err != nil {
-		return "disconnected"
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode < 500 {
-		return "connected"
-	}
-	return "degraded"
 }
 
 func (h *HealthHandler) countActiveRooms() (int64, error) {

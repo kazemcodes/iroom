@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Participant, UserRole } from '$lib/classroom/types';
-	import { ROLE_HIERARCHY, ROLE_LABELS } from '$lib/classroom/types';
+	import { ROLE_LABELS } from '$lib/classroom/types';
 	import UserRow from './UserRow.svelte';
 
 	let {
@@ -48,30 +48,27 @@
 	const isOwner = $derived(currentUserRole === 'owner');
 </script>
 
-<div class="w-[220px] flex flex-col shrink-0 border-l" style="background-color: #16213e; border-color: #2a2a4a;">
-	<!-- Header -->
-	<div class="px-3 py-2.5 border-b flex items-center justify-between" style="border-color: #2a2a4a;">
+<div class="flex flex-col h-full" style="background-color: #252540;">
+	<!-- Block Header -->
+	<div class="flex items-center justify-between px-3 py-2.5 shrink-0" style="border-bottom: 1px solid #3a3a5a;">
 		<div class="flex items-center gap-2">
-			<h3 class="font-bold text-xs text-gray-300">شرکت‌کنندگان ({participants.length})</h3>
+			<svg class="w-4 h-4 text-[#94a3b8]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+			<span class="text-xs font-medium text-[#94a3b8]">کاربران</span>
+			<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-[#3a3a5a] text-[#e2e8f0] font-medium">{participants.length}</span>
 			{#if handsRaisedCount > 0}
-				<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-yellow-500/20 text-yellow-400 font-medium">
-					✋ {handsRaisedCount}
-				</span>
+				<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-[#d7911d]/20 text-[#d7911d] font-medium">✋ {handsRaisedCount}</span>
 			{/if}
 		</div>
-		<button onclick={onClose} class="text-gray-400 hover:text-white p-1" aria-label="بستن">
+		<button onclick={onClose} class="text-[#94a3b8] hover:text-[#e2e8f0] p-1" aria-label="بستن">
 			<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
 		</button>
 	</div>
 
 	<!-- User List -->
-	<div class="flex-1 overflow-y-auto px-2 py-2 space-y-3">
+	<div class="flex-1 overflow-y-auto">
 		{#each roleOrder as role}
 			{#if groupedParticipants[role].length > 0}
 				<div>
-					<p class="text-[10px] font-bold text-gray-500 px-2 mb-1 uppercase tracking-wider">
-						{ROLE_LABELS[role]} ({groupedParticipants[role].length})
-					</p>
 					{#each groupedParticipants[role] as participant (participant.id)}
 						<UserRow
 							{participant}
@@ -87,7 +84,9 @@
 		{/each}
 
 		{#if participants.length === 0}
-			<p class="text-center text-gray-500 text-xs py-3">هنوز کسی متصل نیست</p>
+			<div class="px-4 py-8 text-center">
+				<p class="text-xs text-[#94a3b8]">هنوز کسی متصل نیست</p>
+			</div>
 		{/if}
 	</div>
 </div>

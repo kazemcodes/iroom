@@ -8,23 +8,10 @@
 	} = $props();
 
 	const emojis = [
-		'😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '🙃',
-		'😉', '😊', '😇', '🥰', '😍', '🤩', '😘', '😗', '😚', '😙',
-		'🥲', '😋', '😛', '😜', '🤪', '😝', '🤑', '🤗', '🤭', '🫢',
-		'🤫', '🤔', '🫡', '🤐', '🤨', '😐', '😑', '😶', '🫥', '😏',
-		'😒', '🙄', '😬', '🤥', '😌', '😔', '😪', '🤤', '😴', '😷',
-		'🤒', '🤕', '🤢', '🤮', '🥵', '🥶', '🥴', '😵', '🤯', '🤠',
-		'🥳', '🥸', '😎', '🤓', '🧐', '😕', '🫤', '😟', '🙁', '😮',
-		'😯', '😲', '😳', '🥺', '🥹', '😦', '😧', '😨', '😰', '😥',
-		'😢', '😭', '😱', '😖', '😣', '😞', '😓', '😩', '😫', '🥱',
-		'😤', '😡', '😠', '🤬', '😈', '👿', '💀', '☠️', '💩', '🤡',
-		'👋', '🤚', '🖐️', '✋', '🖖', '🫱', '🫲', '🫳', '🫴', '👌',
-		'🤌', '🤏', '✌️', '🤞', '🫰', '🤟', '🤘', '🤙', '👈', '👉',
-		'👍', '👎', '✊', '👊', '🤛', '🤜', '👏', '🙌', '🫶', '👐',
-		'❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔',
-		'❤️‍🔥', '❤️‍🩹', '💕', '💞', '💓', '💗', '💖', '💘', '💝', '💟',
-		'🔥', '⭐', '🌟', '✨', '💫', '🎉', '🎊', '🎈', '🎁', '🏆',
-		'✅', '❌', '⭕', '❗', '❓', '💯', '🔔', '📌', '📎', '🔗',
+		'😃', '😄', '😊', '😁', '😂', '😅', '😉', '😜', '😍',
+		'😏', '😒', '😞', '😩', '😢', '😭', '😤', '😡', '😲',
+		'😨', '😱', '🙏', '👍', '👎', '👏', '👋', '👌', '✌️',
+		'❤️', '🌹',
 	];
 
 	function handleSelect(emoji: string) {
@@ -33,11 +20,11 @@
 	}
 </script>
 
-<div class="absolute bottom-full left-0 mb-2 w-72 max-h-48 overflow-y-auto rounded-xl shadow-2xl p-2 grid grid-cols-8 gap-1" style="background-color: #1e1e3a; border: 1px solid #2a2a4a;">
+<div class="absolute bottom-full left-0 mb-2 p-2 rounded-lg grid grid-cols-9 gap-0.5" style="background: #ffffff; border: 1px solid #e0e4eb; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
 	{#each emojis as emoji}
 		<button
 			onclick={() => handleSelect(emoji)}
-			class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors text-lg"
+			class="w-7 h-7 flex items-center justify-center rounded text-base hover:bg-[#f0f2f5] transition-colors"
 		>
 			{emoji}
 		</button>

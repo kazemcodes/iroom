@@ -12,8 +12,10 @@ import (
 	"github.com/iroom/iroom/internal/middleware"
 	"github.com/iroom/iroom/internal/repository"
 	"github.com/iroom/iroom/internal/services"
+	"github.com/iroom/iroom/internal/webrtc"
 	"github.com/labstack/echo/v4"
 	echoMiddleware "github.com/labstack/echo/v4/middleware"
+	"github.com/pion/webrtc/v4"
 )
 
 func main() {
@@ -53,11 +55,18 @@ func main() {
 	webhookDeliveryRepo := repository.NewWebhookDeliveryRepo(db)
 
 	// Services
-	janusSvc := services.NewJanusService(cfg.Janus.HTTPURL, cfg.Janus.WSURL, cfg.Janus.AdminKey, cfg.Janus.RoomSecret)
 	wsHub := services.NewHub()
 	go wsHub.Run()
 	totpSvc := services.NewTOTPService("IRoom")
 	webhookDeliverySvc := services.NewWebhookDeliveryService(webhookRepo, webhookDeliveryRepo)
+
+	// WebRTC (Pion built-in)
+	rtcConfig := webrtc.Configuration{
+		ICEServers: []webrtc.ICEServer{
+			{URLs: []string{"stun:stun.l.google.com:19302"}},
+		},
+	}
+	signaling := webrtc.NewSignalingServer(rtcConfig)
 
 	// Handlers
 	authHandler := handlers.NewAuthHandler(userRepo, logRepo, resetRepo, cfg.Upload.UploadDir, cfg.JWT.Secret, cfg.JWT.AccessExpiry, cfg.JWT.RefreshExpiry, totpSvc)
@@ -65,7 +74,7 @@ func main() {
 	classHandler := handlers.NewClassHandler(classRepo, sessionRepo)
 	sessionHandler := handlers.NewSessionHandler(sessionRepo, classRepo)
 	messageHandler := handlers.NewMessageHandler(messageRepo)
-	janusHandler := handlers.NewJanusHandler(sessionRepo, janusSvc)
+	webrtcHandler := handlers.NewWebRTCHandler(sessionRepo, signaling)
 	fileHandler := handlers.NewFileHandler(fileRepo, sessionRepo, classRepo, cfg.Upload.UploadDir)
 	recordingHandler := handlers.NewRecordingHandler(recordingRepo, sessionRepo, classRepo, cfg.Upload.UploadDir)
 	chatHandler := handlers.NewChatHandler(messageRepo, cfg.JWT.Secret)
@@ -90,7 +99,7 @@ func main() {
 	e.Use(middleware.RateLimit(100, time.Minute))
 
 	// Health
-	healthHandler := handlers.NewHealthHandler(db, cfg.Database.Path, janusSvc)
+	healthHandler := handlers.NewHealthHandler(db, cfg.Database.Path)
 	e.GET("/api/v1/health", healthHandler.Health)
 
 	// Auth (with stricter rate limit)
@@ -156,10 +165,14 @@ func main() {
 	api.GET("/sessions/recurring", sessionHandler.ListRecurring)
 	api.DELETE("/sessions/recurring/:id", sessionHandler.DeleteRecurring)
 
-	// Janus
-	api.GET("/sessions/:id/classroom", janusHandler.GetJoinInfo)
-	api.POST("/sessions/:id/classroom/mute/:participant_id", janusHandler.MuteParticipant)
-	api.POST("/sessions/:id/classroom/kick/:participant_id", janusHandler.KickParticipant)
+	// WebRTC (Pion built-in)
+	api.GET("/sessions/:id/classroom", webrtcHandler.GetJoinInfo)
+	api.POST("/sessions/:id/classroom/offer", webrtcHandler.HandleOffer)
+	api.POST("/sessions/:id/classroom/candidate", webrtcHandler.HandleCandidate)
+	api.DELETE("/sessions/:id/classroom/:userId", webrtcHandler.HandleLeave)
+	api.GET("/sessions/:id/classroom/participants", webrtcHandler.GetParticipants)
+	api.POST("/sessions/:id/classroom/mute/:participantId", webrtcHandler.MuteParticipant)
+	api.POST("/sessions/:id/classroom/kick/:participantId", webrtcHandler.KickParticipant)
 
 	// Messages
 	api.GET("/sessions/:id/messages", messageHandler.List)
