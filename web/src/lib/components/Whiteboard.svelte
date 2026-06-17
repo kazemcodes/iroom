@@ -205,7 +205,7 @@
 	}
 </script>
 
-<div class="flex flex-col h-full bg-white rounded-xl border overflow-hidden">
+<div class="flex flex-col h-full bg-white rounded-xl overflow-hidden">
 	<!-- Toolbar -->
 	<div class="flex items-center gap-2 px-3 py-2 border-b bg-gray-50 flex-wrap">
 		<div class="flex gap-1">

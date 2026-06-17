@@ -78,7 +78,7 @@
 
 	<!-- Create/Edit Form -->
 	{#if showCreate || editingClass}
-		<div class="bg-white rounded-xl border p-5">
+		<div class="bg-white rounded-xl p-5">
 			<h3 class="font-bold text-gray-900 mb-4">{editingClass ? 'ویرایش کلاس' : 'کلاس جدید'}</h3>
 			<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 				<div>
@@ -113,13 +113,13 @@
 			<div class="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full"></div>
 		</div>
 	{:else if filteredClasses.length === 0}
-		<div class="text-center py-20 bg-white rounded-xl border">
+		<div class="text-center py-20 bg-white rounded-xl">
 			<p class="text-gray-500">کلاسی یافت نشد</p>
 		</div>
 	{:else}
 		<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
 			{#each filteredClasses as c (c.id)}
-				<div class="bg-white rounded-xl border p-4 hover:shadow-md transition-all">
+				<div class="bg-white rounded-xl p-4 hover:shadow-md transition-all">
 					<div class="flex items-start justify-between">
 						<div class="flex items-center gap-3">
 							<div class="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-sm" style="background: {c.color || '#3B82F6'}">

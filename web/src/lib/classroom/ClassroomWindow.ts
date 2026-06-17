@@ -1,45 +1,31 @@
-const POPUP_WIDTH = 1100;
-const POPUP_HEIGHT = 700;
-
-interface OpenedPopup {
+interface OpenedTab {
 	window: Window;
 	sessionId: string;
 	interval: ReturnType<typeof setInterval>;
 }
 
-const popups = new Map<string, OpenedPopup>();
-
-function getPopupFeatures(): string {
-	const left = Math.round((screen.width - POPUP_WIDTH) / 2);
-	const top = Math.round((screen.height - POPUP_HEIGHT) / 2);
-	return `width=${POPUP_WIDTH},height=${POPUP_HEIGHT},left=${left},top=${top},popup=yes`;
-}
+const tabs = new Map<string, OpenedTab>();
 
 function open(sessionId: string, title: string): Window | null {
-	if (popups.has(sessionId)) {
-		const existing = popups.get(sessionId)!;
+	if (tabs.has(sessionId)) {
+		const existing = tabs.get(sessionId)!;
 		existing.window.focus();
 		return existing.window;
 	}
 
 	const url = `/classroom/popup/${sessionId}`;
-	const popup = window.open(url, `classroom-${sessionId}`, getPopupFeatures());
+	const tab = window.open(url, `_blank`);
 
-	if (!popup) {
-		window.open(url, '_blank');
+	if (!tab) {
 		return null;
 	}
 
-	if (title) {
-		popup.document.title = title;
-	}
-
 	const interval = setInterval(() => {
-		if (popup.closed) {
-			const entry = popups.get(sessionId);
+		if (tab.closed) {
+			const entry = tabs.get(sessionId);
 			if (entry) {
 				clearInterval(entry.interval);
-				popups.delete(sessionId);
+				tabs.delete(sessionId);
 			}
 			window.dispatchEvent(
 				new CustomEvent('classroom-closed', { detail: { sessionId } })
@@ -47,21 +33,21 @@ function open(sessionId: string, title: string): Window | null {
 		}
 	}, 500);
 
-	popups.set(sessionId, { window: popup, sessionId, interval });
-	return popup;
+	tabs.set(sessionId, { window: tab, sessionId, interval });
+	return tab;
 }
 
 function close(sessionId: string): void {
-	const entry = popups.get(sessionId);
+	const entry = tabs.get(sessionId);
 	if (entry) {
 		clearInterval(entry.interval);
 		entry.window.close();
-		popups.delete(sessionId);
+		tabs.delete(sessionId);
 	}
 }
 
-function getAll(): ReadonlyMap<string, OpenedPopup> {
-	return popups;
+function getAll(): ReadonlyMap<string, OpenedTab> {
+	return tabs;
 }
 
 export const classroomWindow = { open, close, getAll };

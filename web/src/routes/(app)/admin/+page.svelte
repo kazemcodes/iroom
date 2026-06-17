@@ -334,7 +334,7 @@
 		</div>
 
 		<!-- System Health -->
-		<div class="bg-white rounded-xl border p-5">
+		<div class="bg-white rounded-xl p-5">
 			<h2 class="font-bold text-gray-900 mb-4">وضعیت سیستم</h2>
 			{#if healthLoading}
 				<div class="flex items-center justify-center py-4"><div class="animate-spin h-6 w-6 border-4 border-blue-600 border-t-transparent rounded-full"></div></div>
@@ -371,7 +371,7 @@
 					<button onclick={() => goto('/admin/rooms')} class="text-sm text-blue-600 hover:text-blue-700 font-medium">مشاهده همه</button>
 				</div>
 				{#if liveRooms.length === 0}
-					<div class="bg-white rounded-xl border p-8 text-center">
+					<div class="bg-white rounded-xl p-8 text-center">
 						<div class="w-12 h-12 mx-auto mb-3 rounded-full bg-gray-100 flex items-center justify-center">
 							<svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
 						</div>
@@ -380,7 +380,7 @@
 				{:else}
 					<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
 						{#each liveRooms as room}
-							<div class="bg-white border rounded-xl p-4 hover:shadow-sm transition-shadow">
+							<div class="bg-white rounded-xl p-4 hover:shadow-sm transition-shadow">
 								<div class="flex items-start justify-between">
 									<div class="flex items-center gap-3">
 										<div class="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-sm" style="background: {room.color || '#3b82f6'}">
@@ -408,7 +408,7 @@
 			<!-- Activity Feed -->
 			<div>
 				<h2 class="font-bold text-gray-900 mb-4">آخرین فعالیت‌ها</h2>
-				<div class="bg-white rounded-xl border divide-y max-h-[320px] overflow-y-auto">
+				<div class="bg-white rounded-xl divide-y max-h-[320px] overflow-y-auto">
 					{#if activityLogs.length === 0}
 						<div class="p-6 text-center text-sm text-gray-400">فعالیتی ثبت نشده</div>
 					{:else}
@@ -448,7 +448,7 @@
 		{#if userLoading}
 			<div class="flex items-center justify-center py-12"><div class="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full"></div></div>
 		{:else}
-			<div class="bg-white rounded-xl border overflow-hidden">
+			<div class="bg-white rounded-xl overflow-hidden">
 				<table class="w-full text-sm">
 					<thead class="bg-gray-50 border-b">
 						<tr>
@@ -506,7 +506,7 @@
 		{#if classLoading}
 			<div class="flex items-center justify-center py-12"><div class="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full"></div></div>
 		{:else}
-			<div class="bg-white rounded-xl border overflow-hidden">
+			<div class="bg-white rounded-xl overflow-hidden">
 				<table class="w-full text-sm">
 					<thead class="bg-gray-50 border-b">
 						<tr>
@@ -543,7 +543,7 @@
 		{#if sessionLoading}
 			<div class="flex items-center justify-center py-12"><div class="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full"></div></div>
 		{:else}
-			<div class="bg-white rounded-xl border overflow-hidden">
+			<div class="bg-white rounded-xl overflow-hidden">
 				<table class="w-full text-sm">
 					<thead class="bg-gray-50 border-b">
 						<tr>

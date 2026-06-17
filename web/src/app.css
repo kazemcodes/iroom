@@ -31,17 +31,17 @@
 	/* Legacy aliases (for backward compatibility) */
 	--sky-primary: var(--sr-primary);
 	--sky-primary-gradient: linear-gradient(135deg, var(--sr-primary), var(--sr-primary-dark));
-	--sky-bg-dark: var(--sr-dark-bg);
-	--sky-bg-panel: var(--sr-dark-surface);
-	--sky-bg-input: #0f3460;
+	--sky-bg-dark: var(--sr-bg);
+	--sky-bg-panel: var(--sr-pure);
+	--sky-bg-input: var(--sr-bg-alt);
 	--sky-accent-red: var(--sr-danger);
 	--sky-accent-green: var(--sr-success);
 	--sky-accent-blue: var(--sr-primary);
 	--sky-accent-purple: #8b5cf6;
 	--sky-accent-warm: var(--sr-warning);
-	--sky-text-primary: var(--sr-dark-text);
-	--sky-text-secondary: var(--sr-dark-muted);
-	--sky-border: var(--sr-dark-border);
+	--sky-text-primary: var(--sr-text);
+	--sky-text-secondary: var(--sr-text-secondary);
+	--sky-border: var(--sr-border);
 }
 
 /* Scrollbar styles for dark areas (classroom) */
@@ -58,7 +58,7 @@
 	--color-accent: var(--sr-primary);
 	--color-accent-warm: var(--sr-warning);
 	--color-surface: var(--sr-pure);
-	--color-surface-warm: var(--sr-dark-bg);
+	--color-surface-warm: var(--sr-bg);
 }
 
 @layer base {
@@ -76,14 +76,13 @@
 	/* === Light Theme Components === */
 	.card {
 		background: var(--sr-pure);
-		border: 1px solid var(--sr-border);
 		border-radius: 12px;
-		box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+		box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
 		color: var(--sr-text);
 		transition: all 0.2s ease;
 	}
 	.card:hover {
-		box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+		box-shadow: 0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
 	}
 
 	.btn-primary {
@@ -177,10 +176,10 @@
 
 	.stat-card {
 		background: var(--sr-pure);
-		border: 1px solid var(--sr-border);
 		border-radius: 12px;
 		padding: 1.25rem;
 		color: var(--sr-text);
+		box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
 		transition: all 0.2s ease;
 	}
 
@@ -248,9 +247,9 @@
 }
 
 /* Light Theme Components (backward compat) */
-.sky-card { background: var(--sr-pure); border: 1px solid var(--sr-border); border-radius: 12px; padding: 1.25rem; color: var(--sr-text); }
+.sky-card { background: var(--sr-pure); border-radius: 12px; padding: 1.25rem; color: var(--sr-text); box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04); }
 .sky-modal-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(4px); z-index: 50; display: flex; align-items: center; justify-content: center; animation: fadeIn 0.15s ease; }
-.sky-modal-content { background: var(--sr-pure); border: 1px solid var(--sr-border); border-radius: 12px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); width: 100%; max-width: 28rem; color: var(--sr-text); animation: slideUp 0.2s ease; }
+.sky-modal-content { background: var(--sr-pure); border-radius: 12px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); width: 100%; max-width: 28rem; color: var(--sr-text); animation: slideUp 0.2s ease; }
 .sky-input { width: 100%; padding: 0.75rem 1rem; border: 2px solid var(--sr-border); border-radius: 8px; font-size: 0.875rem; background: var(--sr-pure); color: var(--sr-text); transition: all 0.15s ease; outline: none; }
 .sky-input:focus { border-color: var(--sr-primary); }
 .sky-input::placeholder { color: var(--sr-text-muted); }
@@ -265,10 +264,10 @@
 .badge-info { display: inline-flex; align-items: center; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; background: rgba(35, 185, 215, 0.15); color: var(--sr-primary); }
 .badge-purple { display: inline-flex; align-items: center; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; background: rgba(139, 92, 246, 0.15); color: #8b5cf6; }
 
-.btn-icon { width: 40px; height: 40px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: var(--sr-dark-surface); color: var(--sr-dark-text); border: 1px solid var(--sr-dark-border); transition: all 0.2s ease; cursor: pointer; }
-.btn-icon:hover { background: var(--sr-dark-border); }
+.btn-icon { width: 40px; height: 40px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: var(--sr-bg-alt); color: var(--sr-text); transition: all 0.2s ease; cursor: pointer; }
+.btn-icon:hover { background: var(--sr-border); }
 
-.skeleton { background: linear-gradient(90deg, var(--sr-dark-surface) 25%, var(--sr-dark-border) 50%, var(--sr-dark-surface) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 0.5rem; }
+.skeleton { background: linear-gradient(90deg, var(--sr-bg-alt) 25%, var(--sr-border) 50%, var(--sr-bg-alt) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 0.5rem; }
 .recording-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--sr-danger); animation: pulse-recording 1500ms ease-in-out infinite; }
 .speaking-indicator { border-radius: 50%; animation: speaking-glow 100ms ease; }
 

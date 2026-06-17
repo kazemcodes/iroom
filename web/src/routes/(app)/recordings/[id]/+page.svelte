@@ -69,7 +69,7 @@
 		</div>
 	{:else if activeRecording}
 		<!-- Player -->
-		<div class="bg-white rounded-xl border overflow-hidden">
+		<div class="bg-white rounded-xl overflow-hidden">
 			<div class="p-4 border-b flex items-center justify-between">
 				<h2 class="font-bold">{activeRecording.filename}</h2>
 				<button onclick={() => activeRecording = null} class="text-sm text-gray-500 hover:text-gray-700">بازگشت</button>
@@ -93,7 +93,7 @@
 			</div>
 		</div>
 	{:else if recordings.length === 0}
-		<div class="text-center py-20 bg-white rounded-xl border">
+		<div class="text-center py-20 bg-white rounded-xl">
 			<svg class="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
 			</svg>
@@ -104,7 +104,7 @@
 		<div class="space-y-3">
 			{#each recordings as rec}
 				<div
-					class="bg-white rounded-xl border p-4 flex items-center justify-between hover:shadow-md transition-all cursor-pointer"
+					class="bg-white rounded-xl p-4 flex items-center justify-between hover:shadow-md transition-all cursor-pointer"
 					onclick={() => activeRecording = rec}
 					role="button"
 					tabindex="0"

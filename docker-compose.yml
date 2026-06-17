@@ -8,12 +8,6 @@ services:
     volumes:
       - ./janus-config:/etc/janus
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:8088/janus/info || curl -sf http://localhost:8088/janus/info || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 15s
 
   app:
     build: .
@@ -30,15 +24,8 @@ services:
       - ./uploads:/app/uploads
       - ./recordings:/app/recordings
     depends_on:
-      janus:
-        condition: service_healthy
+      - janus
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:8080/api/v1/health || curl -sf http://localhost:8080/api/v1/health || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
 
   caddy:
     image: caddy:2-alpine
@@ -50,8 +37,7 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
-      app:
-        condition: service_healthy
+      - app
     restart: unless-stopped
 
 volumes:

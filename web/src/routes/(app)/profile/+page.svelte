@@ -427,7 +427,7 @@
 									{showBackupCodes ? 'مخفی کردن کدها' : 'نمایش کدهای پشتیبان'}
 								</button>
 								{#if showBackupCodes}
-									<div class="rounded-lg p-3" style="background: var(--sr-bg-alt); border: 1px solid var(--sr-border);">
+							<div class="rounded-lg p-3" style="background: var(--sr-bg-alt);">
 										<p class="text-xs mb-2" style="color: var(--sr-text-secondary);">این کدها را در مکانی امن ذخیره کنید. هر کد فقط یک بار قابل استفاده است.</p>
 										<div class="grid grid-cols-2 gap-2 font-mono text-sm" dir="ltr">
 											{#each backupCodes as code}
@@ -480,7 +480,7 @@
 						</div>
 					</div>
 
-					<div class="rounded-xl p-4" style="border: 1px solid var(--sr-border);">
+					<div class="rounded-xl p-4" style="box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);">
 						<h4 class="font-semibold mb-3 flex items-center gap-2" style="color: var(--sr-text);">
 							<svg class="w-5 h-5" style="color: var(--sr-text-secondary);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
@@ -522,7 +522,7 @@
 					</div>
 
 					<!-- Disable 2FA -->
-					<div class="rounded-xl p-4" style="border: 1px solid rgba(233, 69, 96, 0.3);">
+					<div class="rounded-xl p-4" style="box-shadow: 0 1px 3px rgba(233, 69, 96, 0.1), 0 1px 2px rgba(233, 69, 96, 0.06);">
 						<h4 class="font-semibold mb-2 flex items-center gap-2" style="color: var(--sr-danger);">
 							<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>

@@ -147,7 +147,7 @@
 			<div class="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full"></div>
 		</div>
 	{:else if !ticket}
-		<div class="text-center py-20 bg-white rounded-xl border">
+		<div class="text-center py-20 bg-white rounded-xl">
 			<p class="text-gray-500">تیکت یافت نشد</p>
 		</div>
 	{:else}

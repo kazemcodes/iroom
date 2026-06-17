@@ -51,7 +51,7 @@
 					{ label: 'جلسات', value: stats.sessions, color: '#10b981', icon: 'M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z' },
 					{ label: 'پیام‌ها', value: stats.messages, color: '#f59e0b', icon: 'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z' }
 				] as stat}
-					<div class="rounded-xl p-5" style="background: var(--sr-pure); border: 1px solid var(--sr-border);">
+					<div class="rounded-xl p-5" style="background: var(--sr-pure); box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);">
 						<div class="flex items-center justify-between mb-3">
 							<div class="w-10 h-10 rounded-xl flex items-center justify-center text-white" style="background: {stat.color};">
 								<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
@@ -66,7 +66,7 @@
 			</div>
 		{/if}
 
-		<div class="rounded-xl p-0" style="background: var(--sr-pure); border: 1px solid var(--sr-border);">
+		<div class="rounded-xl p-0" style="background: var(--sr-pure); box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);">
 			<div class="px-6 py-4 flex items-center justify-between" style="border-bottom: 1px solid var(--sr-border);">
 				<h2 class="font-bold text-sm" style="color: var(--sr-text);">کلاس‌های من</h2>
 				<a href="/classes" class="text-xs font-medium hover:underline" style="color: var(--sr-primary);">مشاهده همه →</a>
@@ -85,7 +85,7 @@
 				{:else}
 					<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
 						{#each classes as cls}
-							<a href="/classes/{cls.id}" class="block p-5 rounded-xl transition-all hover:shadow-sm group" style="background: var(--sr-bg-alt); border: 1px solid var(--sr-border);">
+							<a href="/classes/{cls.id}" class="block p-5 rounded-xl transition-all hover:shadow-sm group" style="background: var(--sr-bg-alt);">
 								<div class="flex items-center gap-3 mb-3">
 									<div class="w-3 h-3 rounded-full shrink-0" style="background-color: {cls.color};"></div>
 									<h3 class="font-bold text-sm group-hover:underline" style="color: var(--sr-text);">{cls.name}</h3>
@@ -107,7 +107,7 @@
 		</div>
 
 		{#if sessions.length > 0}
-			<div class="rounded-xl overflow-hidden" style="background: var(--sr-pure); border: 1px solid var(--sr-border);">
+			<div class="rounded-xl overflow-hidden" style="background: var(--sr-pure); box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);">
 				<div class="px-6 py-4 flex items-center justify-between" style="border-bottom: 1px solid var(--sr-border);">
 					<h2 class="font-bold text-sm" style="color: var(--sr-text);">جلسات اخیر</h2>
 					<a href="/sessions" class="text-xs font-medium hover:underline" style="color: var(--sr-primary);">مشاهده همه →</a>

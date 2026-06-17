@@ -363,7 +363,7 @@
 {:else if classData}
 	<div class="space-y-6">
 		<!-- Header -->
-		<div class="bg-white rounded-xl border p-6">
+		<div class="bg-white rounded-xl p-6">
 			<div class="flex items-start justify-between">
 				<div class="flex items-center gap-4">
 					<div class="w-5 h-5 rounded-full shrink-0" style="background-color: {classData.color}"></div>
@@ -394,7 +394,7 @@
 
 		<!-- Invite Code Section (Teacher/Admin only) -->
 		{#if ($isAdmin || $isTeacher) && inviteCode}
-			<div class="bg-white rounded-xl border p-5">
+			<div class="bg-white rounded-xl p-5">
 				<h3 class="font-semibold text-gray-900 mb-4 flex items-center gap-2">
 					<svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
@@ -498,7 +498,7 @@
 
 			<!-- Recurring Sessions Section -->
 			{#if recurringSessions.length > 0}
-				<div class="bg-white rounded-xl border p-4">
+				<div class="bg-white rounded-xl p-4">
 					<h3 class="font-semibold text-gray-900 mb-4 flex items-center gap-2">
 						<svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
 						جلسات تکرارشونده
@@ -540,13 +540,13 @@
 			{/if}
 
 			{#if sessions.length === 0}
-				<div class="text-center py-12 bg-white rounded-xl border">
+				<div class="text-center py-12 bg-white rounded-xl">
 					<p class="text-gray-500">هنوز جلسه‌ای ایجاد نشده</p>
 				</div>
 			{:else}
 				<div class="space-y-3">
 					{#each sessions as s}
-						<div class="bg-white rounded-xl border p-4 flex items-center justify-between">
+						<div class="bg-white rounded-xl p-4 flex items-center justify-between">
 							<div class="flex items-center gap-4">
 								<div class="w-10 h-10 rounded-lg flex items-center justify-center {s.status === 'live' ? 'bg-green-100' : 'bg-gray-100'}">
 									<svg class="w-5 h-5 {s.status === 'live' ? 'text-green-600' : 'text-gray-400'}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -587,11 +587,11 @@
 			</div>
 
 			{#if students.length === 0}
-				<div class="text-center py-12 bg-white rounded-xl border">
+				<div class="text-center py-12 bg-white rounded-xl">
 					<p class="text-gray-500">هنوز دانش‌آموزی ثبت‌نام نکرده</p>
 				</div>
 			{:else}
-				<div class="bg-white rounded-xl border divide-y">
+				<div class="bg-white rounded-xl divide-y">
 					{#each students as student}
 						<div class="px-5 py-3 flex items-center justify-between">
 							<div class="flex items-center gap-3">
@@ -617,13 +617,13 @@
 			</div>
 
 			{#if announcements.length === 0}
-				<div class="text-center py-12 bg-white rounded-xl border">
+				<div class="text-center py-12 bg-white rounded-xl">
 					<p class="text-gray-500">هنوز اعلانی ایجاد نشده</p>
 				</div>
 			{:else}
 				<div class="space-y-3">
 					{#each sortedAnnouncements as announcement}
-						<div class="bg-white rounded-xl border p-4 {announcement.is_pinned ? 'border-blue-200 bg-blue-50/30' : ''}">
+						<div class="bg-white rounded-xl p-4 {announcement.is_pinned ? 'border-blue-200 bg-blue-50/30' : ''}">
 							<div class="flex items-start justify-between gap-4">
 								<div class="flex-1 min-w-0">
 									<div class="flex items-center gap-2 mb-2">

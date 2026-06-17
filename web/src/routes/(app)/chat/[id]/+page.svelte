@@ -85,7 +85,7 @@
 	}
 </script>
 
-<div class="flex flex-col h-[calc(100vh-8rem)] bg-white rounded-xl border overflow-hidden">
+<div class="flex flex-col h-[calc(100vh-8rem)] bg-white rounded-xl overflow-hidden">
 	<!-- Header -->
 	<div class="px-5 py-3 border-b flex items-center justify-between shrink-0">
 		<div class="flex items-center gap-3">

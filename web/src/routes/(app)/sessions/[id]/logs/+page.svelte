@@ -188,7 +188,7 @@
 			<div class="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full"></div>
 		</div>
 	{:else if logs.length === 0}
-		<div class="text-center py-20 bg-white rounded-xl border">
+		<div class="text-center py-20 bg-white rounded-xl">
 			<p class="text-gray-500">لاگی ثبت نشده است</p>
 		</div>
 	{:else}

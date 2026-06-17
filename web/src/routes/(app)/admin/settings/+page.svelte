@@ -238,7 +238,7 @@
 </div>
 
 	<!-- Tabs -->
-	<div class="bg-white rounded-xl border overflow-hidden">
+	<div class="bg-white rounded-xl overflow-hidden">
 		<div class="flex border-b overflow-x-auto">
 			{#each tabs as tab}
 				<button
@@ -365,7 +365,7 @@
 							<div class="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full"></div>
 						</div>
 					{:else if webhooks.length === 0}
-						<div class="text-center py-12 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
+						<div class="text-center py-12 bg-gray-50 rounded-xl-2 border-dashed border-gray-200">
 							<svg class="w-12 h-12 mx-auto text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
 							</svg>
@@ -377,7 +377,7 @@
 					{:else}
 						<div class="space-y-4">
 							{#each webhooks as webhook (webhook.id)}
-								<div class="bg-white border rounded-xl overflow-hidden">
+								<div class="bg-white rounded-xl overflow-hidden">
 									<div class="p-4">
 										<div class="flex items-start justify-between gap-4">
 											<div class="flex-1 min-w-0">
@@ -463,7 +463,7 @@
 											{:else}
 												<div class="space-y-2 max-h-64 overflow-y-auto">
 													{#each deliveries as delivery (delivery.id)}
-														<div class="bg-white p-3 rounded-lg border text-sm">
+														<div class="bg-white p-3 rounded-lg text-sm">
 															<div class="flex items-center justify-between">
 																<div class="flex items-center gap-2">
 																	<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {delivery.success ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
