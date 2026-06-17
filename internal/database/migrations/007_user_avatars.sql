@@ -1,0 +1,3 @@
+ALTER TABLE users ADD COLUMN avatar_url TEXT;
+ALTER TABLE users ADD COLUMN email_verified BOOLEAN DEFAULT FALSE;
+ALTER TABLE users ADD COLUMN last_login_at DATETIME;

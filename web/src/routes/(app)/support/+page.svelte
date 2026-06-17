@@ -2,6 +2,7 @@
 	import { api } from '$lib/api';
 	import { onMount } from 'svelte';
 	import type { Ticket, TicketMessage } from '$lib/types';
+	import { toPersianNum, toPersianDateTime } from '$lib/utils/persian';
 
 	let tickets = $state<Ticket[]>([]);
 	let loading = $state(true);
@@ -100,12 +101,7 @@
 
 	function formatDate(d: string) {
 		if (!d) return '';
-		return new Date(d).toLocaleDateString('fa-IR', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-	}
-
-	function toPersianNumber(n: number): string {
-		const persianDigits = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
-		return String(n).replace(/\d/g, d => persianDigits[Number(d)]);
+		return toPersianDateTime(d);
 	}
 
 	const statusLabels: Record<string, string> = { open: 'باز', answered: 'پاسخ داده شده', closed: 'بسته شده' };
@@ -129,7 +125,10 @@
 		}
 		if (searchQuery.trim()) {
 			const q = searchQuery.trim().toLowerCase();
-			result = result.filter(t => t.title.toLowerCase().includes(q));
+			result = result.filter(t => 
+				t.title.toLowerCase().includes(q) || 
+				String(t.id).includes(q)
+			);
 		}
 		return result;
 	});
@@ -236,7 +235,7 @@
 		<div class="flex items-center justify-between">
 			<div>
 				<h1 class="text-2xl font-bold text-gray-900">پشتیبانی</h1>
-				<p class="text-gray-500 mt-1">{toPersianNumber(tickets.length)} تیکت</p>
+				<p class="text-gray-500 mt-1">{toPersianNum(tickets.length)} تیکت</p>
 			</div>
 			<button onclick={() => showCreate = true} class="px-4 py-2.5 bg-blue-600 text-white text-sm rounded-xl hover:bg-blue-700 transition-colors font-medium flex items-center gap-2">
 				<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
@@ -248,16 +247,16 @@
 			<!-- Status Count Badges -->
 			<div class="flex items-center gap-3">
 				<button onclick={() => filterStatus = 'all'} class="px-3 py-1.5 text-xs rounded-full font-medium transition-colors {filterStatus === 'all' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">
-					همه ({toPersianNumber(tickets.length)})
+					همه ({toPersianNum(tickets.length)})
 				</button>
 				<button onclick={() => filterStatus = 'open'} class="px-3 py-1.5 text-xs rounded-full font-medium transition-colors {filterStatus === 'open' ? 'bg-green-600 text-white' : 'bg-green-50 text-green-700 hover:bg-green-100'}">
-					باز ({toPersianNumber(statusCounts().open)})
+					باز ({toPersianNum(statusCounts().open)})
 				</button>
 				<button onclick={() => filterStatus = 'answered'} class="px-3 py-1.5 text-xs rounded-full font-medium transition-colors {filterStatus === 'answered' ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-700 hover:bg-blue-100'}">
-					پاسخ داده شده ({toPersianNumber(statusCounts().answered)})
+					پاسخ داده شده ({toPersianNum(statusCounts().answered)})
 				</button>
 				<button onclick={() => filterStatus = 'closed'} class="px-3 py-1.5 text-xs rounded-full font-medium transition-colors {filterStatus === 'closed' ? 'bg-gray-600 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}">
-					بسته شده ({toPersianNumber(statusCounts().closed)})
+					بسته شده ({toPersianNum(statusCounts().closed)})
 				</button>
 			</div>
 
@@ -265,7 +264,7 @@
 			<div class="flex items-center gap-3">
 				<div class="flex-1 relative">
 					<svg class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-					<input bind:value={searchQuery} class="w-full pr-10 pl-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white" placeholder="جستجو در عنوان..." />
+					<input bind:value={searchQuery} class="w-full pr-10 pl-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white" placeholder="جستجو در عنوان یا شماره تیکت..." />
 				</div>
 				<select bind:value={filterPriority} class="px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white">
 					<option value="all">همه اولویت‌ها</option>
@@ -320,10 +319,10 @@
 
 		{#if totalPages > 1}
 			<div class="flex items-center justify-between text-sm text-gray-500">
-				<span>{totalTickets} تیکت</span>
+				<span>{toPersianNum(totalTickets)} تیکت</span>
 				<div class="flex gap-1">
 					<button disabled={currentPage <= 1} onclick={() => { currentPage--; loadTickets(); }} class="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50">قبلی</button>
-					<span class="px-3 py-1">صفحه {currentPage} از {totalPages}</span>
+					<span class="px-3 py-1">صفحه {toPersianNum(currentPage)} از {toPersianNum(totalPages)}</span>
 					<button disabled={currentPage >= totalPages} onclick={() => { currentPage++; loadTickets(); }} class="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50">بعدی</button>
 				</div>
 			</div>

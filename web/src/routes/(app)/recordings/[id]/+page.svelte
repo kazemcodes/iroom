@@ -3,6 +3,7 @@
 	import { api } from '$lib/api';
 	import { onMount } from 'svelte';
 	import type { Recording, Session } from '$lib/types';
+	import { toPersianNum, toPersianDateTime } from '$lib/utils/persian';
 
 	let recordings = $state<Recording[]>([]);
 	let session = $state<Session | null>(null);
@@ -21,20 +22,33 @@
 		loading = false;
 	});
 
-	function formatDuration(secs: number) {
+	function formatDurationPersian(secs: number) {
 		const m = Math.floor(secs / 60);
 		const s = secs % 60;
-		return `${m}:${s.toString().padStart(2, '0')}`;
+		return toPersianNum(`${m}:${s.toString().padStart(2, '0')}`);
 	}
 
-	function formatSize(bytes: number) {
-		if (bytes < 1024) return bytes + ' B';
-		if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
-		return (bytes / 1048576).toFixed(1) + ' MB';
+	function formatFileSize(bytes: number): string {
+		if (bytes < 1024) {
+			return `${toPersianNum(bytes)} بایت`;
+		}
+		if (bytes < 1048576) {
+			// < 1 MB: show in KB
+			const kb = Math.round(bytes / 1024);
+			return `${toPersianNum(kb)} کیلوبایت`;
+		}
+		if (bytes < 104857600) {
+			// 1-100 MB: show in MB with one decimal
+			const mb = (bytes / 1048576).toFixed(1);
+			return `${toPersianNum(mb)} مگابایت`;
+		}
+		// > 100 MB: show in MB as integer
+		const mb = Math.round(bytes / 1048576);
+		return `${toPersianNum(mb)} مگابایت`;
 	}
 
-	function formatDate(d: string) {
-		return new Date(d).toLocaleDateString('fa-IR', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+	function formatDatePersian(d: string) {
+		return toPersianDateTime(d);
 	}
 </script>
 
@@ -45,7 +59,7 @@
 		</a>
 		<div>
 			<h1 class="text-2xl font-bold text-gray-900">ضبط‌های جلسه</h1>
-			<p class="text-gray-500 mt-1">{session?.title || ''} — {recordings.length} ضبط</p>
+			<p class="text-gray-500 mt-1">{session?.title || ''} — {toPersianNum(recordings.length)} ضبط</p>
 		</div>
 	</div>
 
@@ -69,12 +83,12 @@
 				></video>
 			</div>
 			<div class="p-4 text-sm text-gray-500">
-				<span>{formatDate(activeRecording.created_at)}</span>
+				<span>{formatDatePersian(activeRecording.created_at)}</span>
 				<span class="mx-2">•</span>
-				<span>{formatSize(activeRecording.filesize)}</span>
+				<span>{formatFileSize(activeRecording.filesize)}</span>
 				{#if activeRecording.duration > 0}
 					<span class="mx-2">•</span>
-					<span>{formatDuration(activeRecording.duration)}</span>
+					<span>{formatDurationPersian(activeRecording.duration)}</span>
 				{/if}
 			</div>
 		</div>
@@ -104,12 +118,12 @@
 						</div>
 						<div>
 							<p class="font-medium text-gray-900">{rec.filename}</p>
-							<p class="text-sm text-gray-500">{formatDate(rec.created_at)} • {formatSize(rec.filesize)}</p>
+							<p class="text-sm text-gray-500">{formatDatePersian(rec.created_at)} • {formatFileSize(rec.filesize)}</p>
 						</div>
 					</div>
 					<div class="flex items-center gap-3">
 						{#if rec.duration > 0}
-							<span class="text-xs text-gray-400">{formatDuration(rec.duration)}</span>
+							<span class="text-xs text-gray-400">{formatDurationPersian(rec.duration)}</span>
 						{/if}
 						<span class="text-xs px-2 py-1 rounded-full {rec.status === 'ready' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}">
 							{rec.status === 'ready' ? 'آماده' : 'پردازش'}

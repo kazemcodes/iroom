@@ -2,20 +2,56 @@
 	import { api } from '$lib/api';
 	import { onMount } from 'svelte';
 	import type { FileItem, Session } from '$lib/types';
+	import { toPersianNum, toPersianDateTime } from '$lib/utils/persian';
+	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 
 	let sessions = $state<Session[]>([]);
 	let selectedSessionId = $state<number | null>(null);
 	let files = $state<FileItem[]>([]);
 	let loading = $state(false);
 	let uploading = $state(false);
-	let uploadProgress = $state(0);
 	let fileInput = $state<HTMLInputElement | null>(null);
+	let dropZone = $state<HTMLDivElement | null>(null);
+	let isDragging = $state(false);
 
 	let currentPage = $state(1);
 	let totalFiles = $state(0);
+	let activeFilter = $state<string>('all');
 	const perPage = 20;
 
+	let deleteTarget = $state<FileItem | null>(null);
+	let showDeleteModal = $state(false);
+
+	// Per-file upload progress tracking
+	interface UploadState {
+		filename: string;
+		progress: number;
+		status: 'uploading' | 'success' | 'error';
+		errorMsg?: string;
+	}
+	let uploads = $state<UploadState[]>([]);
+
 	const totalPages = $derived(Math.ceil(totalFiles / perPage));
+
+	const filters = [
+		{ key: 'all', label: 'همه' },
+		{ key: 'images', label: 'تصاویر' },
+		{ key: 'documents', label: 'اسناد' },
+		{ key: 'videos', label: 'ویدیو' },
+		{ key: 'other', label: 'سایر' }
+	];
+
+	function getFileCategory(filename: string): string {
+		const ext = filename.split('.').pop()?.toLowerCase() || '';
+		if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico'].includes(ext)) return 'images';
+		if (['mp4', 'webm', 'mov', 'avi', 'mkv', 'flv'].includes(ext)) return 'videos';
+		if (['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'csv', 'rtf'].includes(ext)) return 'documents';
+		return 'other';
+	}
+
+	const filteredFiles = $derived(
+		activeFilter === 'all' ? files : files.filter((f) => getFileCategory(f.filename) === activeFilter)
+	);
 
 	onMount(async () => {
 		const res = await api.get<Session[]>('/sessions');
@@ -44,16 +80,50 @@
 		loading = false;
 	}
 
-	function uploadWithProgress(file: File, sessionId: number): Promise<any> {
-		return new Promise((resolve, reject) => {
+	function uploadSingleFile(file: File, sessionId: number, index: number): Promise<void> {
+		return new Promise((resolve) => {
 			const xhr = new XMLHttpRequest();
 			const formData = new FormData();
 			formData.append('file', file);
+
+			// Initialize upload state
+			uploads[index] = { filename: file.name, progress: 0, status: 'uploading' };
+			uploads = [...uploads];
+
 			xhr.upload.onprogress = (e) => {
-				if (e.lengthComputable) uploadProgress = Math.round((e.loaded / e.total) * 100);
+				if (e.lengthComputable) {
+					const pct = Math.round((e.loaded / e.total) * 100);
+					uploads[index] = { ...uploads[index], progress: pct };
+					uploads = [...uploads];
+				}
 			};
-			xhr.onload = () => resolve(JSON.parse(xhr.responseText));
-			xhr.onerror = () => reject(new Error('Upload failed'));
+
+			xhr.onload = () => {
+				if (xhr.status >= 200 && xhr.status < 300) {
+					try {
+						const data = JSON.parse(xhr.responseText);
+						if (data.success && data.data) {
+							files = [data.data, ...files];
+							uploads[index] = { ...uploads[index], progress: 100, status: 'success' };
+						} else {
+							uploads[index] = { ...uploads[index], progress: 100, status: 'error', errorMsg: data.error || 'خطا در آپلود' };
+						}
+					} catch {
+						uploads[index] = { ...uploads[index], progress: 100, status: 'error', errorMsg: 'خطا در پاسخ سرور' };
+					}
+				} else {
+					uploads[index] = { ...uploads[index], progress: 100, status: 'error', errorMsg: `خطای ${xhr.status}` };
+				}
+				uploads = [...uploads];
+				resolve();
+			};
+
+			xhr.onerror = () => {
+				uploads[index] = { ...uploads[index], progress: 100, status: 'error', errorMsg: 'خطا در اتصال' };
+				uploads = [...uploads];
+				resolve();
+			};
+
 			xhr.open('POST', `/api/v1/sessions/${sessionId}/files`);
 			const token = localStorage.getItem('access_token');
 			if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
@@ -61,39 +131,60 @@
 		});
 	}
 
-	async function handleUpload(e: Event) {
-		const input = e.target as HTMLInputElement;
-		if (!input.files?.length || !selectedSessionId) return;
+	async function handleFiles(fileList: FileList | null) {
+		if (!fileList?.length || !selectedSessionId) return;
 
 		uploading = true;
-		uploadProgress = 0;
+		uploads = [];
 
-		for (let i = 0; i < input.files.length; i++) {
-			const file = input.files[i];
-			try {
-				const data = await uploadWithProgress(file, selectedSessionId);
-				if (data.success && data.data) {
-					files = [data.data, ...files];
-				}
-			} catch (err) {
-				console.error('Upload failed:', err);
-			}
+		for (let i = 0; i < fileList.length; i++) {
+			const file = fileList[i];
+			uploads = [...uploads, { filename: file.name, progress: 0, status: 'uploading' as const }];
+		}
+
+		for (let i = 0; i < fileList.length; i++) {
+			await uploadSingleFile(fileList[i], selectedSessionId, i);
 		}
 
 		uploading = false;
-		uploadProgress = 0;
+		// Clear upload states after a delay
+		setTimeout(() => {
+			uploads = [];
+		}, 3000);
+	}
+
+	async function handleUpload(e: Event) {
+		const input = e.target as HTMLInputElement;
+		await handleFiles(input.files);
 		input.value = '';
 	}
 
-	function formatSize(bytes: number) {
-		if (bytes < 1024) return bytes + ' B';
-		if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
-		return (bytes / 1048576).toFixed(1) + ' MB';
+	// Drag and drop handlers
+	function handleDragOver(e: DragEvent) {
+		e.preventDefault();
+		e.stopPropagation();
+		isDragging = true;
 	}
 
-	function formatDate(d: string) {
-		if (!d) return '';
-		return new Date(d).toLocaleDateString('fa-IR', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+	function handleDragLeave(e: DragEvent) {
+		e.preventDefault();
+		e.stopPropagation();
+		isDragging = false;
+	}
+
+	function handleDrop(e: DragEvent) {
+		e.preventDefault();
+		e.stopPropagation();
+		isDragging = false;
+		if (e.dataTransfer?.files) {
+			handleFiles(e.dataTransfer.files);
+		}
+	}
+
+	function formatSize(bytes: number) {
+		if (bytes < 1024) return toPersianNum(bytes) + ' بایت';
+		if (bytes < 1048576) return toPersianNum((bytes / 1024).toFixed(1)) + ' کیلوبایت';
+		return toPersianNum((bytes / 1048576).toFixed(1)) + ' مگابایت';
 	}
 
 	function getFileIcon(filename: string) {
@@ -107,37 +198,121 @@
 		if (['zip', 'rar', '7z'].includes(ext || '')) return '📦';
 		return '📎';
 	}
+
+	function confirmDelete(file: FileItem) {
+		deleteTarget = file;
+		showDeleteModal = true;
+	}
+
+	async function deleteFile() {
+		if (!deleteTarget) return;
+		const res = await api.delete(`/files/${deleteTarget.id}`);
+		if (res.success) {
+			files = files.filter((f) => f.id !== deleteTarget!.id);
+			totalFiles = Math.max(0, totalFiles - 1);
+		}
+		showDeleteModal = false;
+		deleteTarget = null;
+	}
+
+	function cancelDelete() {
+		showDeleteModal = false;
+		deleteTarget = null;
+	}
+
+	function goToPage(page: number) {
+		if (page < 1 || page > totalPages || page === currentPage) return;
+		currentPage = page;
+		loadFiles();
+	}
+
+	// Generate page numbers to display
+	const pageNumbers = $derived(() => {
+		const pages: number[] = [];
+		const maxVisible = 5;
+		let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+		const end = Math.min(totalPages, start + maxVisible - 1);
+		if (end - start + 1 < maxVisible) {
+			start = Math.max(1, end - maxVisible + 1);
+		}
+		for (let i = start; i <= end; i++) {
+			pages.push(i);
+		}
+		return pages;
+	});
 </script>
 
 <div class="space-y-6">
 	<div class="flex items-center justify-between">
 		<div>
 			<h1 class="text-2xl font-bold text-gray-900">فایل‌ها</h1>
-			<p class="text-gray-500 mt-1">{files.length} فایل</p>
+			<p class="text-gray-500 mt-1">{toPersianNum(totalFiles)} فایل</p>
 		</div>
 		<div class="flex items-center gap-3">
 			<input type="file" multiple bind:this={fileInput} onchange={handleUpload} class="hidden" />
-			<button onclick={() => fileInput?.click()} disabled={uploading || !selectedSessionId} class="px-4 py-2.5 bg-blue-600 text-white text-sm rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors font-medium flex items-center gap-2">
-				{#if uploading}
-					<div class="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
-					در حال آپلود...
-				{:else}
-					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
-					آپلود فایل
-				{/if}
-			</button>
 		</div>
 	</div>
 
-	{#if uploading}
-		<div class="bg-white border border-gray-200 rounded-xl p-4">
-			<div class="flex items-center justify-between mb-2">
-				<span class="text-sm text-gray-600">در حال آپلود...</span>
-				<span class="text-sm font-medium text-blue-600">{uploadProgress}%</span>
+	<!-- Drag and Drop Upload Zone -->
+	<div
+		bind:this={dropZone}
+		ondragover={handleDragOver}
+		ondragleave={handleDragLeave}
+		ondrop={handleDrop}
+		onclick={() => fileInput?.click()}
+		class="relative border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all duration-200 {isDragging
+			? 'border-blue-500 bg-blue-50 scale-[1.01]'
+			: 'border-gray-300 bg-white hover:border-blue-400 hover:bg-blue-50/50'}"
+	>
+		{#if isDragging}
+			<div class="pointer-events-none">
+				<svg class="w-12 h-12 text-blue-500 mx-auto mb-3 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
+				<p class="text-blue-600 font-medium text-lg">فایل‌ها را اینجا رها کنید</p>
 			</div>
-			<div class="w-full bg-gray-200 rounded-full h-2">
-				<div class="h-2 bg-blue-600 rounded transition-all" style="width: {uploadProgress}%"></div>
+		{:else}
+			<div class="pointer-events-none">
+				<svg class="w-12 h-12 text-gray-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+				<p class="text-gray-600 font-medium">فایل‌ها را بکشید و اینجا رها کنید</p>
+				<p class="text-gray-400 text-sm mt-1">یا کلیک کنید تا فایل انتخاب شود</p>
 			</div>
+		{/if}
+	</div>
+
+	<!-- Upload Progress -->
+	{#if uploads.length > 0}
+		<div class="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
+			{#each uploads as upload, i}
+				<div class="flex items-center gap-3">
+					<div class="flex-1 min-w-0">
+						<div class="flex items-center justify-between mb-1">
+							<span class="text-sm text-gray-700 truncate">{upload.filename}</span>
+							<span class="text-sm font-medium {upload.status === 'success'
+								? 'text-green-600'
+								: upload.status === 'error'
+									? 'text-red-600'
+									: 'text-blue-600'}">
+								{#if upload.status === 'success'}
+									✓ آپلود شد
+								{:else if upload.status === 'error'}
+									✗ {upload.errorMsg || 'خطا'}
+								{:else}
+									{toPersianNum(upload.progress)}%
+								{/if}
+							</span>
+						</div>
+						<div class="w-full bg-gray-200 rounded-full h-2">
+							<div
+								class="h-2 rounded-full transition-all duration-300 {upload.status === 'success'
+									? 'bg-green-500'
+									: upload.status === 'error'
+										? 'bg-red-500'
+										: 'bg-blue-600'}"
+								style="width: {upload.progress}%"
+							></div>
+						</div>
+					</div>
+				</div>
+			{/each}
 		</div>
 	{/if}
 
@@ -145,9 +320,9 @@
 	<div class="bg-white border border-gray-200 rounded-xl p-5">
 		<div class="flex items-center gap-3">
 			<label class="text-sm font-medium text-gray-700">جلسه:</label>
-		<select
-			bind:value={selectedSessionId}
-			onchange={() => { currentPage = 1; loadFiles(); }}
+			<select
+				bind:value={selectedSessionId}
+				onchange={() => { currentPage = 1; activeFilter = 'all'; loadFiles(); }}
 				class="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white"
 			>
 				{#if sessions.length === 0}
@@ -161,11 +336,32 @@
 		</div>
 	</div>
 
+	<!-- File Type Filters -->
+	<div class="flex items-center gap-2 flex-wrap">
+		{#each filters as filter}
+			<button
+				onclick={() => { activeFilter = filter.key; }}
+				class="px-4 py-2 text-sm rounded-xl font-medium transition-colors {activeFilter === filter.key
+					? 'bg-blue-600 text-white shadow-sm'
+					: 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'}"
+			>
+				{filter.label}
+				{#if filter.key !== 'all'}
+					<span class="mr-1 text-xs opacity-75">
+						({toPersianNum(files.filter((f) => getFileCategory(f.filename) === filter.key).length)})
+					</span>
+				{:else}
+					<span class="mr-1 text-xs opacity-75">({toPersianNum(files.length)})</span>
+				{/if}
+			</button>
+		{/each}
+	</div>
+
 	{#if loading}
 		<div class="flex items-center justify-center py-20">
 			<div class="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full"></div>
 		</div>
-	{:else if files.length === 0}
+	{:else if filteredFiles.length === 0}
 		<div class="text-center py-20 bg-white rounded-xl border">
 			<svg class="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m6.75 12H9.75m0-3h6m-6 6h6M3.375 6.75h17.25a.375.375 0 01.375.375v11.25a.375.375 0 01-.375.375H3.375a.375.375 0 01-.375-.375V7.125a.375.375 0 01.375-.375z" /></svg>
 			<p class="text-gray-500">فایلی وجود ندارد</p>
@@ -178,10 +374,11 @@
 						<th class="text-right px-5 py-3 text-xs font-semibold text-gray-500">فایل</th>
 						<th class="text-right px-5 py-3 text-xs font-semibold text-gray-500">اندازه</th>
 						<th class="text-right px-5 py-3 text-xs font-semibold text-gray-500">تاریخ</th>
+						<th class="text-right px-5 py-3 text-xs font-semibold text-gray-500">عملیات</th>
 					</tr>
 				</thead>
 				<tbody>
-					{#each files as file}
+					{#each filteredFiles as file}
 						<tr class="border-b border-gray-50 hover:bg-gray-50 transition-colors">
 							<td class="px-5 py-3.5">
 								<div class="flex items-center gap-3">
@@ -190,7 +387,16 @@
 								</div>
 							</td>
 							<td class="px-5 py-3.5 text-sm text-gray-500">{formatSize(file.filesize)}</td>
-							<td class="px-5 py-3.5 text-sm text-gray-500">{formatDate(file.created_at)}</td>
+							<td class="px-5 py-3.5 text-sm text-gray-500">{toPersianDateTime(file.created_at)}</td>
+							<td class="px-5 py-3.5">
+								<button
+									onclick={() => confirmDelete(file)}
+									class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+									title="حذف فایل"
+								>
+									<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+								</button>
+							</td>
 						</tr>
 					{/each}
 				</tbody>
@@ -198,14 +404,77 @@
 		</div>
 	{/if}
 
+	<!-- Pagination -->
 	{#if totalPages > 1}
 		<div class="flex items-center justify-between text-sm text-gray-500">
-			<span>{totalFiles} فایل</span>
-			<div class="flex gap-1">
-				<button disabled={currentPage <= 1} onclick={() => { currentPage--; loadFiles(); }} class="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50">قبلی</button>
-				<span class="px-3 py-1">صفحه {currentPage} از {totalPages}</span>
-				<button disabled={currentPage >= totalPages} onclick={() => { currentPage++; loadFiles(); }} class="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50">بعدی</button>
+			<span>{toPersianNum(totalFiles)} فایل</span>
+			<div class="flex items-center gap-1">
+				<!-- Previous button -->
+				<button
+					disabled={currentPage <= 1}
+					onclick={() => goToPage(currentPage - 1)}
+					class="px-3 py-1.5 border rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+				>
+					قبلی
+				</button>
+
+				<!-- First page + ellipsis -->
+				{#if pageNumbers()[0] > 1}
+					<button
+						onclick={() => goToPage(1)}
+						class="px-3 py-1.5 border rounded-lg hover:bg-gray-50 transition-colors"
+					>
+						{toPersianNum(1)}
+					</button>
+					{#if pageNumbers()[0] > 2}
+						<span class="px-2 text-gray-400">...</span>
+					{/if}
+				{/if}
+
+				<!-- Page numbers -->
+				{#each pageNumbers() as p}
+					<button
+						onclick={() => goToPage(p)}
+						class="px-3 py-1.5 border rounded-lg transition-colors {p === currentPage
+							? 'bg-blue-600 text-white border-blue-600'
+							: 'hover:bg-gray-50'}"
+					>
+						{toPersianNum(p)}
+					</button>
+				{/each}
+
+				<!-- Last page + ellipsis -->
+				{#if pageNumbers()[pageNumbers().length - 1] < totalPages}
+					{#if pageNumbers()[pageNumbers().length - 1] < totalPages - 1}
+						<span class="px-2 text-gray-400">...</span>
+					{/if}
+					<button
+						onclick={() => goToPage(totalPages)}
+						class="px-3 py-1.5 border rounded-lg hover:bg-gray-50 transition-colors"
+					>
+						{toPersianNum(totalPages)}
+					</button>
+				{/if}
+
+				<!-- Next button -->
+				<button
+					disabled={currentPage >= totalPages}
+					onclick={() => goToPage(currentPage + 1)}
+					class="px-3 py-1.5 border rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+				>
+					بعدی
+				</button>
 			</div>
+			<span>صفحه {toPersianNum(currentPage)} از {toPersianNum(totalPages)}</span>
 		</div>
 	{/if}
 </div>
+
+<!-- Delete Confirmation Modal -->
+<ConfirmModal
+	show={showDeleteModal}
+	title="حذف فایل"
+	message="آیا از حذف فایل {deleteTarget?.filename} اطمیدارید؟ این عمل قابل بازگشت نیست."
+	onConfirm={deleteFile}
+	onCancel={cancelDelete}
+/>

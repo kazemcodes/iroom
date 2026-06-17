@@ -22,3 +22,11 @@ upload:
 external:
   api_key: "change-me-external-api-key"
 
+smtp:
+  host: "smtp.gmail.com"
+  port: 587
+  username: ""
+  password: ""
+  from: "noreply@iroom.ir"
+  enabled: false
+

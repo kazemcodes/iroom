@@ -14,23 +14,25 @@ import (
 	"github.com/iroom/iroom/internal/pkg/hash"
 	"github.com/iroom/iroom/internal/pkg/jwt"
 	"github.com/iroom/iroom/internal/repository"
+	"github.com/iroom/iroom/internal/services"
 	"github.com/labstack/echo/v4"
 )
 
 type testEnv struct {
-	e         *echo.Echo
-	api       *echo.Group
-	cfg       *config.Config
-	token     string
-	userRepo  *repository.UserRepo
-	classRepo *repository.ClassRepo
-	sessionRepo *repository.SessionRepo
-	messageRepo *repository.MessageRepo
+	e             *echo.Echo
+	api           *echo.Group
+	cfg           *config.Config
+	token         string
+	userRepo      *repository.UserRepo
+	classRepo     *repository.ClassRepo
+	sessionRepo   *repository.SessionRepo
+	messageRepo   *repository.MessageRepo
 	recordingRepo *repository.RecordingRepo
-	logRepo   *repository.ActivityLogRepo
-	settingsRepo *repository.SettingsRepo
-	ticketRepo *repository.TicketRepo
+	logRepo       *repository.ActivityLogRepo
+	settingsRepo  *repository.SettingsRepo
+	ticketRepo    *repository.TicketRepo
 	sessionLogRepo *repository.SessionLogRepo
+	healthHandler *handlers.HealthHandler
 }
 
 func setup(t *testing.T) *testEnv {
@@ -51,20 +53,24 @@ func setup(t *testing.T) *testEnv {
 
 	token, _ := jwt.Generate(cfg.JWT.Secret, jwt.Claims{UserID: 1, Email: "admin@iroom.local", Role: "admin"}, cfg.JWT.AccessExpiry)
 
+	livekitSvc := services.NewLiveKitService("test-key", "test-secret", "")
+	healthHandler := handlers.NewHealthHandler(db, ":memory:", livekitSvc)
+
 	return &testEnv{
-		e:            e,
-		api:          api,
-		cfg:          cfg,
-		token:        token,
-		userRepo:     repository.NewUserRepo(db),
-		classRepo:    repository.NewClassRepo(db),
-		sessionRepo:  repository.NewSessionRepo(db),
-		messageRepo:  repository.NewMessageRepo(db),
+		e:             e,
+		api:           api,
+		cfg:           cfg,
+		token:         token,
+		userRepo:      repository.NewUserRepo(db),
+		classRepo:     repository.NewClassRepo(db),
+		sessionRepo:   repository.NewSessionRepo(db),
+		messageRepo:   repository.NewMessageRepo(db),
 		recordingRepo: repository.NewRecordingRepo(db),
-		logRepo:      repository.NewActivityLogRepo(db),
-		settingsRepo: repository.NewSettingsRepo(db),
-		ticketRepo:   repository.NewTicketRepo(db),
+		logRepo:       repository.NewActivityLogRepo(db),
+		settingsRepo:  repository.NewSettingsRepo(db),
+		ticketRepo:    repository.NewTicketRepo(db),
 		sessionLogRepo: repository.NewSessionLogRepo(db),
+		healthHandler: healthHandler,
 	}
 }
 
@@ -419,7 +425,7 @@ func (n *nopCloser) Close() error { return nil }
 
 func TestHealth(t *testing.T) {
 	env := setup(t)
-	env.e.GET("/api/v1/health", handlers.Health)
+	env.e.GET("/api/v1/health", env.healthHandler.Health)
 	w := req(env.e, "GET", "/api/v1/health", nil, "")
 	if w.Code != 200 {
 		t.Errorf("health: expected 200, got %d", w.Code)

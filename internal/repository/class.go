@@ -175,3 +175,35 @@ func (r *ClassRepo) Delete(id int64) error {
 	_, err := r.db.Exec(`DELETE FROM classes WHERE id = ?`, id)
 	return err
 }
+
+// Invite code methods
+
+func (r *ClassRepo) UpdateInviteCode(classID int64, code string) error {
+	_, err := r.db.Exec(
+		`UPDATE classes SET invite_code = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+		code, classID,
+	)
+	return err
+}
+
+func (r *ClassRepo) GetByInviteCode(code string) (*models.Class, error) {
+	c := &models.Class{}
+	err := r.db.QueryRow(
+		`SELECT id, teacher_id, name, description, color, max_students, invite_code, is_archived, created_at, updated_at FROM classes WHERE invite_code = ?`, code,
+	).Scan(&c.ID, &c.TeacherID, &c.Name, &c.Description, &c.Color, &c.MaxStudents, &c.InviteCode, &c.IsArchived, &c.CreatedAt, &c.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
+func (r *ClassRepo) GetByIDWithInvite(id int64) (*models.Class, error) {
+	c := &models.Class{}
+	err := r.db.QueryRow(
+		`SELECT id, teacher_id, name, description, color, max_students, invite_code, is_archived, created_at, updated_at FROM classes WHERE id = ?`, id,
+	).Scan(&c.ID, &c.TeacherID, &c.Name, &c.Description, &c.Color, &c.MaxStudents, &c.InviteCode, &c.IsArchived, &c.CreatedAt, &c.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return c, nil
+}

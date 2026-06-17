@@ -3,6 +3,7 @@
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
 	import type { SessionLog, Session } from '$lib/types';
+	import { toPersianNum, toPersianDateTime } from '$lib/utils/persian';
 
 	let logs = $state<SessionLog[]>([]);
 	let session = $state<Session | null>(null);
@@ -30,38 +31,76 @@
 		loading = false;
 	}
 
-	function toPersianNumber(n: number): string {
-		const persianDigits = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
-		return String(n).replace(/\d/g, d => persianDigits[Number(d)]);
-	}
-
-	function formatTime(d: string | null) {
-		if (!d) return '—';
-		return new Date(d).toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-	}
-
 	function formatDuration(seconds: number) {
 		const h = Math.floor(seconds / 3600);
 		const m = Math.floor((seconds % 3600) / 60);
 		const s = seconds % 60;
-		if (h > 0) return `${toPersianNumber(h)} ساعت و ${toPersianNumber(m)} دقیقه`;
-		if (m > 0) return `${toPersianNumber(m)} دقیقه و ${toPersianNumber(s)} ثانیه`;
-		return `${toPersianNumber(s)} ثانیه`;
+		if (h > 0) return `${toPersianNum(h)} ساعت و ${toPersianNum(m)} دقیقه`;
+		if (m > 0) return `${toPersianNum(m)} دقیقه و ${toPersianNum(s)} ثانیه`;
+		return `${toPersianNum(s)} ثانیه`;
+	}
+
+	function formatDurationMinutes(seconds: number): string {
+		const m = Math.round(seconds / 60);
+		return toPersianNum(m);
+	}
+
+	function formatTime(d: string | null) {
+		if (!d) return '—';
+		return toPersianDateTime(new Date(d)).split(' - ')[1];
 	}
 
 	function formatDate(d: string) {
 		if (!d) return '';
-		return new Date(d).toLocaleDateString('fa-IR', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+		return toPersianDateTime(new Date(d));
 	}
 
+	// Compute session start/end from all logs
+	const sessionBounds = $derived(() => {
+		if (logs.length === 0) return { start: 0, end: 0 };
+		const allTimes = logs.flatMap(l => [l.joined_at, l.left_at].filter(Boolean).map(d => new Date(d!).getTime()));
+		if (allTimes.length === 0) return { start: 0, end: 0 };
+		return { start: Math.min(...allTimes), end: Math.max(...allTimes) };
+	});
+
+	const sessionDurationMs = $derived(() => {
+		const b = sessionBounds();
+		return b.end - b.start;
+	});
+
+	// Peak concurrent participants
+	const peakConcurrent = $derived(() => {
+		if (logs.length === 0) return 0;
+		const events: { time: number; delta: number }[] = [];
+		for (const l of logs) {
+			if (l.joined_at) events.push({ time: new Date(l.joined_at).getTime(), delta: 1 });
+			if (l.left_at) events.push({ time: new Date(l.left_at).getTime(), delta: -1 });
+		}
+		events.sort((a, b) => a.time - b.time);
+		let current = 0;
+		let peak = 0;
+		for (const e of events) {
+			current += e.delta;
+			if (current > peak) peak = current;
+		}
+		return peak;
+	});
+
+	// Average attendance time
+	const avgAttendance = $derived(() => {
+		if (logs.length === 0) return 0;
+		const uniqueParticipants = new Set(logs.map(l => l.user_id)).size;
+		if (uniqueParticipants === 0) return 0;
+		return Math.round(logs.reduce((sum, l) => sum + l.duration, 0) / uniqueParticipants);
+	});
+
 	function exportCSV() {
-		const headers = ['شرکت‌کننده', 'زمان ورود', 'زمان خروج', 'مدت (ثانیه)', 'آی‌پی'];
+		const headers = ['نام', 'زمان ورود', 'زمان خروج', 'مدت زمان (دقیقه)'];
 		const rows = logs.map(l => [
 			l.user_display_name,
-			l.joined_at || '',
-			l.left_at || '',
-			String(l.duration),
-			l.ip_address
+			l.joined_at ? formatDate(l.joined_at) : '',
+			l.left_at ? formatDate(l.left_at) : '',
+			formatDurationMinutes(l.duration)
 		]);
 		const csvContent = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n');
 		const bom = '\uFEFF';
@@ -96,7 +135,30 @@
 				});
 			}
 		}
-		return Array.from(map.values());
+		return Array.from(map.values()).sort((a, b) => {
+			if (!a.firstJoin && !b.firstJoin) return 0;
+			if (!a.firstJoin) return 1;
+			if (!b.firstJoin) return -1;
+			return new Date(a.firstJoin).getTime() - new Date(b.firstJoin).getTime();
+		});
+	});
+
+	// Timeline bar data
+	const timelineBars = $derived(() => {
+		const bounds = sessionBounds();
+		const totalMs = bounds.end - bounds.start;
+		if (totalMs <= 0) return [];
+		return participantStats().map(p => {
+			const joinMs = p.firstJoin ? new Date(p.firstJoin).getTime() : bounds.start;
+			const leaveMs = p.lastLeft ? new Date(p.lastLeft).getTime() : bounds.end;
+			const leftPercent = ((joinMs - bounds.start) / totalMs) * 100;
+			const widthPercent = ((leaveMs - joinMs) / totalMs) * 100;
+			return {
+				...p,
+				leftPercent: Math.max(0, leftPercent),
+				widthPercent: Math.max(0, Math.min(100 - leftPercent, widthPercent))
+			};
+		});
 	});
 </script>
 
@@ -121,18 +183,6 @@
 		{/if}
 	</div>
 
-	<!-- Stats -->
-	<div class="grid grid-cols-2 gap-4">
-		<div class="bg-white border border-gray-200 rounded-xl p-4">
-			<p class="text-xs text-gray-400 mb-1">تعداد شرکت‌کنندگان</p>
-			<p class="text-2xl font-bold text-gray-900">{toPersianNumber(participantCount)}</p>
-		</div>
-		<div class="bg-white border border-gray-200 rounded-xl p-4">
-			<p class="text-xs text-gray-400 mb-1">مدت زمان کل</p>
-			<p class="text-2xl font-bold text-gray-900">{formatDuration(totalDuration)}</p>
-		</div>
-	</div>
-
 	{#if loading}
 		<div class="flex items-center justify-center py-20">
 			<div class="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full"></div>
@@ -142,6 +192,68 @@
 			<p class="text-gray-500">لاگی ثبت نشده است</p>
 		</div>
 	{:else}
+		<!-- Session Summary -->
+		<div class="bg-white border border-gray-200 rounded-xl p-5">
+			<h2 class="text-sm font-semibold text-gray-700 mb-4">خلاصه جلسه</h2>
+			<div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+				<div class="text-center p-3 bg-blue-50 rounded-lg">
+					<p class="text-xs text-blue-600 mb-1">تعداد شرکت‌کنندگان</p>
+					<p class="text-2xl font-bold text-blue-700">{toPersianNum(participantCount)}</p>
+				</div>
+				<div class="text-center p-3 bg-green-50 rounded-lg">
+					<p class="text-xs text-green-600 mb-1">مدت زمان جلسه</p>
+					<p class="text-2xl font-bold text-green-700">{formatDuration(Math.round(sessionDurationMs() / 1000))}</p>
+				</div>
+				<div class="text-center p-3 bg-purple-50 rounded-lg">
+					<p class="text-xs text-purple-600 mb-1">میانگین زمان حضور</p>
+					<p class="text-2xl font-bold text-purple-700">{formatDuration(avgAttendance())}</p>
+				</div>
+				<div class="text-center p-3 bg-orange-50 rounded-lg">
+					<p class="text-xs text-orange-600 mb-1">بیشترین حضور همزمان</p>
+					<p class="text-2xl font-bold text-orange-700">{toPersianNum(peakConcurrent())}</p>
+				</div>
+			</div>
+		</div>
+
+		<!-- Visual Timeline -->
+		<div class="bg-white border border-gray-200 rounded-xl p-5">
+			<h2 class="text-sm font-semibold text-gray-700 mb-4">زمان‌بندی بصری شرکت‌کنندگان</h2>
+			{#if timelineBars().length > 0 && sessionDurationMs() > 0}
+				<div class="space-y-3">
+					{#each timelineBars() as bar}
+						<div class="flex items-center gap-3">
+							<div class="w-24 flex-shrink-0 text-xs font-medium text-gray-700 truncate text-left" title={bar.name}>
+								{bar.name}
+							</div>
+							<div class="flex-1 relative h-8 bg-gray-100 rounded-full overflow-hidden">
+								<div
+									class="absolute top-0 h-full bg-gradient-to-r from-green-400 to-green-500 rounded-full flex items-center justify-center"
+									style="left: {bar.leftPercent}%; width: {bar.widthPercent}%"
+								>
+									{#if bar.widthPercent > 15}
+										<span class="text-[10px] text-white font-medium px-1">
+											{formatDuration(bar.totalDuration)}
+										</span>
+									{/if}
+								</div>
+							</div>
+							<div class="w-40 flex-shrink-0 text-[10px] text-gray-500 text-left">
+								<span class="text-green-600">↑ {formatTime(bar.firstJoin)}</span>
+								<span class="mx-1">|</span>
+								<span class="text-red-500">↓ {bar.lastLeft ? formatTime(bar.lastLeft) : 'حاضر'}</span>
+							</div>
+						</div>
+					{/each}
+				</div>
+				<div class="mt-4 flex items-center justify-between text-[10px] text-gray-400 px-24">
+					<span>شروع: {formatTime(logs[0]?.joined_at ?? null)}</span>
+					<span>پایان: {formatTime(participantStats()[participantStats().length - 1]?.lastLeft ?? null)}</span>
+				</div>
+			{:else}
+				<p class="text-sm text-gray-400 text-center py-4">داده‌ای برای نمایش وجود ندارد</p>
+			{/if}
+		</div>
+
 		<!-- Participant Summary Cards -->
 		<div>
 			<h2 class="text-sm font-semibold text-gray-700 mb-3">خلاصه شرکت‌کنندگان</h2>
@@ -154,7 +266,7 @@
 							</div>
 							<div class="flex-1 min-w-0">
 								<p class="text-sm font-semibold text-gray-900 truncate">{stat.name}</p>
-								<p class="text-xs text-gray-400">{toPersianNumber(stat.joinCount)} بار ورود</p>
+								<p class="text-xs text-gray-400">{toPersianNum(stat.joinCount)} بار ورود</p>
 							</div>
 						</div>
 						<div class="space-y-1.5 text-xs text-gray-500">
@@ -176,7 +288,7 @@
 			</div>
 		</div>
 
-		<!-- Timeline -->
+		<!-- Event Timeline -->
 		<div>
 			<h2 class="text-sm font-semibold text-gray-700 mb-3">زمان‌بندی ورود و خروج</h2>
 			<div class="bg-white border border-gray-200 rounded-xl p-5">
@@ -237,7 +349,7 @@
 				<tbody>
 					{#each logs as log, i}
 						<tr class="border-b border-gray-50 hover:bg-gray-50 transition-colors">
-							<td class="px-5 py-3.5 text-sm text-gray-400">{toPersianNumber(i + 1)}</td>
+							<td class="px-5 py-3.5 text-sm text-gray-400">{toPersianNum(i + 1)}</td>
 							<td class="px-5 py-3.5 text-sm font-medium text-gray-800">{log.user_display_name}</td>
 							<td class="px-5 py-3.5 text-sm text-gray-500">{formatTime(log.joined_at)}</td>
 							<td class="px-5 py-3.5 text-sm text-gray-500">

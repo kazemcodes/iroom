@@ -14,6 +14,7 @@ type Config struct {
 	LiveKit  LiveKitConfig  `yaml:"livekit"`
 	Upload   UploadConfig   `yaml:"upload"`
 	External ExternalConfig `yaml:"external"`
+	SMTP     SMTPConfig     `yaml:"smtp"`
 }
 
 type ServerConfig struct {
@@ -44,6 +45,15 @@ type UploadConfig struct {
 
 type ExternalConfig struct {
 	APIKey string `yaml:"api_key"`
+}
+
+type SMTPConfig struct {
+	Host     string `yaml:"host"`
+	Port     int    `yaml:"port"`
+	Username string `yaml:"username"`
+	Password string `yaml:"password"`
+	From     string `yaml:"from"`
+	Enabled  bool   `yaml:"enabled"`
 }
 
 func Load(path string) (*Config, error) {
@@ -103,6 +113,26 @@ func applyEnvOverrides(cfg *Config) {
 	if v := os.Getenv("EXTERNAL_API_KEY"); v != "" {
 		cfg.External.APIKey = v
 	}
+	if v := os.Getenv("SMTP_HOST"); v != "" {
+		cfg.SMTP.Host = v
+	}
+	if v := os.Getenv("SMTP_PORT"); v != "" {
+		if p, err := strconv.Atoi(v); err == nil {
+			cfg.SMTP.Port = p
+		}
+	}
+	if v := os.Getenv("SMTP_USERNAME"); v != "" {
+		cfg.SMTP.Username = v
+	}
+	if v := os.Getenv("SMTP_PASSWORD"); v != "" {
+		cfg.SMTP.Password = v
+	}
+	if v := os.Getenv("SMTP_FROM"); v != "" {
+		cfg.SMTP.From = v
+	}
+	if v := os.Getenv("SMTP_ENABLED"); v != "" {
+		cfg.SMTP.Enabled = v == "true" || v == "1"
+	}
 }
 
 func Default() *Config {
@@ -130,6 +160,14 @@ func Default() *Config {
 		},
 		External: ExternalConfig{
 			APIKey: "",
+		},
+		SMTP: SMTPConfig{
+			Host:     "smtp.gmail.com",
+			Port:     587,
+			Username: "",
+			Password: "",
+			From:     "noreply@iroom.ir",
+			Enabled:  false,
 		},
 	}
 }

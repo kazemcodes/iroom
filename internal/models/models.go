@@ -9,6 +9,7 @@ type User struct {
 	DisplayName  string    `json:"display_name" db:"display_name"`
 	Role         string    `json:"role" db:"role"`
 	Phone        string    `json:"phone" db:"phone"`
+	AvatarURL    string    `json:"avatar_url,omitempty" db:"avatar_url"`
 	IsActive     bool      `json:"is_active" db:"is_active"`
 	CreatedAt    time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at" db:"updated_at"`
@@ -21,6 +22,8 @@ type Class struct {
 	Description  string    `json:"description" db:"description"`
 	Color        string    `json:"color" db:"color"`
 	MaxStudents  int       `json:"max_students" db:"max_students"`
+	InviteCode   string    `json:"invite_code,omitempty" db:"invite_code"`
+	IsArchived   bool      `json:"is_archived" db:"is_archived"`
 	CreatedAt    time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at" db:"updated_at"`
 }
@@ -124,6 +127,95 @@ type Recording struct {
 	Duration   int       `json:"duration" db:"duration"`
 	Status     string    `json:"status" db:"status"`
 	CreatedAt  time.Time `json:"created_at" db:"created_at"`
+}
+
+type Notification struct {
+	ID        int64     `json:"id" db:"id"`
+	UserID    int64     `json:"user_id" db:"user_id"`
+	Type      string    `json:"type" db:"type"`
+	Title     string    `json:"title" db:"title"`
+	Message   string    `json:"message,omitempty" db:"message"`
+	Data      string    `json:"data,omitempty" db:"data"`
+	IsRead    bool      `json:"is_read" db:"is_read"`
+	CreatedAt time.Time `json:"created_at" db:"created_at"`
+}
+
+type Announcement struct {
+	ID           int64     `json:"id" db:"id"`
+	ClassID      *int64    `json:"class_id,omitempty" db:"class_id"`
+	AuthorID     int64     `json:"author_id" db:"author_id"`
+	Title        string    `json:"title" db:"title"`
+	Content      string    `json:"content" db:"content"`
+	IsPinned     bool      `json:"is_pinned" db:"is_pinned"`
+	IsSystemWide bool      `json:"is_system_wide" db:"is_system_wide"`
+	CreatedAt    time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at" db:"updated_at"`
+}
+
+type RecurringSession struct {
+	ID         int64     `json:"id" db:"id"`
+	ClassID    int64     `json:"class_id" db:"class_id"`
+	Title      string    `json:"title" db:"title"`
+	DayOfWeek  int       `json:"day_of_week" db:"day_of_week"`
+	StartTime  string    `json:"start_time" db:"start_time"`
+	Duration   int       `json:"duration" db:"duration"`
+	WeekCount  int       `json:"week_count" db:"week_count"`
+	CreatedAt  time.Time `json:"created_at" db:"created_at"`
+}
+
+type CreateAnnouncementRequest struct {
+	Title    string `json:"title" validate:"required"`
+	Content  string `json:"content" validate:"required"`
+	IsPinned bool   `json:"is_pinned"`
+}
+
+type UpdateAnnouncementRequest struct {
+	Title   string `json:"title"`
+	Content string `json:"content"`
+}
+
+type CreateRecurringSessionRequest struct {
+	ClassID   int64  `json:"class_id" validate:"required"`
+	Title     string `json:"title" validate:"required"`
+	DayOfWeek int    `json:"day_of_week" validate:"required,min=0,max=6"`
+	StartTime string `json:"start_time" validate:"required"`
+	Duration  int    `json:"duration"`
+	WeekCount int    `json:"week_count"`
+}
+
+type Poll struct {
+	ID        int64     `json:"id" db:"id"`
+	SessionID int64     `json:"session_id" db:"session_id"`
+	Question  string    `json:"question" db:"question"`
+	Options   []string  `json:"options" db:"-"`
+	OptionsJSON string  `json:"-" db:"options"`
+	IsActive  bool      `json:"is_active" db:"is_active"`
+	CreatedAt time.Time `json:"created_at" db:"created_at"`
+}
+
+type PollVote struct {
+	ID          int64     `json:"id" db:"id"`
+	PollID      int64     `json:"poll_id" db:"poll_id"`
+	UserID      int64     `json:"user_id" db:"user_id"`
+	OptionIndex int       `json:"option_index" db:"option_index"`
+	CreatedAt   time.Time `json:"created_at" db:"created_at"`
+}
+
+type PollResults struct {
+	PollID     int64    `json:"poll_id"`
+	Question   string   `json:"question"`
+	Options    []string `json:"options"`
+	Votes      []int    `json:"votes"` // count per option
+	TotalVotes int      `json:"total_votes"`
+}
+
+type CreatePollRequest struct {
+	Question string   `json:"question" validate:"required"`
+	Options  []string `json:"options" validate:"required,min=2"`
+}
+
+type VoteRequest struct {
+	OptionIndex int `json:"option_index" validate:"required,min=0"`
 }
 
 type PaginatedResponse struct {

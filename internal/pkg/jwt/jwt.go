@@ -17,9 +17,10 @@ var (
 )
 
 type Claims struct {
-	UserID int64  `json:"user_id"`
-	Email  string `json:"email"`
-	Role   string `json:"role"`
+	UserID         int64  `json:"user_id"`
+	Email          string `json:"email"`
+	Role           string `json:"role"`
+	ImpersonatedBy *int64 `json:"impersonated_by,omitempty"`
 }
 
 type tokenHeader struct {
@@ -36,6 +37,9 @@ func Generate(secret string, claims Claims, expiryMinutes int) (string, error) {
 		"role":    claims.Role,
 		"iat":     now.Unix(),
 		"exp":     now.Add(time.Duration(expiryMinutes) * time.Minute).Unix(),
+	}
+	if claims.ImpersonatedBy != nil {
+		payload["impersonated_by"] = *claims.ImpersonatedBy
 	}
 
 	headerBytes, _ := json.Marshal(header)

@@ -45,13 +45,19 @@ func main() {
 	settingsRepo := repository.NewSettingsRepo(db)
 	ticketRepo := repository.NewTicketRepo(db)
 	sessionLogRepo := repository.NewSessionLogRepo(db)
+	notificationRepo := repository.NewNotificationRepo(db)
+	resetRepo := repository.NewPasswordResetRepo(db)
+	announcementRepo := repository.NewAnnouncementRepo(db)
+	pollRepo := repository.NewPollRepo(db)
 
 	// Services
 	livekitSvc := services.NewLiveKitService(cfg.LiveKit.APIKey, cfg.LiveKit.APISecret, cfg.LiveKit.URL)
+	wsHub := services.NewHub()
+	go wsHub.Run()
 
 	// Handlers
-	authHandler := handlers.NewAuthHandler(userRepo, logRepo, cfg.JWT.Secret, cfg.JWT.AccessExpiry, cfg.JWT.RefreshExpiry)
-	adminHandler := handlers.NewAdminHandler(userRepo, classRepo, sessionRepo, messageRepo, recordingRepo, logRepo, settingsRepo, ticketRepo, sessionLogRepo)
+	authHandler := handlers.NewAuthHandler(userRepo, logRepo, resetRepo, cfg.Upload.UploadDir, cfg.JWT.Secret, cfg.JWT.AccessExpiry, cfg.JWT.RefreshExpiry)
+	adminHandler := handlers.NewAdminHandler(userRepo, classRepo, sessionRepo, messageRepo, recordingRepo, logRepo, settingsRepo, ticketRepo, sessionLogRepo, cfg.JWT.Secret, cfg.JWT.AccessExpiry, cfg.JWT.RefreshExpiry)
 	classHandler := handlers.NewClassHandler(classRepo, sessionRepo)
 	sessionHandler := handlers.NewSessionHandler(sessionRepo, classRepo)
 	messageHandler := handlers.NewMessageHandler(messageRepo)
@@ -63,6 +69,9 @@ func main() {
 	ticketHandler := handlers.NewTicketHandler(ticketRepo, sessionLogRepo)
 	adminTicketHandler := handlers.NewAdminTicketHandler(ticketRepo)
 	sessionLogHandler := handlers.NewSessionLogHandler(sessionLogRepo)
+	notificationHandler := handlers.NewNotificationHandler(notificationRepo)
+	announcementHandler := handlers.NewAnnouncementHandler(announcementRepo, classRepo, logRepo)
+	pollHandler := handlers.NewPollHandler(pollRepo, sessionRepo, logRepo)
 
 	// Echo
 	e := echo.New()
@@ -96,6 +105,7 @@ func main() {
 	api.GET("/auth/me", authHandler.Me)
 	api.PUT("/auth/me", authHandler.UpdateProfile)
 	api.POST("/auth/change-password", authHandler.ChangePassword)
+	api.POST("/auth/avatar", authHandler.AvatarUpload)
 
 	// Classes
 	api.GET("/classes", classHandler.List)
@@ -105,6 +115,22 @@ func main() {
 	api.DELETE("/classes/:id", classHandler.Delete)
 	api.POST("/classes/:id/enroll", classHandler.Enroll)
 	api.GET("/classes/:id/students", classHandler.GetStudents)
+	api.POST("/classes/:id/regenerate-code", classHandler.RegenerateCode)
+	api.POST("/classes/join/:code", classHandler.JoinByCode)
+
+	// Announcements
+	api.POST("/classes/:id/announcements", announcementHandler.Create)
+	api.GET("/classes/:id/announcements", announcementHandler.List)
+	api.PUT("/announcements/:id", announcementHandler.Update)
+	api.DELETE("/announcements/:id", announcementHandler.Delete)
+	api.POST("/announcements/:id/pin", announcementHandler.Pin)
+
+	// Polls
+	api.POST("/sessions/:id/polls", pollHandler.Create)
+	api.GET("/sessions/:id/polls", pollHandler.List)
+	api.POST("/polls/:id/vote", pollHandler.Vote)
+	api.GET("/polls/:id/results", pollHandler.Results)
+	api.POST("/polls/:id/close", pollHandler.Close)
 
 	// Sessions
 	api.GET("/sessions", sessionHandler.List)
@@ -113,6 +139,11 @@ func main() {
 	api.POST("/sessions/:id/start", sessionHandler.Start)
 	api.POST("/sessions/:id/end", sessionHandler.End)
 	api.DELETE("/sessions/:id", sessionHandler.Delete)
+
+	// Recurring Sessions
+	api.POST("/sessions/recurring", sessionHandler.CreateRecurring)
+	api.GET("/sessions/recurring", sessionHandler.ListRecurring)
+	api.DELETE("/sessions/recurring/:id", sessionHandler.DeleteRecurring)
 
 	// LiveKit
 	api.GET("/sessions/:id/livekit-token", livekitHandler.GetJoinToken)
@@ -124,10 +155,14 @@ func main() {
 	// Chat WebSocket
 	e.GET("/ws/sessions/:id", chatHandler.HandleWS)
 
+	// Notifications/Presence WebSocket
+	e.GET("/ws", wsHub.HandleWS(cfg.JWT.Secret))
+
 	// File upload
 	api.POST("/sessions/:id/files", fileHandler.Upload)
 	api.GET("/sessions/:id/files", fileHandler.ListBySession)
 	api.GET("/files/:id/download", fileHandler.Download)
+	api.DELETE("/files/:id", fileHandler.Delete)
 
 	// Recordings
 	api.POST("/sessions/:id/recordings", recordingHandler.Upload)
@@ -146,6 +181,12 @@ func main() {
 	api.POST("/sessions/:id/logs/join", sessionLogHandler.LogJoin)
 	api.POST("/sessions/:id/logs/leave", sessionLogHandler.LogLeave)
 
+	// Notifications
+	api.GET("/notifications", notificationHandler.List)
+	api.GET("/notifications/unread-count", notificationHandler.UnreadCount)
+	api.POST("/notifications/:id/read", notificationHandler.MarkRead)
+	api.POST("/notifications/read-all", notificationHandler.MarkAllRead)
+
 	// LiveKit webhook
 	e.POST("/api/v1/livekit/webhook", livekitHandler.Webhook)
 
@@ -160,6 +201,8 @@ func main() {
 	admin.POST("/users", adminHandler.CreateUser)
 	admin.PUT("/users/:id", adminHandler.UpdateUser)
 	admin.DELETE("/users/:id", adminHandler.DeactivateUser)
+	admin.POST("/users/:id/impersonate", adminHandler.ImpersonateUser)
+	admin.POST("/stop-impersonate", adminHandler.StopImpersonate)
 	admin.GET("/classes", adminHandler.ListClasses)
 	admin.POST("/classes", adminHandler.CreateClass)
 	admin.PUT("/classes/:id", adminHandler.UpdateClass)

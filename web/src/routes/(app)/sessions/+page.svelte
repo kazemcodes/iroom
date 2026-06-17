@@ -14,7 +14,18 @@
 
 	let currentPage = $state(1);
 	let totalSessions = $state(0);
-	const perPage = 10;
+	let perPage = $state(10);
+	let perPageInitialized = $state(false);
+
+	$effect(() => {
+		if (!perPageInitialized) {
+			perPageInitialized = true;
+			return;
+		}
+		perPage;
+		currentPage = 1;
+		loadSessions();
+	});
 
 	let showDeleteConfirm = $state(false);
 	let deleteTargetId = $state(0);
@@ -158,14 +169,30 @@
 		</div>
 	{/if}
 
-	{#if totalPages > 1}
-		<div class="flex items-center justify-between text-sm text-gray-500">
-			<span>{toPersianNum(totalSessions)} جلسه</span>
-			<div class="flex gap-1">
-				<button disabled={currentPage <= 1} onclick={() => { currentPage--; loadSessions(); }} class="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50">قبلی</button>
-				<span class="px-3 py-1">صفحه {toPersianNum(currentPage)} از {toPersianNum(totalPages)}</span>
-				<button disabled={currentPage >= totalPages} onclick={() => { currentPage++; loadSessions(); }} class="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50">بعدی</button>
+	{#if totalPages > 0}
+		<div class="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-gray-500">
+			<div class="flex items-center gap-3">
+				<span>{toPersianNum(totalSessions)} جلسه</span>
+				<div class="flex items-center gap-1">
+					<span class="text-xs">نمایش:</span>
+					<select bind:value={perPage} class="border border-gray-200 rounded-lg px-2 py-1 text-xs focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white">
+						<option value={10}>{toPersianNum(10)}</option>
+						<option value={25}>{toPersianNum(25)}</option>
+						<option value={50}>{toPersianNum(50)}</option>
+					</select>
+				</div>
 			</div>
+			<div class="flex items-center gap-1">
+				<button disabled={currentPage <= 1} onclick={() => { currentPage--; loadSessions(); }} class="px-3 py-1.5 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-medium">قبلی</button>
+				{#each Array.from({ length: totalPages }, (_, i) => i + 1) as p}
+					<button
+						onclick={() => { currentPage = p; loadSessions(); }}
+						class="w-8 h-8 rounded-lg text-xs font-medium transition-all {currentPage === p ? 'bg-blue-600 text-white shadow-sm' : 'border border-gray-200 hover:bg-gray-50 text-gray-600'}"
+					>{toPersianNum(p)}</button>
+				{/each}
+				<button disabled={currentPage >= totalPages} onclick={() => { currentPage++; loadSessions(); }} class="px-3 py-1.5 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-medium">بعدی</button>
+			</div>
+			<span class="text-xs">صفحه {toPersianNum(currentPage)} از {toPersianNum(totalPages)}</span>
 		</div>
 	{/if}
 </div>

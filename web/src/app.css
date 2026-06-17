@@ -1,4 +1,27 @@
+@import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800&display=swap');
 @import "tailwindcss";
+
+:root {
+	/* Skyroom Color Variables */
+	--sky-primary: #1a56db;
+	--sky-primary-gradient: linear-gradient(135deg, #1a56db, #2563eb);
+	--sky-bg-dark: #1a1a2e;
+	--sky-bg-panel: #16213e;
+	--sky-bg-input: #0f3460;
+	--sky-accent-red: #e94560;
+	--sky-accent-green: #00d26a;
+	--sky-accent-blue: #4361ee;
+	--sky-accent-purple: #7209b7;
+	--sky-text-primary: #eaeaea;
+	--sky-text-secondary: #a0a0a0;
+	--sky-border: #2a2a4a;
+}
+
+/* Skyroom Scrollbar Styles */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--sky-bg-panel); }
+::-webkit-scrollbar-thumb { background: var(--sky-border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--sky-accent-blue); }
 
 @theme {
 	--font-vazirmatn: 'Vazirmatn', sans-serif;
@@ -184,4 +207,183 @@
 		-webkit-text-fill-color: transparent;
 		background-clip: text;
 	}
+}
+
+/* Skyroom Animation Keyframes */
+@keyframes pulse-recording {
+	0%, 100% { opacity: 1; }
+	50% { opacity: 0.4; }
+}
+
+@keyframes speaking-glow {
+	0% { box-shadow: 0 0 0 0 rgba(67, 97, 238, 0.5); }
+	100% { box-shadow: 0 0 0 8px rgba(67, 97, 238, 0); }
+}
+
+@keyframes shimmer {
+	0% { background-position: -200% 0; }
+	100% { background-position: 200% 0; }
+}
+
+/* Skyroom Component Classes */
+
+/* Card - Dark variant */
+.sky-card {
+	background: var(--sky-bg-panel);
+	border: 1px solid var(--sky-border);
+	border-radius: 1rem;
+	padding: 1.25rem;
+	color: var(--sky-text-primary);
+}
+
+/* Modal - Dark variant */
+.sky-modal-overlay {
+	position: fixed;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.6);
+	backdrop-filter: blur(4px);
+	z-index: 50;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	animation: fadeIn 0.15s ease;
+}
+
+.sky-modal-content {
+	background: var(--sky-bg-panel);
+	border: 1px solid var(--sky-border);
+	border-radius: 1.25rem;
+	box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+	width: 100%;
+	max-width: 28rem;
+	color: var(--sky-text-primary);
+	animation: slideUp 0.2s ease;
+}
+
+/* Input - Dark variant */
+.sky-input {
+	width: 100%;
+	padding: 0.75rem 1rem;
+	border: 1.5px solid var(--sky-border);
+	border-radius: 0.75rem;
+	font-size: 0.875rem;
+	background: var(--sky-bg-input);
+	color: var(--sky-text-primary);
+	transition: all 0.2s ease;
+	outline: none;
+}
+.sky-input:focus {
+	border-color: var(--sky-accent-blue);
+	box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
+}
+.sky-input::placeholder {
+	color: var(--sky-text-secondary);
+}
+
+/* Table - Dark variant */
+.sky-table {
+	width: 100%;
+	border-collapse: collapse;
+}
+.sky-table th {
+	text-align: left;
+	padding: 0.75rem 1rem;
+	font-size: 0.75rem;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	color: var(--sky-text-secondary);
+	border-bottom: 1px solid var(--sky-border);
+}
+.sky-table td {
+	padding: 0.75rem 1rem;
+	font-size: 0.875rem;
+	color: var(--sky-text-primary);
+	border-bottom: 1px solid var(--sky-border);
+}
+.sky-table tr:hover td {
+	background: rgba(67, 97, 238, 0.05);
+}
+
+/* Badge variants */
+.badge-success {
+	display: inline-flex;
+	align-items: center;
+	padding: 0.25rem 0.75rem;
+	border-radius: 9999px;
+	font-size: 0.75rem;
+	font-weight: 600;
+	background: rgba(0, 210, 106, 0.15);
+	color: var(--sky-accent-green);
+}
+.badge-danger {
+	display: inline-flex;
+	align-items: center;
+	padding: 0.25rem 0.75rem;
+	border-radius: 9999px;
+	font-size: 0.75rem;
+	font-weight: 600;
+	background: rgba(233, 69, 96, 0.15);
+	color: var(--sky-accent-red);
+}
+.badge-info {
+	display: inline-flex;
+	align-items: center;
+	padding: 0.25rem 0.75rem;
+	border-radius: 9999px;
+	font-size: 0.75rem;
+	font-weight: 600;
+	background: rgba(67, 97, 238, 0.15);
+	color: var(--sky-accent-blue);
+}
+.badge-purple {
+	display: inline-flex;
+	align-items: center;
+	padding: 0.25rem 0.75rem;
+	border-radius: 9999px;
+	font-size: 0.75rem;
+	font-weight: 600;
+	background: rgba(114, 9, 183, 0.15);
+	color: var(--sky-accent-purple);
+}
+
+/* Button - Icon variant */
+.btn-icon {
+	width: 40px;
+	height: 40px;
+	border-radius: 50%;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	background: var(--sky-bg-input);
+	color: var(--sky-text-primary);
+	border: 1px solid var(--sky-border);
+	transition: all 0.2s ease;
+	cursor: pointer;
+}
+.btn-icon:hover {
+	background: var(--sky-border);
+}
+
+/* Skeleton loading */
+.skeleton {
+	background: linear-gradient(90deg, var(--sky-bg-input) 25%, var(--sky-border) 50%, var(--sky-bg-input) 75%);
+	background-size: 200% 100%;
+	animation: shimmer 1.5s infinite;
+	border-radius: 0.5rem;
+}
+
+/* Recording indicator */
+.recording-dot {
+	width: 10px;
+	height: 10px;
+	border-radius: 50%;
+	background: var(--sky-accent-red);
+	animation: pulse-recording 1500ms ease-in-out infinite;
+}
+
+/* Speaking indicator */
+.speaking-indicator {
+	border-radius: 50%;
+	animation: speaking-glow 100ms ease;
 }

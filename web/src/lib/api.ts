@@ -64,9 +64,41 @@ async function request<T>(
 	}
 }
 
+async function postFormData<T>(path: string, formData: FormData): Promise<APIResponse<T>> {
+	let url = getApiUrl(path);
+
+	const headers: Record<string, string> = {};
+	const token = getToken();
+	if (token) {
+		headers['Authorization'] = `Bearer ${token}`;
+	}
+
+	try {
+		const res = await fetch(url, {
+			method: 'POST',
+			headers,
+			body: formData
+		});
+
+		if (res.status === 401 && browser) {
+			localStorage.removeItem('access_token');
+			localStorage.removeItem('refresh_token');
+			localStorage.removeItem('user');
+			window.location.href = '/';
+			return { success: false, error: 'توکن منقضی شده' };
+		}
+
+		const data = await res.json();
+		return data;
+	} catch (e) {
+		return { success: false, error: 'خطا در اتصال به سرور' };
+	}
+}
+
 export const api = {
 	get: <T>(path: string, params?: Record<string, string>) => request<T>('GET', path, undefined, params),
 	post: <T>(path: string, body?: any) => request<T>('POST', path, body),
+	postFormData: <T>(path: string, formData: FormData) => postFormData<T>(path, formData),
 	put: <T>(path: string, body?: any) => request<T>('PUT', path, body),
 	delete: <T>(path: string) => request<T>('DELETE', path),
 	getWsUrl: () => getWsUrl(),

@@ -2,6 +2,8 @@
 	import { api } from '$lib/api';
 	import { onMount } from 'svelte';
 	import type { ActivityLog } from '$lib/types';
+	import { toPersianNum } from '$lib/utils/persian';
+	import { toPersianDateTime } from '$lib/utils/persian';
 
 	let logs = $state<ActivityLog[]>([]);
 	let total = $state(0);
@@ -22,8 +24,18 @@
 		loading = false;
 	}
 
-	function formatDate(d: string) {
-		return new Date(d).toLocaleDateString('fa-IR', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+	async function loadAllLogs(): Promise<ActivityLog[]> {
+		const allLogs: ActivityLog[] = [];
+		let currentPage = 1;
+		const totalPages = Math.ceil(total / perPage);
+		while (currentPage <= totalPages) {
+			const res = await api.get<{ items: ActivityLog[]; total: number }>('/admin/logs', { page: String(currentPage), per_page: String(perPage) });
+			if (res.success && res.data) {
+				allLogs.push(...(res.data.items || []));
+			}
+			currentPage++;
+		}
+		return allLogs;
 	}
 
 	const actionLabels: Record<string, string> = {
@@ -52,10 +64,11 @@
 		update_settings: 'bg-orange-100 text-orange-700',
 	};
 
-	function exportCSV() {
-		const headers = ['تاریخ', 'عملیات', 'نوع', 'شناسه', 'جزئیات'];
-		const rows = logs.map(l => [formatDate(l.created_at), l.action, l.entity_type, l.entity_id, l.details]);
-		const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+	async function exportCSV() {
+		const allLogs = await loadAllLogs();
+		const headers = ['زمان', 'کاربر', 'عملیات', 'جزئیات'];
+		const rows = allLogs.map(l => [toPersianDateTime(l.created_at), l.user_id || '-', actionLabels[l.action] || l.action, l.details || '-']);
+		const csv = [headers.join(','), ...rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))].join('\n');
 		const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
 		const url = URL.createObjectURL(blob);
 		const a = document.createElement('a');
@@ -68,7 +81,7 @@
 	<div class="flex items-center justify-between">
 		<div>
 			<h1 class="text-2xl font-bold text-gray-900">لاگ فعالیت‌ها</h1>
-			<p class="text-gray-500 mt-1">{total} رویداد</p>
+			<p class="text-gray-500 mt-1">{toPersianNum(total)} رویداد</p>
 		</div>
 		{#if !loading && logs.length > 0}
 			<button onclick={exportCSV} class="px-4 py-2.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 flex items-center gap-2">
@@ -105,19 +118,19 @@
 								</span>
 							</td>
 							<td class="px-5 py-3 text-gray-500">{log.entity_type}</td>
-							<td class="px-5 py-3 text-gray-500">#{log.entity_id}</td>
+							<td class="px-5 py-3 text-gray-500">#{toPersianNum(log.entity_id)}</td>
 							<td class="px-5 py-3 text-gray-500 max-w-[200px] truncate">{log.details || '-'}</td>
-							<td class="px-5 py-3 text-gray-500">{formatDate(log.created_at)}</td>
+							<td class="px-5 py-3 text-gray-500">{toPersianDateTime(log.created_at)}</td>
 						</tr>
 					{/each}
 				</tbody>
 			</table>
 			{#if total > perPage}
 				<div class="px-5 py-3 border-t flex items-center justify-between text-sm text-gray-500">
-					<span>{total} رویداد</span>
+					<span>{toPersianNum(total)} رویداد</span>
 					<div class="flex gap-1">
 						<button disabled={page <= 1} onclick={() => { page--; loadLogs(); }} class="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50">قبلی</button>
-						<span class="px-3 py-1">صفحه {page} از {Math.ceil(total / perPage)}</span>
+						<span class="px-3 py-1">صفحه {toPersianNum(page)} از {toPersianNum(Math.ceil(total / perPage))}</span>
 						<button disabled={page >= Math.ceil(total / perPage)} onclick={() => { page++; loadLogs(); }} class="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50">بعدی</button>
 					</div>
 				</div>

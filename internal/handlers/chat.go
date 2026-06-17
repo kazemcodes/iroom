@@ -150,6 +150,19 @@ func (h *FileHandler) Upload(c echo.Context) error {
 		return response.BadRequest(c, "فایل ارائه نشده")
 	}
 
+	// Validate file type by extension
+	ext := filepath.Ext(file.Filename)
+	allowedExts := map[string]bool{
+		".jpg": true, ".jpeg": true, ".png": true, ".gif": true, ".webp": true, ".svg": true, // images
+		".pdf": true, ".doc": true, ".docx": true, ".xls": true, ".xlsx": true, ".ppt": true, ".pptx": true, ".txt": true, // documents
+		".mp4": true, ".avi": true, ".mov": true, ".mkv": true, ".webm": true, // videos
+		".zip": true, ".rar": true, ".7z": true, ".tar": true, ".gz": true, // archives
+		".mp3": true, ".wav": true, ".ogg": true, ".flac": true, // audio
+	}
+	if !allowedExts[ext] {
+		return response.BadRequest(c, "نوع فایل مجاز نیست")
+	}
+
 	src, err := file.Open()
 	if err != nil {
 		return response.InternalError(c, "خطا در خواندن فایل")
@@ -192,6 +205,37 @@ func (h *FileHandler) Upload(c echo.Context) error {
 	}
 
 	return response.Created(c, fileModel)
+}
+
+func (h *FileHandler) Delete(c echo.Context) error {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return response.BadRequest(c, "شناسه نامعتبر")
+	}
+
+	file, err := h.fileRepo.GetByID(id)
+	if err != nil {
+		return response.NotFound(c, "فایل یافت نشد")
+	}
+
+	// Check ownership or admin role
+	userID := c.Get("user_id").(int64)
+	role, _ := c.Get("role").(string)
+	if file.UploadedBy != userID && role != "admin" {
+		return response.Forbidden(c, "شما اجازه حذف این فایل را ندارید")
+	}
+
+	// Delete physical file
+	if err := os.Remove(file.Filepath); err != nil && !os.IsNotExist(err) {
+		return response.InternalError(c, "خطا در حذف فایل")
+	}
+
+	// Delete database record
+	if err := h.fileRepo.Delete(id); err != nil {
+		return response.InternalError(c, "خطا در حذف رکورد فایل")
+	}
+
+	return response.Success(c, map[string]string{"message": "فایل با موفقیت حذف شد"})
 }
 
 func (h *FileHandler) Download(c echo.Context) error {

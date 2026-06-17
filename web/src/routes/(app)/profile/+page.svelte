@@ -3,6 +3,7 @@
 	import { api } from '$lib/api';
 	import { onMount } from 'svelte';
 	import type { User } from '$lib/types';
+	import { toPersianNum, toPersianDate } from '$lib/utils/persian';
 
 	let user = $state<User | null>(null);
 	let loading = $state(true);
@@ -69,7 +70,7 @@
 
 	function formatDate(d: string) {
 		if (!d) return '';
-		return new Date(d).toLocaleDateString('fa-IR', { year: 'numeric', month: 'long', day: 'numeric' });
+		return toPersianDate(d);
 	}
 
 	function handleAvatarUpload(e: Event) {
@@ -132,7 +133,7 @@
 				</div>
 				<div>
 					<span class="text-gray-400 font-medium">تلفن</span>
-					<p class="text-gray-800 font-semibold mt-1" dir="ltr">{user.phone || '—'}</p>
+					<p class="text-gray-800 font-semibold mt-1" dir="ltr">{toPersianNum(user.phone) || '—'}</p>
 				</div>
 				<div>
 					<span class="text-gray-400 font-medium">تاریخ عضویت</span>

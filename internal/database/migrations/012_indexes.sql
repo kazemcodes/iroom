@@ -1,0 +1,10 @@
+CREATE INDEX IF NOT EXISTS idx_sessions_status ON sessions(status);
+CREATE INDEX IF NOT EXISTS idx_sessions_class ON sessions(class_id);
+CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_enrollments_class ON enrollments(class_id);
+CREATE INDEX IF NOT EXISTS idx_enrollments_student ON enrollments(student_id);
+CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status);
+CREATE INDEX IF NOT EXISTS idx_tickets_user ON tickets(user_id);
+CREATE INDEX IF NOT EXISTS idx_activity_logs_created ON activity_logs(created_at);
+CREATE INDEX IF NOT EXISTS idx_files_session ON files(session_id);
+CREATE INDEX IF NOT EXISTS idx_recordings_session ON recordings(session_id);

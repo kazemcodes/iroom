@@ -3,11 +3,14 @@
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
 	import type { Ticket, TicketMessage } from '$lib/types';
+	import { toPersianNum, toPersianDateTime } from '$lib/utils/persian';
 
 	let ticket = $state<Ticket | null>(null);
 	let loading = $state(true);
 	let replyText = $state('');
 	let replying = $state(false);
+	let selectedFile = $state<File | null>(null);
+	let fileInput = $state<HTMLInputElement | null>(null);
 
 	const ticketId = $derived(Number(page.params.id));
 
@@ -23,14 +26,25 @@
 	}
 
 	async function sendReply() {
-		if (!replyText.trim() || !ticket) return;
+		if ((!replyText.trim() && !selectedFile) || !ticket) return;
 		replying = true;
-		const res = await api.post<TicketMessage>(`/tickets/${ticketId}/reply`, {
-			content: replyText
-		});
+		
+		let res;
+		if (selectedFile) {
+			const formData = new FormData();
+			formData.append('content', replyText);
+			formData.append('file', selectedFile);
+			res = await api.postFormData<TicketMessage>(`/tickets/${ticketId}/reply`, formData);
+		} else {
+			res = await api.post<TicketMessage>(`/tickets/${ticketId}/reply`, {
+				content: replyText
+			});
+		}
+		
 		if (res.success && res.data && ticket.messages) {
 			ticket.messages = [...ticket.messages, res.data];
 			replyText = '';
+			selectedFile = null;
 		}
 		replying = false;
 	}
@@ -43,9 +57,31 @@
 		}
 	}
 
+	function triggerFilePicker() {
+		fileInput?.click();
+	}
+
+	function handleFileSelect(event: Event) {
+		const input = event.target as HTMLInputElement;
+		if (input.files && input.files.length > 0) {
+			selectedFile = input.files[0];
+		}
+	}
+
+	function removeSelectedFile() {
+		selectedFile = null;
+		if (fileInput) fileInput.value = '';
+	}
+
+	function formatFileSize(bytes: number): string {
+		if (bytes < 1024) return toPersianNum(bytes) + ' B';
+		if (bytes < 1048576) return toPersianNum((bytes / 1024).toFixed(1)) + ' KB';
+		return toPersianNum((bytes / 1048576).toFixed(1)) + ' MB';
+	}
+
 	function formatDate(d: string) {
 		if (!d) return '';
-		return new Date(d).toLocaleDateString('fa-IR', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+		return toPersianDateTime(d);
 	}
 
 	const statusLabels: Record<string, string> = { open: 'باز', answered: 'پاسخ داده شده', closed: 'بسته شده' };
@@ -142,8 +178,31 @@
 					rows="3"
 					placeholder="پاسخ خود را بنویسید..."
 				></textarea>
-				<div class="flex justify-end mt-3">
-					<button onclick={sendReply} disabled={!replyText.trim() || replying} class="px-5 py-2 bg-blue-600 text-white text-sm rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors font-medium">
+				
+				<!-- File Attachment -->
+				<input
+					bind:this={fileInput}
+					type="file"
+					class="hidden"
+					onchange={handleFileSelect}
+				/>
+				
+				{#if selectedFile}
+					<div class="mt-3 flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg">
+						<svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
+						<span class="text-xs text-blue-700 flex-1 truncate">{selectedFile.name}</span>
+						<span class="text-xs text-blue-500">{formatFileSize(selectedFile.size)}</span>
+						<button onclick={removeSelectedFile} class="p-1 hover:bg-blue-100 rounded transition-colors">
+							<svg class="w-3 h-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+						</button>
+					</div>
+				{/if}
+				
+				<div class="flex justify-between items-center mt-3">
+					<button onclick={triggerFilePicker} class="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="پیوست فایل">
+						<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
+					</button>
+					<button onclick={sendReply} disabled={(!replyText.trim() && !selectedFile) || replying} class="px-5 py-2 bg-blue-600 text-white text-sm rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors font-medium">
 						{replying ? 'در حال ارسال...' : 'ارسال پاسخ'}
 					</button>
 				</div>

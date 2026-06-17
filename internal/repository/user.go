@@ -108,6 +108,14 @@ func (r *UserRepo) UpdatePassword(id int64, hash string) error {
 	return err
 }
 
+func (r *UserRepo) UpdateAvatar(id int64, avatarURL string) error {
+	_, err := r.db.Exec(
+		`UPDATE users SET avatar_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+		avatarURL, id,
+	)
+	return err
+}
+
 func (r *UserRepo) Count() (int64, error) {
 	var count int64
 	err := r.db.QueryRow(`SELECT COUNT(*) FROM users`).Scan(&count)

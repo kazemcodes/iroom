@@ -132,3 +132,71 @@ func (r *SessionRepo) Delete(id int64) error {
 	_, err := r.db.Exec(`DELETE FROM sessions WHERE id = ?`, id)
 	return err
 }
+
+// Recurring session methods
+
+func (r *SessionRepo) CreateRecurring(rs *models.RecurringSession) error {
+	result, err := r.db.Exec(
+		`INSERT INTO recurring_sessions (class_id, title, day_of_week, start_time, duration, week_count) VALUES (?, ?, ?, ?, ?, ?)`,
+		rs.ClassID, rs.Title, rs.DayOfWeek, rs.StartTime, rs.Duration, rs.WeekCount,
+	)
+	if err != nil {
+		return err
+	}
+	id, err := result.LastInsertId()
+	if err != nil {
+		return err
+	}
+	rs.ID = id
+	return nil
+}
+
+func (r *SessionRepo) ListRecurringByClass(classID int64) ([]models.RecurringSession, error) {
+	rows, err := r.db.Query(
+		`SELECT id, class_id, title, day_of_week, start_time, duration, week_count, created_at FROM recurring_sessions WHERE class_id = ? ORDER BY day_of_week, start_time`, classID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var sessions []models.RecurringSession
+	for rows.Next() {
+		var rs models.RecurringSession
+		if err := rows.Scan(&rs.ID, &rs.ClassID, &rs.Title, &rs.DayOfWeek, &rs.StartTime, &rs.Duration, &rs.WeekCount, &rs.CreatedAt); err != nil {
+			return nil, err
+		}
+		sessions = append(sessions, rs)
+	}
+	return sessions, nil
+}
+
+func (r *SessionRepo) GetRecurringByID(id int64) (*models.RecurringSession, error) {
+	rs := &models.RecurringSession{}
+	err := r.db.QueryRow(
+		`SELECT id, class_id, title, day_of_week, start_time, duration, week_count, created_at FROM recurring_sessions WHERE id = ?`, id,
+	).Scan(&rs.ID, &rs.ClassID, &rs.Title, &rs.DayOfWeek, &rs.StartTime, &rs.Duration, &rs.WeekCount, &rs.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return rs, nil
+}
+
+func (r *SessionRepo) DeleteRecurring(id int64) error {
+	_, err := r.db.Exec(`DELETE FROM recurring_sessions WHERE id = ?`, id)
+	return err
+}
+
+func (r *SessionRepo) GetClassBySessionID(sessionID int64) (*models.Class, error) {
+	class := &models.Class{}
+	err := r.db.QueryRow(
+		`SELECT c.id, c.teacher_id, c.name, c.description, c.color, c.max_students, c.invite_code, c.is_archived, c.created_at, c.updated_at 
+		 FROM classes c 
+		 JOIN sessions s ON s.class_id = c.id 
+		 WHERE s.id = ?`, sessionID,
+	).Scan(&class.ID, &class.TeacherID, &class.Name, &class.Description, &class.Color, &class.MaxStudents, &class.InviteCode, &class.IsArchived, &class.CreatedAt, &class.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return class, nil
+}

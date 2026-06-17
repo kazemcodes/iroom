@@ -1,7 +1,14 @@
 package handlers
 
 import (
+	"crypto/rand"
 	"database/sql"
+	"fmt"
+	"image"
+	_ "image/jpeg"
+	"image/png"
+	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -11,12 +18,15 @@ import (
 	"github.com/iroom/iroom/internal/pkg/response"
 	"github.com/iroom/iroom/internal/repository"
 	"github.com/labstack/echo/v4"
+	"golang.org/x/image/draw"
 )
 
 type AuthHandler struct {
-	userRepo *repository.UserRepo
-	logRepo  *repository.ActivityLogRepo
-	jwtCfg   jwtConfig
+	userRepo    *repository.UserRepo
+	logRepo     *repository.ActivityLogRepo
+	resetRepo  *repository.PasswordResetRepo
+	uploadDir   string
+	jwtCfg      jwtConfig
 }
 
 type jwtConfig struct {
@@ -25,10 +35,12 @@ type jwtConfig struct {
 	refreshExpiry int
 }
 
-func NewAuthHandler(userRepo *repository.UserRepo, logRepo *repository.ActivityLogRepo, secret string, accessExpiry, refreshExpiry int) *AuthHandler {
+func NewAuthHandler(userRepo *repository.UserRepo, logRepo *repository.ActivityLogRepo, resetRepo *repository.PasswordResetRepo, uploadDir string, secret string, accessExpiry, refreshExpiry int) *AuthHandler {
 	return &AuthHandler{
-		userRepo: userRepo,
-		logRepo:  logRepo,
+		userRepo:   userRepo,
+		logRepo:    logRepo,
+		resetRepo:  resetRepo,
+		uploadDir:  uploadDir,
 		jwtCfg: jwtConfig{
 			secret:        secret,
 			accessExpiry:  accessExpiry,
@@ -166,14 +178,23 @@ func (h *AuthHandler) ForgotPassword(c echo.Context) error {
 	}
 	user, err := h.userRepo.GetByEmail(req.Email)
 	if err != nil {
+		// Don't reveal whether email exists
 		return response.Success(c, map[string]string{"message": "اگر ایمیل شما ثبت شده باشد، لینک بازنشانی ارسال شده است"})
 	}
-	claims := jwt.Claims{UserID: user.ID, Email: user.Email, Role: "reset"}
-	token, err := jwt.Generate(h.jwtCfg.secret, claims, 30)
-	if err != nil {
+	// Generate a secure random token
+	tokenBytes := make([]byte, 32)
+	if _, err := rand.Read(tokenBytes); err != nil {
 		return response.InternalError(c, "خطای داخلی")
 	}
-	return response.Success(c, map[string]string{"token": token, "message": "لینک بازنشانی ایجاد شد"})
+	token := fmt.Sprintf("%x", tokenBytes)
+	expiresAt := time.Now().Add(30 * time.Minute)
+	if err := h.resetRepo.Create(user.ID, token, expiresAt); err != nil {
+		return response.InternalError(c, "خطای داخلی")
+	}
+	return response.Success(c, map[string]string{
+		"token":   token,
+		"message": "لینک بازنشانی ایجاد شد",
+	})
 }
 
 func (h *AuthHandler) ResetPassword(c echo.Context) error {
@@ -187,20 +208,22 @@ func (h *AuthHandler) ResetPassword(c echo.Context) error {
 	if len(req.Password) < 6 {
 		return response.BadRequest(c, "رمز عبور باید حداقل ۶ کاراکتر باشد")
 	}
-	claims, err := jwt.Validate(h.jwtCfg.secret, req.Token)
+	userID, expiresAt, err := h.resetRepo.GetByToken(req.Token)
 	if err != nil {
 		return response.Unauthorized(c, "توکن نامعتبر یا منقضی شده")
 	}
-	if claims.Role != "reset" {
-		return response.Unauthorized(c, "توکن نامعتبر")
+	if time.Now().After(expiresAt) {
+		return response.Unauthorized(c, "توکن منقضی شده است")
 	}
 	hashedPassword, err := hash.Hash(req.Password)
 	if err != nil {
 		return response.InternalError(c, "خطای داخلی")
 	}
-	if err := h.userRepo.UpdatePassword(claims.UserID, hashedPassword); err != nil {
+	if err := h.userRepo.UpdatePassword(userID, hashedPassword); err != nil {
 		return response.InternalError(c, "خطا در بروزرسانی رمز")
 	}
+	// Mark token as used
+	h.resetRepo.MarkUsed(req.Token)
 	return response.Success(c, map[string]string{"message": "رمز عبور با موفقیت تغییر کرد"})
 }
 
@@ -272,6 +295,76 @@ func (h *AuthHandler) UpdateProfile(c echo.Context) error {
 	return response.Success(c, user)
 }
 
+func (h *AuthHandler) AvatarUpload(c echo.Context) error {
+	userID := c.Get("user_id").(int64)
+
+	file, err := c.FormFile("avatar")
+	if err != nil {
+		return response.BadRequest(c, "فایل ارائه نشده")
+	}
+
+	// Validate file type
+	allowedTypes := map[string]bool{
+		"image/jpeg": true,
+		"image/png":  true,
+		"image/gif":  true,
+		"image/webp": true,
+	}
+	if !allowedTypes[file.Header.Get("Content-Type")] {
+		return response.BadRequest(c, "نوع فایل مجاز نیست. فقط تصاویر JPEG, PNG, GIF, WebP مجاز است")
+	}
+
+	// Open and decode image
+	src, err := file.Open()
+	if err != nil {
+		return response.InternalError(c, "خطا در خواندن فایل")
+	}
+	defer src.Close()
+
+	img, _, err := image.Decode(src)
+	if err != nil {
+		return response.BadRequest(c, "فایل تصویر نامعتبر است")
+	}
+
+	// Resize to 200x200
+	dst := image.NewRGBA(image.Rect(0, 0, 200, 200))
+	draw.CatmullRom.Scale(dst, dst.Bounds(), img, img.Bounds(), draw.Over, nil)
+
+	// Create avatars directory
+	avatarDir := filepath.Join(h.uploadDir, "avatars")
+	if err := os.MkdirAll(avatarDir, 0755); err != nil {
+		return response.InternalError(c, "خطا در ایجاد پوشه")
+	}
+
+	// Save resized image
+	filename := fmt.Sprintf("avatar_%d_%d.png", userID, time.Now().Unix())
+	filePath := filepath.Join(avatarDir, filename)
+
+	out, err := os.Create(filePath)
+	if err != nil {
+		return response.InternalError(c, "خطا در ذخیره فایل")
+	}
+	defer out.Close()
+
+	// Encode as PNG
+	if err := png.Encode(out, dst); err != nil {
+		return response.InternalError(c, "خطا در کدگذاری تصویر")
+	}
+
+	// Update user avatar URL
+	avatarURL := "/uploads/avatars/" + filename
+	if err := h.userRepo.UpdateAvatar(userID, avatarURL); err != nil {
+		return response.InternalError(c, "خطا در بروزرسانی آواتار")
+	}
+
+	return response.Success(c, map[string]string{
+		"avatar_url": avatarURL,
+		"message":    "آواتار با موفقیت بروزرسانی شد",
+	})
+}
+
+
+
 func (h *AuthHandler) generateTokens(user *models.User) (map[string]interface{}, error) {
 	claims := jwt.Claims{
 		UserID: user.ID,
@@ -321,9 +414,10 @@ type AdminHandler struct {
 	settingsRepo  *repository.SettingsRepo
 	ticketRepo    *repository.TicketRepo
 	sessionLogRepo *repository.SessionLogRepo
+	jwtCfg        jwtConfig
 }
 
-func NewAdminHandler(userRepo *repository.UserRepo, classRepo *repository.ClassRepo, sessionRepo *repository.SessionRepo, messageRepo *repository.MessageRepo, recordingRepo *repository.RecordingRepo, logRepo *repository.ActivityLogRepo, settingsRepo *repository.SettingsRepo, ticketRepo *repository.TicketRepo, sessionLogRepo *repository.SessionLogRepo) *AdminHandler {
+func NewAdminHandler(userRepo *repository.UserRepo, classRepo *repository.ClassRepo, sessionRepo *repository.SessionRepo, messageRepo *repository.MessageRepo, recordingRepo *repository.RecordingRepo, logRepo *repository.ActivityLogRepo, settingsRepo *repository.SettingsRepo, ticketRepo *repository.TicketRepo, sessionLogRepo *repository.SessionLogRepo, jwtSecret string, accessExpiry, refreshExpiry int) *AdminHandler {
 	return &AdminHandler{
 		userRepo:      userRepo,
 		classRepo:     classRepo,
@@ -334,6 +428,11 @@ func NewAdminHandler(userRepo *repository.UserRepo, classRepo *repository.ClassR
 		settingsRepo:  settingsRepo,
 		ticketRepo:    ticketRepo,
 		sessionLogRepo: sessionLogRepo,
+		jwtCfg: jwtConfig{
+			secret:        jwtSecret,
+			accessExpiry:  accessExpiry,
+			refreshExpiry: refreshExpiry,
+		},
 	}
 }
 
@@ -1179,4 +1278,219 @@ func (h *MessageHandler) Send(c echo.Context) error {
 	return response.Created(c, msg)
 }
 
+// Recurring session handlers
+
+func (h *SessionHandler) CreateRecurring(c echo.Context) error {
+	var req models.CreateRecurringSessionRequest
+	if err := c.Bind(&req); err != nil {
+		return response.BadRequest(c, "داده‌های نامعتبر")
+	}
+	if req.Title == "" {
+		return response.BadRequest(c, "عنوان الزامی است")
+	}
+	if req.DayOfWeek < 0 || req.DayOfWeek > 6 {
+		return response.BadRequest(c, "روز هفته نامعتبر")
+	}
+	if req.StartTime == "" {
+		return response.BadRequest(c, "ساعت شروع الزامی است")
+	}
+
+	duration := req.Duration
+	if duration <= 0 {
+		duration = 60
+	}
+	weekCount := req.WeekCount
+	if weekCount <= 0 {
+		weekCount = 12
+	}
+
+	rs := &models.RecurringSession{
+		ClassID:   req.ClassID,
+		Title:     req.Title,
+		DayOfWeek: req.DayOfWeek,
+		StartTime: req.StartTime,
+		Duration:  duration,
+		WeekCount: weekCount,
+	}
+
+	if err := h.sessionRepo.CreateRecurring(rs); err != nil {
+		return response.InternalError(c, "خطا در ایجاد جلسه تکرارشونده")
+	}
+
+	return response.Created(c, rs)
+}
+
+func (h *SessionHandler) ListRecurring(c echo.Context) error {
+	classID, err := strconv.ParseInt(c.QueryParam("class_id"), 10, 64)
+	if err != nil {
+		return response.BadRequest(c, "شناسه کلاس نامعتبر")
+	}
+
+	sessions, err := h.sessionRepo.ListRecurringByClass(classID)
+	if err != nil {
+		return response.InternalError(c, "خطا در دریافت جلسات تکرارشونده")
+	}
+	if sessions == nil {
+		sessions = []models.RecurringSession{}
+	}
+
+	return response.Success(c, sessions)
+}
+
+func (h *SessionHandler) DeleteRecurring(c echo.Context) error {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return response.BadRequest(c, "شناسه نامعتبر")
+	}
+
+	if err := h.sessionRepo.DeleteRecurring(id); err != nil {
+		return response.InternalError(c, "خطا در حذف جلسه تکرارشونده")
+	}
+
+	return response.Success(c, map[string]string{"message": "جلسه تکرارشونده حذف شد"})
+}
+
+// Class invite code handlers
+
+func (h *ClassHandler) RegenerateCode(c echo.Context) error {
+	classID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return response.BadRequest(c, "شناسه نامعتبر")
+	}
+
+	userID := c.Get("user_id").(int64)
+	userRole := c.Get("role").(string)
+
+	class, err := h.classRepo.GetByID(classID)
+	if err != nil {
+		return response.NotFound(c, "کلاس یافت نشد")
+	}
+
+	if class.TeacherID != userID && userRole != "admin" {
+		return response.Forbidden(c, "شما اجازه این عملیات را ندارید")
+	}
+
+	// Generate random invite code
+	codeBytes := make([]byte, 4)
+	if _, err := rand.Read(codeBytes); err != nil {
+		return response.InternalError(c, "خطا در تولید کد")
+	}
+	code := fmt.Sprintf("%08x", codeBytes)
+
+	if err := h.classRepo.UpdateInviteCode(classID, code); err != nil {
+		return response.InternalError(c, "خطا در بروزرسانی کد")
+	}
+
+	return response.Success(c, map[string]string{"invite_code": code})
+}
+
+func (h *ClassHandler) JoinByCode(c echo.Context) error {
+	code := c.Param("code")
+	if code == "" {
+		return response.BadRequest(c, "کد دعوت الزامی است")
+	}
+
+	class, err := h.classRepo.GetByInviteCode(code)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return response.NotFound(c, "کد دعوت نامعتبر است")
+		}
+		return response.InternalError(c, "خطا در دریافت کلاس")
+	}
+
+	if class.IsArchived {
+		return response.BadRequest(c, "این کلاس بایگانی شده است")
+	}
+
+	userID := c.Get("user_id").(int64)
+
+	if h.classRepo.IsEnrolled(class.ID, userID) {
+		return response.BadRequest(c, "شما قبلاً در این کلاس ثبت‌نام کرده‌اید")
+	}
+
+	if err := h.classRepo.Enroll(class.ID, userID); err != nil {
+		return response.InternalError(c, "خطا در ثبت‌نام")
+	}
+
+	return response.Success(c, map[string]string{"message": "با موفقیت به کلاس پیوستید", "class_id": strconv.FormatInt(class.ID, 10)})
+}
+
+// Admin impersonation handlers
+
+func (h *AdminHandler) ImpersonateUser(c echo.Context) error {
+	targetID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return response.BadRequest(c, "شناسه نامعتبر")
+	}
+
+	adminID := c.Get("user_id").(int64)
+
+	targetUser, err := h.userRepo.GetByID(targetID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return response.NotFound(c, "کاربر یافت نشد")
+		}
+		return response.InternalError(c, "خطا در دریافت کاربر")
+	}
+
+	// Generate token for target user
+	claims := jwt.Claims{
+		UserID:    targetUser.ID,
+		Email:     targetUser.Email,
+		Role:      targetUser.Role,
+		ImpersonatedBy: &adminID,
+	}
+
+	accessToken, err := jwt.Generate(h.jwtCfg.secret, claims, h.jwtCfg.accessExpiry)
+	if err != nil {
+		return response.InternalError(c, "خطا در تولید توکن")
+	}
+
+	refreshToken, err := jwt.Generate(h.jwtCfg.secret, claims, h.jwtCfg.refreshExpiry)
+	if err != nil {
+		return response.InternalError(c, "خطا در تولید توکن")
+	}
+
+	return response.Success(c, map[string]interface{}{
+		"user":          targetUser,
+		"access_token":  accessToken,
+		"refresh_token": refreshToken,
+		"expires_in":    h.jwtCfg.accessExpiry * 60,
+		"message":       "در حال ورود به حساب کاربر " + targetUser.DisplayName,
+	})
+}
+
+func (h *AdminHandler) StopImpersonate(c echo.Context) error {
+	adminID := c.Get("user_id").(int64)
+
+	admin, err := h.userRepo.GetByID(adminID)
+	if err != nil {
+		return response.InternalError(c, "خطا در دریافت اطلاعات ادمین")
+	}
+
+	// Generate token for admin
+	claims := jwt.Claims{
+		UserID: admin.ID,
+		Email:  admin.Email,
+		Role:   admin.Role,
+	}
+
+	accessToken, err := jwt.Generate(h.jwtCfg.secret, claims, h.jwtCfg.accessExpiry)
+	if err != nil {
+		return response.InternalError(c, "خطا در تولید توکن")
+	}
+
+	refreshToken, err := jwt.Generate(h.jwtCfg.secret, claims, h.jwtCfg.refreshExpiry)
+	if err != nil {
+		return response.InternalError(c, "خطا در تولید توکن")
+	}
+
+	return response.Success(c, map[string]interface{}{
+		"user":          admin,
+		"access_token":  accessToken,
+		"refresh_token": refreshToken,
+		"expires_in":    h.jwtCfg.accessExpiry * 60,
+		"message":       "بازگشت به حساب ادمین",
+	})
+}
 
