@@ -57,8 +57,8 @@ func setup(t *testing.T) *testEnv {
 
 	token, _ := jwt.Generate(cfg.JWT.Secret, jwt.Claims{UserID: 1, Email: "admin@iroom.local", Role: "admin"}, cfg.JWT.AccessExpiry)
 
-	livekitSvc := services.NewLiveKitService("test-key", "test-secret", "")
-	healthHandler := handlers.NewHealthHandler(db, ":memory:", livekitSvc)
+	janusSvc := services.NewJanusService("http://localhost:8088", "ws://localhost:8188", "", "")
+	healthHandler := handlers.NewHealthHandler(db, ":memory:", janusSvc)
 
 	resetRepo := repository.NewPasswordResetRepo(db)
 	totpSvc := services.NewTOTPService("IRoom")

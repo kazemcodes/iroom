@@ -8,6 +8,8 @@
 		const unsub = auth.subscribe(($auth) => {
 			if ($auth.isLoggedIn) {
 				goto('/dashboard');
+			} else {
+				goto('/auth');
 			}
 		});
 		return unsub;

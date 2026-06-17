@@ -1,7 +1,7 @@
 # Binaries
 /server
 *.exe
-
+skyroom_saved_ui/
 # Environment
 .env
 .env.local

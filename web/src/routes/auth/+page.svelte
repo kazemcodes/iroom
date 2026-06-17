@@ -35,90 +35,221 @@
 	}
 </script>
 
-<div class="min-h-screen flex items-center justify-center px-4 py-12" style="background: var(--sky-bg-dark);">
-	<div class="w-full max-w-md">
-		<div class="text-center mb-8">
-			<div class="w-16 h-16 rounded-2xl flex items-center justify-center text-white font-extrabold text-2xl mx-auto mb-4"
-				style="background: linear-gradient(135deg, #1a56db, #2563eb); box-shadow: 0 4px 20px rgba(26, 86, 219, 0.4);">
-				آ
-			</div>
-			<h1 class="text-3xl font-extrabold" style="color: var(--sky-text-primary);">آی‌روم</h1>
-			<p class="mt-2 font-medium" style="color: var(--sky-text-secondary);">کلاس آنلاین هوشمند برای آموزش</p>
+<div class="login-page">
+	<div class="login-box">
+		<!-- Logo -->
+		<div class="login-logo">
+			<a href="/">
+				<div class="logo-icon">آ</div>
+				<span class="logo-text">آی‌روم</span>
+			</a>
 		</div>
 
-		<div class="card p-8">
-			<div class="flex mb-6 p-1" style="background: var(--sky-bg-dark); border-radius: 0.75rem;">
-				<button class="flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200
-					{!isRegister ? 'text-white' : ''}"
-					style={!isRegister ? 'background: var(--sky-bg-input);' : 'color: var(--sky-text-secondary);'}
-					onclick={() => { isRegister = false; error = ''; }}>
-					ورود
-				</button>
-				<button class="flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200
-					{isRegister ? 'text-white' : ''}"
-					style={isRegister ? 'background: var(--sky-bg-input);' : 'color: var(--sky-text-secondary);'}
-					onclick={() => { isRegister = true; error = ''; }}>
-					ثبت‌نام
-				</button>
+		<!-- Error message -->
+		{#if error}
+			<div class="login-error">
+				{error}
 			</div>
+		{/if}
 
-			{#if error}
-				<div class="mb-5 p-3 rounded-xl text-sm font-medium flex items-center gap-2"
-					style="background: rgba(233, 69, 96, 0.15); color: var(--sky-accent-red); border: 1px solid rgba(233, 69, 96, 0.2);">
-					<svg class="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-						<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
-					</svg>
-					{error}
+		<!-- Login form -->
+		<div class="login-form-container">
+			<form onsubmit={(e) => { e.preventDefault(); handleSubmit(); }} class="login-form">
+				<div class="login-input">
+					<input type="email" bind:value={email} placeholder="ایمیل" dir="ltr" autocomplete="username" required />
 				</div>
-			{/if}
+				<div class="login-input">
+					<input type="password" bind:value={password} placeholder="گذرواژه" dir="ltr" autocomplete="off" required minlength="6" />
+				</div>
 
-			<form onsubmit={(e) => { e.preventDefault(); handleSubmit(); }} class="space-y-4">
 				{#if isRegister}
-					<div>
-						<label class="block text-sm font-semibold mb-1.5" style="color: var(--sky-text-secondary);">نام نمایشی</label>
-						<input type="text" bind:value={displayName} class="input-field" placeholder="نام خود را وارد کنید" required />
+					<div class="login-input">
+						<input type="text" bind:value={displayName} placeholder="نام نمایشی" dir="auto" />
 					</div>
-					<div>
-						<label class="block text-sm font-semibold mb-1.5" style="color: var(--sky-text-secondary);">شماره تلفن</label>
-						<input type="tel" bind:value={phone} class="input-field" placeholder="09120000000" dir="ltr" />
+					<div class="login-input">
+						<input type="tel" bind:value={phone} placeholder="شماره تلفن" dir="ltr" />
 					</div>
 				{/if}
 
-				<div>
-					<label class="block text-sm font-semibold mb-1.5" style="color: var(--sky-text-secondary);">ایمیل</label>
-					<input type="email" bind:value={email} class="input-field" placeholder="example@email.com" dir="ltr" required />
+				<div class="login-buttons">
+					<button type="submit" class="btn-login blue" disabled={loading}>
+						{loading ? 'در حال پردازش...' : (isRegister ? 'ثبت‌نام' : 'ورود')}
+					</button>
 				</div>
-
-				<div>
-					<label class="block text-sm font-semibold mb-1.5" style="color: var(--sky-text-secondary);">رمز عبور</label>
-					<input type="password" bind:value={password} class="input-field" placeholder="حداقل ۶ کاراکتر" dir="ltr" required minlength="6" />
-				</div>
-
-				{#if !isRegister}
-					<div class="text-center text-sm mb-4">
-						<a href="/auth/forgot-password" class="font-medium hover:underline" style="color: var(--sky-accent-blue);">
-							رمز عبور خود را فراموش کرده‌اید؟
-						</a>
-					</div>
-				{/if}
-
-				<button type="submit" disabled={loading}
-					class="btn-primary w-full py-3 text-center disabled:opacity-50 disabled:cursor-not-allowed">
-					{#if loading}
-						<span class="inline-flex items-center gap-2">
-							<svg class="animate-spin h-4 w-4" viewBox="0 0 24 24">
-								<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none" />
-								<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-							</svg>
-							در حال پردازش...
-						</span>
-					{:else}
-						{isRegister ? 'ایجاد حساب کاربری' : 'ورود به پنل'}
-					{/if}
-				</button>
 			</form>
 		</div>
 
-		<p class="text-center text-xs mt-6 font-medium" style="color: var(--sky-text-secondary);">نسخه ۰.۱.۰ — متن‌باز و رایگان</p>
+		<!-- Bottom links -->
+		<div class="login-footer">
+			<a href="/auth/forgot-password">راهنما</a>
+			<span class="dot">·</span>
+			<a href="/auth/forgot-password">حریم خصوصی</a>
+		</div>
+	</div>
+
+	<!-- Trademark -->
+	<div class="trademark">
+		<a href="/">© آی‌روم</a>
 	</div>
 </div>
+
+<style>
+	.login-page {
+		min-height: 100vh;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		background: linear-gradient(135deg, #0b1120 0%, #1a1a2e 50%, #0d1b2a 100%);
+		padding: 2rem;
+		position: relative;
+	}
+
+	.login-box {
+		width: 100%;
+		max-width: 400px;
+		background: white;
+		border-radius: 16px;
+		padding: 2.5rem 2rem;
+		box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+	}
+
+	.login-logo {
+		text-align: center;
+		margin-bottom: 2rem;
+	}
+	.login-logo a {
+		text-decoration: none;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 0.75rem;
+	}
+	.logo-icon {
+		width: 56px;
+		height: 56px;
+		border-radius: 14px;
+		background: linear-gradient(135deg, #23b9d7, #004ff2);
+		color: white;
+		font-size: 1.75rem;
+		font-weight: 800;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		box-shadow: 0 4px 16px rgba(35, 185, 215, 0.3);
+	}
+	.logo-text {
+		font-size: 1.5rem;
+		font-weight: 800;
+		color: #1c293a;
+	}
+
+	.login-error {
+		background: rgba(224, 82, 82, 0.08);
+		color: #e05252;
+		border: 1px solid rgba(224, 82, 82, 0.2);
+		border-radius: 8px;
+		padding: 0.75rem 1rem;
+		font-size: 0.875rem;
+		margin-bottom: 1.25rem;
+		text-align: center;
+	}
+
+	.login-form-container {
+		margin-bottom: 1.5rem;
+	}
+
+	.login-form {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+	}
+
+	.login-input {
+		display: flex;
+		align-items: center;
+	}
+	.login-input input {
+		width: 100%;
+		padding: 0.75rem 1rem;
+		border: 2px solid #e0e4eb;
+		border-radius: 8px;
+		font-size: 1rem;
+		color: #1c293a;
+		background: white;
+		outline: none;
+		transition: border-color 0.15s ease;
+		font-family: 'Vazirmatn', system-ui, sans-serif;
+	}
+	.login-input input:focus {
+		border-color: #23b9d7;
+	}
+	.login-input input::placeholder {
+		color: #9fa2b4;
+	}
+
+	.login-buttons {
+		display: flex;
+		gap: 0.75rem;
+		margin-top: 0.5rem;
+	}
+
+	.btn-login {
+		flex: 1;
+		padding: 0.75rem 1rem;
+		border: none;
+		border-radius: 8px;
+		font-size: 1rem;
+		font-weight: 600;
+		cursor: pointer;
+		transition: all 0.15s ease;
+		font-family: 'Vazirmatn', system-ui, sans-serif;
+	}
+	.btn-login.blue {
+		background: #23b9d7;
+		color: white;
+	}
+	.btn-login.blue:hover {
+		background: #1a9ad4;
+	}
+	.btn-login.blue:disabled {
+		opacity: 0.6;
+		cursor: not-allowed;
+	}
+
+	.login-footer {
+		text-align: center;
+		font-size: 0.8rem;
+		color: #9fa2b4;
+		display: flex;
+		justify-content: center;
+		gap: 0.5rem;
+	}
+	.login-footer a {
+		color: #6790a0;
+		text-decoration: none;
+		transition: color 0.15s ease;
+	}
+	.login-footer a:hover {
+		color: #23b9d7;
+	}
+	.dot {
+		color: #dadada;
+	}
+
+	.trademark {
+		position: absolute;
+		bottom: 1.5rem;
+		text-align: center;
+		width: 100%;
+	}
+	.trademark a {
+		color: rgba(255, 255, 255, 0.4);
+		text-decoration: none;
+		font-size: 0.75rem;
+		transition: color 0.15s ease;
+	}
+	.trademark a:hover {
+		color: rgba(255, 255, 255, 0.7);
+	}
+</style>

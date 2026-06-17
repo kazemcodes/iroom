@@ -13,7 +13,7 @@ type Config struct {
 	Server   ServerConfig   `yaml:"server"`
 	Database DatabaseConfig `yaml:"database"`
 	JWT      JWTConfig      `yaml:"jwt"`
-	LiveKit  LiveKitConfig  `yaml:"livekit"`
+	Janus    JanusConfig    `yaml:"janus"`
 	Upload   UploadConfig   `yaml:"upload"`
 	External ExternalConfig `yaml:"external"`
 	SMTP     SMTPConfig     `yaml:"smtp"`
@@ -34,10 +34,11 @@ type JWTConfig struct {
 	RefreshExpiry   int    `yaml:"refresh_expiry"`
 }
 
-type LiveKitConfig struct {
-	APIKey    string `yaml:"api_key"`
-	APISecret string `yaml:"api_secret"`
-	URL       string `yaml:"url"`
+type JanusConfig struct {
+	HTTPURL    string `yaml:"http_url"`
+	WSURL      string `yaml:"ws_url"`
+	AdminKey   string `yaml:"admin_key"`
+	RoomSecret string `yaml:"room_secret"`
 }
 
 type UploadConfig struct {
@@ -110,14 +111,17 @@ func applyEnvOverrides(cfg *Config) {
 			cfg.JWT.RefreshExpiry = p
 		}
 	}
-	if v := os.Getenv("LIVEKIT_API_KEY"); v != "" {
-		cfg.LiveKit.APIKey = v
+	if v := os.Getenv("JANUS_HTTP_URL"); v != "" {
+		cfg.Janus.HTTPURL = v
 	}
-	if v := os.Getenv("LIVEKIT_API_SECRET"); v != "" {
-		cfg.LiveKit.APISecret = v
+	if v := os.Getenv("JANUS_WS_URL"); v != "" {
+		cfg.Janus.WSURL = v
 	}
-	if v := os.Getenv("LIVEKIT_URL"); v != "" {
-		cfg.LiveKit.URL = v
+	if v := os.Getenv("JANUS_ADMIN_KEY"); v != "" {
+		cfg.Janus.AdminKey = v
+	}
+	if v := os.Getenv("JANUS_ROOM_SECRET"); v != "" {
+		cfg.Janus.RoomSecret = v
 	}
 	if v := os.Getenv("UPLOAD_MAX_SIZE"); v != "" {
 		if p, err := strconv.ParseInt(v, 10, 64); err == nil {
@@ -166,10 +170,11 @@ func Default() *Config {
 			AccessExpiry:  15,
 			RefreshExpiry: 10080,
 		},
-		LiveKit: LiveKitConfig{
-			APIKey:    "",
-			APISecret: "",
-			URL:       "ws://localhost:7880",
+		Janus: JanusConfig{
+			HTTPURL:    "http://localhost:8088",
+			WSURL:      "ws://localhost:8188",
+			AdminKey:   "",
+			RoomSecret: "",
 		},
 		Upload: UploadConfig{
 			MaxSize:   50 << 20,

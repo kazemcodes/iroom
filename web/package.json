@@ -27,6 +27,6 @@
 	"dependencies": {
 		"date-fns-jalali": "^4.4.0-0",
 		"fabric": "^7.4.0",
-		"livekit-client": "^2.19.2"
+		"janus-gateway": "^1.2.1"
 	}
 }

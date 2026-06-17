@@ -1,0 +1,2 @@
+ALTER TABLE sessions ADD COLUMN janus_session_id INTEGER DEFAULT 0;
+ALTER TABLE sessions ADD COLUMN janus_handle_id INTEGER DEFAULT 0;

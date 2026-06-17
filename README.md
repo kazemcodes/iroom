@@ -1,172 +1,209 @@
-# آی‌روم (IRoom)
+# آی‌روم — IRoom
 
-**پلتفرم کلاس آنلاین متن‌باز برای کاربران فارسی‌زبان**
-
-[![Go](https://img.shields.io/badge/Go-1.24-blue)](https://go.dev)
-[![SvelteKit](https://img.shields.io/badge/SvelteKit-5-orange)](https://svelte.dev)
-[![TailwindCSS](https://img.shields.io/badge/TailwindCSS-4-cyan)](https://tailwindcss.com)
-[![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
+Open-source online classroom platform with live video/audio, chat, whiteboard, screen sharing, polls, recordings, and a full admin panel.
 
 ---
 
-## معرفی
+## Quick Start
 
-آی‌روم یک پلتفرم کلاس آنلاین متن‌باز است که مشابه اسکای‌روم و بلوجینز طراحی شده و کاملاً فارسی با پشتیبانی RTL است. این پلتفرم برای اجرا روی سرورهای کم‌منبع (۱ هسته / ۱ گیگابایت رم) بهینه‌سازی شده و تا ۱۰۰ کاربر همزمان را پشتیبانی می‌کند.
-
-## ویژگی‌ها
-
-- **ویدیو و صدا**: اتصال WebRTC از طریق LiveKit SFU
-- **اشتراک‌گذاری صفحه**: اشتراک‌گذاری صفحه نمایش
-- **تخته‌سفید**: وایت‌بورد تعاملی با Fabric.js و همگام‌سازی آنی
-- **گفتگوی متنی**: چت آنلاین با WebSocket
-- **ضبط جلسه**: ضبط سمت مرورگر با MediaRecorder API
-- **مدیریت کلاس**: ایجاد کلاس، ثبت‌نام دانش‌آموز، زمان‌بندی جلسات
-- **پنل مدیریت**: مدیریت کاربران، کلاس‌ها، جلسات و تنظیمات
-- **API خارجی**: اتصال به سیستم‌های LMS/CMS از طریق REST API
-- **تقویم جلالی**: پشتیبانی از تقویم فارسی
-
-## فناوری‌ها
-
-| لایه | فناوری |
-|------|--------|
-| بک‌اند | Go + Echo + SQLite WAL |
-| فرانت‌اند | SvelteKit + TailwindCSS RTL |
-| ویدیو | LiveKit SFU (sidecar) |
-| وایت‌بورد | Fabric.js |
-| ریورس پراکسی | Cady |
-| استقرار | Docker Compose |
-
-## نصب سریع
-
-### با Docker (توصیه شده)
+### Docker (Recommended)
 
 ```bash
-git clone https://github.com/iroom/iroom.git
-cd iroom
-cp config.yaml config.yaml.bak
-# ویرایش config.yaml با تنظیمات خود
-docker-compose up -d
+# Clone and configure
+git clone <repo-url> iroom && cd iroom
+cp .env.example .env
+
+# Start all services
+docker compose up -d
+
+# View logs
+docker compose logs -f
+
+# Stop
+docker compose down
 ```
 
-### نصب دستی
+**Services:**
+| Service | Port | Description |
+|---------|------|-------------|
+| Caddy | `80` | Reverse proxy (entry point) |
+| App | `8080` | Go backend + SvelteKit frontend |
+| Janus | `8088` | WebRTC gateway for video/audio |
 
-**پیش‌نیازها:**
-- Go 1.24+
-- Node.js 20+
-- LiveKit Server (اختیاری برای ویدیو)
+**Default login:** `admin@iroom.local` / `admin123`
+
+### Development (Manual)
+
+#### Prerequisites
+
+- **Go** ≥ 1.24
+- **Node.js** ≥ 20
+- **Janus Gateway** (for video/audio)
+
+#### 1. Backend (Go)
 
 ```bash
-# بک‌اند
+cd iroom
+
+# Build and run
 go build -o server ./cmd/server
 ./server
+# → http://localhost:8080
+```
 
-# فرانت‌اند
-cd web
+#### 2. Frontend (SvelteKit)
+
+```bash
+cd iroom/web
+
 npm install
 npm run dev
+# → http://localhost:5173 (proxied to backend)
 ```
 
-## ساختار پروژه
+#### 3. Janus Gateway (WebRTC)
 
-```
-iroom/
-├── cmd/server/main.go          # نقطه ورود
-├── internal/
-│   ├── config/                 # تنظیمات YAML
-│   ├── database/               # SQLite + مایگریشن‌ها
-│   ├── handlers/               # API handlers
-│   ├── middleware/              # JWT, CORS, نقش‌ها
-│   ├── models/                 # مدل‌های داده
-│   ├── repository/             # queries پایگاه داده
-│   ├── services/               # LiveKit token generation
-│   └── pkg/                    # ابزارهای مشترک
-├── web/src/
-│   ├── lib/                    # API client, stores, components
-│   └── routes/                 # صفحات SvelteKit
-├── docker-compose.yml
-├── Dockerfile
-├── Caddyfile
-└── config.yaml
+```bash
+# Via Docker
+docker compose up janus -d
+
+# Or manual install
+# See: https://janus.conf.meetecho.com/docs/setup.html
+# Config: janus-config/janus.jcfg
 ```
 
-## تنظیمات
+---
+
+## Configuration
+
+### Environment Variables
+
+Copy `.env.example` to `.env`:
+
+```bash
+cp .env.example .env
+```
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SERVER_HOST` | `0.0.0.0` | Backend listen address |
+| `SERVER_PORT` | `8080` | Backend port |
+| `DATABASE_PATH` | `iroom.db` | SQLite database file |
+| `JWT_SECRET` | `change-me-...` | JWT signing secret (change in production!) |
+| `JWT_ACCESS_EXPIRY` | `15` | Access token lifetime (minutes) |
+| `JWT_REFRESH_EXPIRY` | `10080` | Refresh token lifetime (minutes) |
+| `JANUS_HTTP_URL` | `http://localhost:8088` | Janus HTTP API |
+| `JANUS_WS_URL` | `ws://localhost:8188` | Janus WebSocket |
+| `UPLOAD_MAX_SIZE` | `52428800` | Max upload size (50MB) |
+| `EXTERNAL_API_KEY` | `change-me-...` | External API key |
+
+### config.yaml
+
+Alternative configuration file (env vars override yaml):
 
 ```yaml
 server:
   host: "0.0.0.0"
   port: 8080
-
 database:
   path: "iroom.db"
-
 jwt:
   secret: "your-secret-key"
   access_expiry: 15
   refresh_expiry: 10080
-
-livekit:
-  api_key: "devkey"
-  api_secret: "secret"
-  url: "ws://localhost:7880"
-
-external:
-  api_key: "your-external-api-key"
+janus:
+  http_url: "http://localhost:8088"
+  ws_url: "ws://localhost:8188"
 ```
 
-## API
+---
 
-### احراز هویت
-```
-POST /api/v1/auth/register
-POST /api/v1/auth/login
-POST /api/v1/auth/refresh
-GET  /api/v1/auth/me
-```
+## Architecture
 
-### کلاس‌ها
 ```
-GET|POST    /api/v1/classes
-PUT|DELETE  /api/v1/classes/:id
-POST        /api/v1/classes/:id/enroll
-GET         /api/v1/classes/:id/students
-```
-
-### جلسات
-```
-GET|POST    /api/v1/sessions
-GET         /api/v1/sessions/:id
-POST        /api/v1/sessions/:id/start|end
-POST        /api/v1/sessions/:id/livekit-token
-POST        /api/v1/sessions/:id/recordings
+┌─────────┐     ┌──────────┐     ┌──────────────┐
+│  Caddy   │────▶│   Go     │────▶│   SQLite     │
+│  :80     │     │  :8080   │     │  iroom.db    │
+└─────────┘     └────┬─────┘     └──────────────┘
+                     │
+                     ▼
+               ┌──────────┐
+               │  Janus   │
+               │  :8088   │
+               │  :8188   │
+               └──────────┘
 ```
 
-### API خارجی (با کلید API)
+**Stack:**
+- **Backend:** Go + Echo framework + SQLite
+- **Frontend:** SvelteKit + Tailwind CSS
+- **WebRTC:** Janus Gateway (video/audio/screen share)
+- **Proxy:** Caddy (production) or Vite dev server (development)
+
+---
+
+## Project Structure
+
 ```
-POST /api/v1/external/users
-POST /api/v1/external/classes
-POST /api/v1/external/sessions
-GET  /api/v1/external/status
-GET  /api/v1/external/stats
+iroom/
+├── cmd/server/          # Go entrypoint
+├── internal/
+│   ├── config/          # Configuration loading
+│   ├── database/        # SQLite + migrations
+│   ├── handlers/        # HTTP handlers (auth, classes, sessions, etc.)
+│   ├── middleware/       # Auth, CORS, rate limiting
+│   ├── models/          # Data models
+│   ├── pkg/             # Utilities (hash, jwt, jalali, response)
+│   ├── repository/      # Database queries
+│   └── services/        # Business logic (LiveKit, TOTP, WebSocket)
+├── web/
+│   ├── src/
+│   │   ├── lib/         # Shared components, stores, API client
+│   │   └── routes/      # SvelteKit pages
+│   └── static/          # Static assets
+├── config.yaml          # App configuration
+├── docker-compose.yml   # Docker services
+├── Dockerfile           # Multi-stage build
+└── Caddyfile            # Reverse proxy config
 ```
 
-## نقش‌ها
+---
 
-| نقش | دسترسی |
-|-----|--------|
-| **مدیر** | مدیریت کامل سیستم |
-| **مدرس** | ایجاد کلاس/جلسه، شروع/پایان جلسه |
-| **دانش‌آموز** | مشاهده کلاس‌ها، شرکت در جلسات |
+## Features
 
-## پیش‌نیاز سخت‌افزاری
+- **Classroom:** Live video/audio, screen sharing, whiteboard, chat, polls
+- **Rooms:** Create/manage rooms with invite codes
+- **Sessions:** Schedule and manage live sessions
+- **Recording:** Cloud recording support
+- **Admin Panel:** User management, room management, settings, logs
+- **Authentication:** JWT + optional TOTP 2FA
+- **File Upload:** Secure file sharing within sessions
+- **Persian Support:** Full RTL layout, Jalali calendar, Persian numbers
 
-- **حداقل**: ۱ هسته CPU / ۱ گیگابایت RAM
-- **توصیه شده**: ۲ هسته CPU / ۲ گیگابایت RAM
-- **حافظه مورد نیاز**:
-  - Go Backend: ~۳۰-۵۰ MB
-  - LiveKit SFU: ~۱۰۰-۱۲۰ MB
-  - SQLite: ~۵-۱۰ MB
-  - Caddy: ~۱۰-۱۵ MB
+---
 
-## مجوز
+## Development
 
-MIT License
+```bash
+# Install dependencies
+cd web && npm install
+
+# Run dev servers (backend + frontend)
+go run ./cmd/server &
+cd web && npm run dev
+
+# Type check
+cd web && npm run check
+
+# Build
+cd web && npm run build
+
+# Run tests
+go test ./...
+```
+
+---
+
+## License
+
+MIT

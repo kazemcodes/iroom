@@ -224,7 +224,7 @@
 	let healthData = $state({
 		serverUptime: '',
 		dbSize: '',
-		livekitStatus: 'disconnected',
+		janusStatus: 'disconnected',
 		activeRooms: 0,
 		totalUsers: 0,
 		totalSessions: 0,
@@ -252,7 +252,7 @@
 			healthData = {
 				serverUptime: res.data.uptime || res.data.server_uptime || '',
 				dbSize: res.data.db_size || '',
-				livekitStatus: res.data.livekit_status || 'unknown',
+				janusStatus: res.data.janus_status || 'unknown',
 				activeRooms: res.data.active_rooms ?? liveRooms.length,
 				totalUsers: res.data.total_users ?? stats.users,
 				totalSessions: res.data.total_sessions ?? stats.sessions,
@@ -345,9 +345,9 @@
 						<p class="text-sm font-bold text-gray-900">{healthData.serverUptime || '—'}</p>
 					</div>
 					<div class="text-center p-3 bg-gray-50 rounded-lg">
-						<p class="text-xs text-gray-500 mb-1">وضعیت LiveKit</p>
-						<p class="text-sm font-bold {healthData.livekitStatus === 'connected' ? 'text-green-600' : 'text-red-600'}">
-							{healthData.livekitStatus === 'connected' ? 'متصل' : 'قطع'}
+						<p class="text-xs text-gray-500 mb-1">وضعیت Janus</p>
+						<p class="text-sm font-bold {healthData.janusStatus === 'connected' ? 'text-green-600' : 'text-red-600'}">
+							{healthData.janusStatus === 'connected' ? 'متصل' : 'قطع'}
 						</p>
 					</div>
 					<div class="text-center p-3 bg-gray-50 rounded-lg">

@@ -121,7 +121,7 @@
 					<div class="flex {isOwnMessage(msg) ? 'justify-end' : 'justify-start'}">
 						<div class="max-w-[70%] {isOwnMessage(msg) ? 'bg-blue-50 text-blue-900' : 'bg-gray-100 text-gray-900'} rounded-2xl px-4 py-2.5">
 							<p class="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
-							<p class="text-[10px] mt-1 {isOwnMessage(msg) ? 'text-blue-400' : 'text-gray-400'}">{formatTime(msg.created_at)}</p>
+							<p class="text-[10px] mt-1 {isOwnMessage(msg) ? 'text-blue-600' : 'text-gray-500'}">{formatTime(msg.created_at)}</p>
 						</div>
 					</div>
 				{/each}

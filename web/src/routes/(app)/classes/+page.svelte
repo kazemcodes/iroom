@@ -105,8 +105,8 @@
 <div class="space-y-6">
 	<div class="flex items-center justify-between">
 		<div>
-			<h1 class="text-2xl font-bold" style="color: var(--sky-text-primary);">کلاس‌ها</h1>
-			<p style="color: var(--sky-text-secondary);">{toPersianNum(totalClasses)} کلاس</p>
+			<h1 class="text-2xl font-bold" style="color: var(--sr-text);">کلاس‌ها</h1>
+			<p style="color: var(--sr-text-secondary);">{toPersianNum(totalClasses)} کلاس</p>
 		</div>
 		<div class="flex items-center gap-3">
 			<button onclick={() => showJoinByCode = true} class="btn-primary flex items-center gap-2" style="background: linear-gradient(135deg, #10b981, #059669);">
@@ -143,10 +143,10 @@
 		</div>
 	{:else if classes.length === 0}
 		<div class="text-center py-20 card">
-			<svg class="w-16 h-16 mx-auto mb-4" style="color: var(--sky-text-secondary);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+			<svg class="w-16 h-16 mx-auto mb-4" style="color: var(--sr-text-secondary);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
 			</svg>
-			<p style="color: var(--sky-text-secondary);">کلاسی یافت نشد</p>
+			<p style="color: var(--sr-text-secondary);">کلاسی یافت نشد</p>
 		</div>
 	{:else}
 		<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -155,13 +155,13 @@
 					<div class="flex items-start justify-between mb-3">
 						<div class="flex items-center gap-3">
 							<div class="w-4 h-4 rounded-full shrink-0" style="background-color: {cls.color}"></div>
-							<h3 class="font-bold group-hover:text-blue-400 transition-colors" style="color: var(--sky-text-primary);">{cls.name}</h3>
+							<h3 class="font-bold group-hover:text-blue-400 transition-colors" style="color: var(--sr-text);">{cls.name}</h3>
 						</div>
 					</div>
 					{#if cls.description}
-						<p class="text-sm line-clamp-2 mb-4" style="color: var(--sky-text-secondary);">{cls.description}</p>
+						<p class="text-sm line-clamp-2 mb-4" style="color: var(--sr-text-secondary);">{cls.description}</p>
 					{/if}
-					<div class="flex items-center justify-between text-xs pt-3" style="color: var(--sky-text-secondary); border-top: 1px solid var(--sky-border);">
+					<div class="flex items-center justify-between text-xs pt-3" style="color: var(--sr-text-secondary); border-top: 1px solid var(--sr-border);">
 						<span class="flex items-center gap-1">
 							<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -175,7 +175,7 @@
 	{/if}
 
 	{#if totalPages > 1}
-		<div class="flex items-center justify-between text-sm" style="color: var(--sky-text-secondary);">
+		<div class="flex items-center justify-between text-sm" style="color: var(--sr-text-secondary);">
 			<div class="flex items-center gap-3">
 				<span>{toPersianNum(totalClasses)} کلاس</span>
 				<div class="flex items-center gap-1">
@@ -200,39 +200,39 @@
 {#if showCreate}
 	<div class="modal-overlay" onclick={() => showCreate = false}>
 		<div class="modal-content" onclick={(e) => e.stopPropagation()}>
-			<div class="px-6 py-4" style="border-bottom: 1px solid var(--sky-border);">
-				<h2 class="font-bold text-lg" style="color: var(--sky-text-primary);">ایجاد کلاس جدید</h2>
+			<div class="px-6 py-4" style="border-bottom: 1px solid var(--sr-border);">
+				<h2 class="font-bold text-lg" style="color: var(--sr-text);">ایجاد کلاس جدید</h2>
 			</div>
 			<div class="px-6 py-4 space-y-4">
 				{#if formError}
-					<div class="p-3 rounded-lg text-sm" style="background: rgba(233, 69, 96, 0.15); color: var(--sky-accent-red);">{formError}</div>
+					<div class="p-3 rounded-lg text-sm" style="background: rgba(224, 82, 82, 0.15); color: var(--sr-danger);">{formError}</div>
 				{/if}
 				<div>
-					<label class="block text-sm font-medium mb-1" style="color: var(--sky-text-secondary);">نام کلاس</label>
+					<label class="block text-sm font-medium mb-1" style="color: var(--sr-text-secondary);">نام کلاس</label>
 					<input type="text" bind:value={formName} class="input-field" placeholder="مثال: ریاضی پایه دهم" required />
 				</div>
 				<div>
-					<label class="block text-sm font-medium mb-1" style="color: var(--sky-text-secondary);">توضیحات</label>
+					<label class="block text-sm font-medium mb-1" style="color: var(--sr-text-secondary);">توضیحات</label>
 					<textarea bind:value={formDesc} class="input-field resize-none" rows="2" placeholder="توضیحات کلاس..."></textarea>
 				</div>
 				<div>
-					<label class="block text-sm font-medium mb-2" style="color: var(--sky-text-secondary);">رنگ</label>
+					<label class="block text-sm font-medium mb-2" style="color: var(--sr-text-secondary);">رنگ</label>
 					<div class="flex gap-2">
 						{#each colors as color}
 							<button
 								class="w-8 h-8 rounded-full transition-transform {formColor === color ? 'ring-2 ring-offset-2 ring-blue-500 scale-110' : 'hover:scale-105'}"
-								style="background-color: {color}; --tw-ring-offset-color: var(--sky-bg-panel);"
+								style="background-color: {color}; --tw-ring-offset-color: var(--sr-pure);"
 								onclick={() => formColor = color}
 							></button>
 						{/each}
 					</div>
 				</div>
 				<div>
-					<label class="block text-sm font-medium mb-1" style="color: var(--sky-text-secondary);">حداکثر دانش‌آموز</label>
+					<label class="block text-sm font-medium mb-1" style="color: var(--sr-text-secondary);">حداکثر دانش‌آموز</label>
 					<input type="number" bind:value={formMaxStudents} class="input-field" min="1" max="200" />
 				</div>
 			</div>
-			<div class="px-6 py-4 flex justify-end gap-3" style="border-top: 1px solid var(--sky-border);">
+			<div class="px-6 py-4 flex justify-end gap-3" style="border-top: 1px solid var(--sr-border);">
 				<button onclick={() => showCreate = false} class="btn-ghost">انصراف</button>
 				<button onclick={createClass} disabled={formLoading || !formName} class="btn-primary disabled:opacity-50">
 					{formLoading ? 'در حال ایجاد...' : 'ایجاد کلاس'}
@@ -245,15 +245,15 @@
 {#if showJoinByCode}
 	<div class="modal-overlay" onclick={() => showJoinByCode = false}>
 		<div class="modal-content" onclick={(e) => e.stopPropagation()}>
-			<div class="px-6 py-4" style="border-bottom: 1px solid var(--sky-border);">
-				<h2 class="font-bold text-lg" style="color: var(--sky-text-primary);">پیوستن به کلاس</h2>
+			<div class="px-6 py-4" style="border-bottom: 1px solid var(--sr-border);">
+				<h2 class="font-bold text-lg" style="color: var(--sr-text);">پیوستن به کلاس</h2>
 			</div>
 			<div class="px-6 py-4 space-y-4">
 				{#if joinError}
-					<div class="p-3 rounded-lg text-sm" style="background: rgba(233, 69, 96, 0.15); color: var(--sky-accent-red);">{joinError}</div>
+					<div class="p-3 rounded-lg text-sm" style="background: rgba(224, 82, 82, 0.15); color: var(--sr-danger);">{joinError}</div>
 				{/if}
 				<div>
-					<label class="block text-sm font-medium mb-1" style="color: var(--sky-text-secondary);">کد دعوت</label>
+					<label class="block text-sm font-medium mb-1" style="color: var(--sr-text-secondary);">کد دعوت</label>
 					<input
 						type="text"
 						bind:value={joinCode}
@@ -262,10 +262,10 @@
 						placeholder="کد دعوت را وارد کنید"
 						autofocus
 					/>
-					<p class="text-xs mt-2" style="color: var(--sky-text-secondary);">کد دعوت را از معلم دریافت کنید</p>
+					<p class="text-xs mt-2" style="color: var(--sr-text-secondary);">کد دعوت را از معلم دریافت کنید</p>
 				</div>
 			</div>
-			<div class="px-6 py-4 flex justify-end gap-3" style="border-top: 1px solid var(--sky-border);">
+			<div class="px-6 py-4 flex justify-end gap-3" style="border-top: 1px solid var(--sr-border);">
 				<button onclick={() => { showJoinByCode = false; joinCode = ''; joinError = ''; }} class="btn-ghost">انصراف</button>
 				<button onclick={joinByCode} disabled={joinLoading || !joinCode.trim()} class="btn-primary disabled:opacity-50" style="background: linear-gradient(135deg, #10b981, #059669);">
 					{joinLoading ? 'در حال پیوستن...' : 'پیوستن'}

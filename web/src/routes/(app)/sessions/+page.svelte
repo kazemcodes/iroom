@@ -86,17 +86,17 @@
 <div class="space-y-6">
 	<div class="flex items-center justify-between">
 		<div>
-			<h1 class="text-2xl font-bold" style="color: var(--sky-text-primary);">جلسات</h1>
-			<p style="color: var(--sky-text-secondary);">{toPersianNum(totalSessions)} جلسه</p>
+			<h1 class="text-2xl font-bold" style="color: var(--sr-text);">جلسات</h1>
+			<p style="color: var(--sr-text-secondary);">{toPersianNum(totalSessions)} جلسه</p>
 		</div>
 	</div>
 
 	<div class="flex flex-wrap gap-3">
-		<div class="flex gap-1 p-1 rounded-lg" style="background: var(--sky-bg-dark);">
+		<div class="flex gap-1 p-1 rounded-lg" style="background: var(--sr-bg);">
 			{#each [['all', 'همه'], ['scheduled', 'برنامه‌ریزی شده'], ['live', 'در حال برگزاری'], ['ended', 'پایان یافته']] as [val, label]}
 				<button
 					class="px-3 py-1.5 rounded-md text-xs font-medium transition-all"
-					style={filter === val ? 'background: var(--sky-bg-input); color: var(--sky-accent-blue);' : 'color: var(--sky-text-secondary);'}
+					style={filter === val ? 'background: var(--sr-bg-alt); color: var(--sr-primary);' : 'color: var(--sr-text-secondary);'}
 					onclick={() => filter = val as any}
 				>{label}</button>
 			{/each}
@@ -116,7 +116,7 @@
 		</div>
 	{:else if filtered.length === 0}
 		<div class="text-center py-20 card">
-			<p style="color: var(--sky-text-secondary);">جلسه‌ای یافت نشد</p>
+			<p style="color: var(--sr-text-secondary);">جلسه‌ای یافت نشد</p>
 		</div>
 	{:else}
 		<div class="space-y-3">
@@ -124,23 +124,23 @@
 				<div class="card p-5">
 					<div class="flex items-center justify-between">
 						<div class="flex items-center gap-4">
-							<div class="w-12 h-12 rounded-xl flex items-center justify-center" style="background: {s.status === 'live' ? 'rgba(0, 210, 106, 0.15)' : 'var(--sky-bg-input)'};">
+							<div class="w-12 h-12 rounded-xl flex items-center justify-center" style="background: {s.status === 'live' ? 'rgba(64, 191, 127, 0.15)' : 'var(--sr-bg-alt)'};">
 								{#if s.status === 'live'}
 									<div class="relative">
-										<svg class="w-6 h-6" style="color: var(--sky-accent-green);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<svg class="w-6 h-6" style="color: var(--sr-success);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
 										</svg>
 										<span class="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse"></span>
 									</div>
 								{:else}
-									<svg class="w-6 h-6" style="color: var(--sky-text-secondary);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<svg class="w-6 h-6" style="color: var(--sr-text-secondary);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
 									</svg>
 								{/if}
 							</div>
 							<div>
-								<h3 class="font-bold" style="color: var(--sky-text-primary);">{s.title}</h3>
-								<p class="text-sm mt-0.5" style="color: var(--sky-text-secondary);">{formatDate(s.scheduled_at)} • {toPersianNum(s.duration)} دقیقه</p>
+								<h3 class="font-bold" style="color: var(--sr-text);">{s.title}</h3>
+								<p class="text-sm mt-0.5" style="color: var(--sr-text-secondary);">{formatDate(s.scheduled_at)} • {toPersianNum(s.duration)} دقیقه</p>
 							</div>
 						</div>
 						<div class="flex items-center gap-2">
@@ -168,7 +168,7 @@
 	{/if}
 
 	{#if totalPages > 1}
-		<div class="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm" style="color: var(--sky-text-secondary);">
+		<div class="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm" style="color: var(--sr-text-secondary);">
 			<div class="flex items-center gap-3">
 				<span>{toPersianNum(totalSessions)} جلسه</span>
 				<div class="flex items-center gap-1">
@@ -186,7 +186,7 @@
 					<button
 						onclick={() => { currentPage = p; loadSessions(); }}
 						class="w-8 h-8 rounded-lg text-xs font-medium transition-all"
-						style={currentPage === p ? 'background: var(--sky-primary); color: white;' : 'border: 1px solid var(--sky-border); color: var(--sky-text-secondary);'}
+						style={currentPage === p ? 'background: var(--sr-primary); color: white;' : 'border: 1px solid var(--sr-border); color: var(--sr-text-secondary);'}
 					>{toPersianNum(p)}</button>
 				{/each}
 				<button disabled={currentPage >= totalPages} onclick={() => { currentPage++; loadSessions(); }} class="btn-ghost" style="padding: 0.375rem 0.75rem; font-size: 0.75rem;">بعدی</button>

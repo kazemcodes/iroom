@@ -205,8 +205,8 @@
 <div class="space-y-8 max-w-2xl mx-auto">
 	<!-- Header -->
 	<div>
-		<h1 class="text-2xl font-extrabold" style="color: var(--sky-text-primary);">حساب کاربری</h1>
-		<p class="mt-1 font-medium" style="color: var(--sky-text-secondary);">مدیریت اطلاعات شخصی و تنظیمات حساب</p>
+		<h1 class="text-2xl font-extrabold" style="color: var(--sr-text);">حساب کاربری</h1>
+		<p class="mt-1 font-medium" style="color: var(--sr-text-secondary);">مدیریت اطلاعات شخصی و تنظیمات حساب</p>
 	</div>
 
 	{#if loading}
@@ -216,7 +216,7 @@
 	{:else if user}
 		<!-- Profile Card -->
 		<div class="card p-6">
-			<div class="flex items-center gap-5 mb-6 pb-6" style="border-bottom: 1px solid var(--sky-border);">
+			<div class="flex items-center gap-5 mb-6 pb-6" style="border-bottom: 1px solid var(--sr-border);">
 				<div class="relative group">
 					<input type="file" accept="image/*" bind:this={avatarInput} onchange={handleAvatarUpload} class="hidden" />
 					<button onclick={() => avatarInput?.click()} class="w-20 h-20 rounded-2xl flex items-center justify-center text-white font-extrabold text-3xl shadow-lg shrink-0 overflow-hidden cursor-pointer {avatarData ? '' : ''}"
@@ -232,8 +232,8 @@
 					</div>
 				</div>
 				<div>
-					<h2 class="text-xl font-extrabold" style="color: var(--sky-text-primary);">{user.display_name}</h2>
-					<p class="text-sm font-medium mt-0.5" style="color: var(--sky-text-secondary);">{user.email}</p>
+					<h2 class="text-xl font-extrabold" style="color: var(--sr-text);">{user.display_name}</h2>
+					<p class="text-sm font-medium mt-0.5" style="color: var(--sr-text-secondary);">{user.email}</p>
 					<span class="badge {user.role === 'admin' ? 'badge-info' : user.role === 'teacher' ? 'badge-purple' : 'badge-success'} mt-2">
 						{roleLabels[user.role]}
 					</span>
@@ -243,42 +243,42 @@
 			<!-- Info -->
 			<div class="grid grid-cols-2 gap-4 text-sm mb-6">
 				<div>
-					<span class="font-medium" style="color: var(--sky-text-secondary);">ایمیل</span>
-					<p class="font-semibold mt-1" style="color: var(--sky-text-primary);" dir="ltr">{user.email}</p>
+					<span class="font-medium" style="color: var(--sr-text-secondary);">ایمیل</span>
+					<p class="font-semibold mt-1" style="color: var(--sr-text);" dir="ltr">{user.email}</p>
 				</div>
 				<div>
-					<span class="font-medium" style="color: var(--sky-text-secondary);">تلفن</span>
-					<p class="font-semibold mt-1" style="color: var(--sky-text-primary);" dir="ltr">{toPersianNum(user.phone) || '—'}</p>
+					<span class="font-medium" style="color: var(--sr-text-secondary);">تلفن</span>
+					<p class="font-semibold mt-1" style="color: var(--sr-text);" dir="ltr">{toPersianNum(user.phone) || '—'}</p>
 				</div>
 				<div>
-					<span class="font-medium" style="color: var(--sky-text-secondary);">تاریخ عضویت</span>
-					<p class="font-semibold mt-1" style="color: var(--sky-text-primary);">{formatDate(user.created_at)}</p>
+					<span class="font-medium" style="color: var(--sr-text-secondary);">تاریخ عضویت</span>
+					<p class="font-semibold mt-1" style="color: var(--sr-text);">{formatDate(user.created_at)}</p>
 				</div>
 				<div>
-					<span class="font-medium" style="color: var(--sky-text-secondary);">وضعیت</span>
-					<p class="font-semibold mt-1" style="color: var(--sky-text-primary);">{user.is_active ? 'فعال' : 'غیرفعال'}</p>
+					<span class="font-medium" style="color: var(--sr-text-secondary);">وضعیت</span>
+					<p class="font-semibold mt-1" style="color: var(--sr-text);">{user.is_active ? 'فعال' : 'غیرفعال'}</p>
 				</div>
 			</div>
 		</div>
 
 		<!-- Edit Profile -->
 		<div class="card p-6">
-			<h3 class="font-bold mb-4" style="color: var(--sky-text-primary);">بروزرسانی اطلاعات</h3>
+			<h3 class="font-bold mb-4" style="color: var(--sr-text);">بروزرسانی اطلاعات</h3>
 
 			{#if success}
-				<div class="mb-4 p-3 rounded-xl text-sm font-medium" style="background: rgba(0, 210, 106, 0.15); color: var(--sky-accent-green);">{success}</div>
+				<div class="mb-4 p-3 rounded-xl text-sm font-medium" style="background: rgba(64, 191, 127, 0.15); color: var(--sr-success);">{success}</div>
 			{/if}
 			{#if error}
-				<div class="mb-4 p-3 rounded-xl text-sm font-medium" style="background: rgba(233, 69, 96, 0.15); color: var(--sky-accent-red);">{error}</div>
+				<div class="mb-4 p-3 rounded-xl text-sm font-medium" style="background: rgba(224, 82, 82, 0.15); color: var(--sr-danger);">{error}</div>
 			{/if}
 
 			<form onsubmit={(e) => { e.preventDefault(); handleUpdateProfile(); }} class="space-y-4">
 				<div>
-					<label class="block text-sm font-semibold mb-1.5" style="color: var(--sky-text-secondary);">نام نمایشی</label>
+					<label class="block text-sm font-semibold mb-1.5" style="color: var(--sr-text-secondary);">نام نمایشی</label>
 					<input type="text" bind:value={displayName} class="input-field" placeholder="نام نمایشی" required />
 				</div>
 				<div>
-					<label class="block text-sm font-semibold mb-1.5" style="color: var(--sky-text-secondary);">شماره تلفن</label>
+					<label class="block text-sm font-semibold mb-1.5" style="color: var(--sr-text-secondary);">شماره تلفن</label>
 					<input type="tel" bind:value={phone} class="input-field" placeholder="09120000000" dir="ltr" />
 				</div>
 				<button type="submit" disabled={saving}
@@ -300,26 +300,26 @@
 
 		<!-- Change Password -->
 		<div class="card p-6">
-			<h3 class="font-bold mb-4" style="color: var(--sky-text-primary);">تغییر رمز عبور</h3>
+			<h3 class="font-bold mb-4" style="color: var(--sr-text);">تغییر رمز عبور</h3>
 
 			{#if passwordSuccess}
-				<div class="mb-4 p-3 rounded-xl text-sm font-medium" style="background: rgba(0, 210, 106, 0.15); color: var(--sky-accent-green);">{passwordSuccess}</div>
+				<div class="mb-4 p-3 rounded-xl text-sm font-medium" style="background: rgba(64, 191, 127, 0.15); color: var(--sr-success);">{passwordSuccess}</div>
 			{/if}
 			{#if passwordError}
-				<div class="mb-4 p-3 rounded-xl text-sm font-medium" style="background: rgba(233, 69, 96, 0.15); color: var(--sky-accent-red);">{passwordError}</div>
+				<div class="mb-4 p-3 rounded-xl text-sm font-medium" style="background: rgba(224, 82, 82, 0.15); color: var(--sr-danger);">{passwordError}</div>
 			{/if}
 
 			<form onsubmit={(e) => { e.preventDefault(); handleChangePassword(); }} class="space-y-4">
 				<div>
-					<label class="block text-sm font-semibold mb-1.5" style="color: var(--sky-text-secondary);">رمز عبور فعلی</label>
+					<label class="block text-sm font-semibold mb-1.5" style="color: var(--sr-text-secondary);">رمز عبور فعلی</label>
 					<input type="password" bind:value={currentPassword} class="input-field" placeholder="رمز عبور فعلی خود را وارد کنید" dir="ltr" required />
 				</div>
 				<div>
-					<label class="block text-sm font-semibold mb-1.5" style="color: var(--sky-text-secondary);">رمز عبور جدید</label>
+					<label class="block text-sm font-semibold mb-1.5" style="color: var(--sr-text-secondary);">رمز عبور جدید</label>
 					<input type="password" bind:value={newPassword} class="input-field" placeholder="حداقل ۶ کاراکتر" dir="ltr" required minlength="6" />
 				</div>
 				<div>
-					<label class="block text-sm font-semibold mb-1.5" style="color: var(--sky-text-secondary);">تکرار رمز عبور جدید</label>
+					<label class="block text-sm font-semibold mb-1.5" style="color: var(--sr-text-secondary);">تکرار رمز عبور جدید</label>
 					<input type="password" bind:value={confirmNewPassword} class="input-field" placeholder="رمز عبور را مجدداً وارد کنید" dir="ltr" required minlength="6" />
 				</div>
 				<button type="submit" disabled={changingPassword}
@@ -342,7 +342,7 @@
 		<!-- Two-Factor Authentication -->
 		<div class="card p-6">
 			<div class="flex items-center justify-between mb-4">
-				<h3 class="font-bold" style="color: var(--sky-text-primary);">احراز هویت دو مرحله‌ای</h3>
+				<h3 class="font-bold" style="color: var(--sr-text);">احراز هویت دو مرحله‌ای</h3>
 				{#if twoFactorEnabled}
 					<span class="badge badge-success flex items-center gap-1.5">
 						<svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
@@ -355,15 +355,15 @@
 				{/if}
 			</div>
 
-			<p class="text-sm mb-5" style="color: var(--sky-text-secondary);">
+			<p class="text-sm mb-5" style="color: var(--sr-text-secondary);">
 				احراز هویت دو مرحله‌ای یک لایه امنیتی اضافی به حساب شما اضافه می‌کند. هنگام ورود، علاوه بر رمز عبور، به کد یکبار مصرف نیاز خواهید داشت.
 			</p>
 
 			{#if twoFactorSuccess}
-				<div class="mb-4 p-3 rounded-xl text-sm font-medium" style="background: rgba(0, 210, 106, 0.15); color: var(--sky-accent-green);">{twoFactorSuccess}</div>
+				<div class="mb-4 p-3 rounded-xl text-sm font-medium" style="background: rgba(64, 191, 127, 0.15); color: var(--sr-success);">{twoFactorSuccess}</div>
 			{/if}
 			{#if twoFactorError}
-				<div class="mb-4 p-3 rounded-xl text-sm font-medium" style="background: rgba(233, 69, 96, 0.15); color: var(--sky-accent-red);">{twoFactorError}</div>
+				<div class="mb-4 p-3 rounded-xl text-sm font-medium" style="background: rgba(224, 82, 82, 0.15); color: var(--sr-danger);">{twoFactorError}</div>
 			{/if}
 
 			{#if !twoFactorEnabled}
@@ -387,25 +387,25 @@
 				{:else}
 					<!-- QR Code and Verification -->
 					<div class="space-y-5">
-						<div class="rounded-xl p-4" style="background: rgba(67, 97, 238, 0.1); border: 1px solid rgba(67, 97, 238, 0.2);">
-							<h4 class="font-semibold mb-3 flex items-center gap-2" style="color: var(--sky-accent-blue);">
+						<div class="rounded-xl p-4" style="background: rgba(35, 185, 215, 0.1); border: 1px solid rgba(35, 185, 215, 0.2);">
+							<h4 class="font-semibold mb-3 flex items-center gap-2" style="color: var(--sr-primary);">
 								<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/>
 								</svg>
 								مرحله ۱: اسکن کد QR
 							</h4>
 							<div class="flex flex-col sm:flex-row items-center gap-5">
-								<div class="p-3 rounded-xl" style="background: var(--sky-bg-input);">
+								<div class="p-3 rounded-xl" style="background: var(--sr-bg-alt);">
 									<img src={getQrCodeImageUrl(twoFactorQrUrl)} alt="QR Code 2FA" class="w-40 h-40" />
 								</div>
-								<div class="flex-1 text-sm" style="color: var(--sky-accent-blue);">
+								<div class="flex-1 text-sm" style="color: var(--sr-primary);">
 									<p class="mb-2">این کد QR را با یک برنامه احراز هویت (مانند Google Authenticator یا Authy) اسکن کنید.</p>
 									<p class="font-medium">یا کد زیر را به صورت دستی وارد کنید:</p>
 									<div class="mt-2 flex items-center gap-2">
-										<code class="px-3 py-1.5 rounded-lg font-mono text-xs select-all" style="background: var(--sky-bg-input); border: 1px solid var(--sky-border);" dir="ltr">{twoFactorSecret}</code>
+										<code class="px-3 py-1.5 rounded-lg font-mono text-xs select-all" style="background: var(--sr-bg-alt); border: 1px solid var(--sr-border);" dir="ltr">{twoFactorSecret}</code>
 										<button onclick={() => copyToClipboard(twoFactorSecret)}
-											class="p-1.5 rounded-lg transition-colors" style="color: var(--sky-accent-blue);" title="کپی">
-											<svg class="w-4 h-4" style="color: var(--sky-accent-blue);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											class="p-1.5 rounded-lg transition-colors" style="color: var(--sr-primary);" title="کپی">
+											<svg class="w-4 h-4" style="color: var(--sr-primary);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
 											</svg>
 										</button>
@@ -415,7 +415,7 @@
 						</div>
 
 						<div class="rounded-xl p-4" style="background: rgba(217, 119, 6, 0.1); border: 1px solid rgba(217, 119, 6, 0.2);">
-							<h4 class="font-semibold mb-3 flex items-center gap-2" style="color: var(--sky-accent-warm);">
+							<h4 class="font-semibold mb-3 flex items-center gap-2" style="color: var(--sr-warning);">
 								<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
 								</svg>
@@ -423,15 +423,15 @@
 							</h4>
 							{#if backupCodes.length > 0}
 								<button onclick={() => showBackupCodes = !showBackupCodes}
-									class="text-sm font-medium hover:underline mb-2" style="color: var(--sky-accent-warm);">
+									class="text-sm font-medium hover:underline mb-2" style="color: var(--sr-warning);">
 									{showBackupCodes ? 'مخفی کردن کدها' : 'نمایش کدهای پشتیبان'}
 								</button>
 								{#if showBackupCodes}
-									<div class="rounded-lg p-3" style="background: var(--sky-bg-input); border: 1px solid var(--sky-border);">
-										<p class="text-xs mb-2" style="color: var(--sky-text-secondary);">این کدها را در مکانی امن ذخیره کنید. هر کد فقط یک بار قابل استفاده است.</p>
+									<div class="rounded-lg p-3" style="background: var(--sr-bg-alt); border: 1px solid var(--sr-border);">
+										<p class="text-xs mb-2" style="color: var(--sr-text-secondary);">این کدها را در مکانی امن ذخیره کنید. هر کد فقط یک بار قابل استفاده است.</p>
 										<div class="grid grid-cols-2 gap-2 font-mono text-sm" dir="ltr">
 											{#each backupCodes as code}
-												<code class="px-2 py-1 rounded" style="background: var(--sky-bg-dark); color: var(--sky-text-primary);">{code}</code>
+												<code class="px-2 py-1 rounded" style="background: var(--sr-bg); color: var(--sr-text);">{code}</code>
 											{/each}
 										</div>
 									</div>
@@ -440,7 +440,7 @@
 						</div>
 
 						<div class="rounded-xl p-4" style="background: rgba(0, 210, 106, 0.1); border: 1px solid rgba(0, 210, 106, 0.2);">
-							<h4 class="font-semibold mb-3 flex items-center gap-2" style="color: var(--sky-accent-green);">
+							<h4 class="font-semibold mb-3 flex items-center gap-2" style="color: var(--sr-success);">
 								<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
 								</svg>
@@ -471,42 +471,42 @@
 				<!-- 2FA Enabled - Show Status and Options -->
 				<div class="space-y-4">
 					<div class="rounded-xl p-4 flex items-start gap-3" style="background: rgba(0, 210, 106, 0.1); border: 1px solid rgba(0, 210, 106, 0.2);">
-						<svg class="w-5 h-5 mt-0.5 shrink-0" style="color: var(--sky-accent-green);" fill="currentColor" viewBox="0 0 20 20">
+						<svg class="w-5 h-5 mt-0.5 shrink-0" style="color: var(--sr-success);" fill="currentColor" viewBox="0 0 20 20">
 							<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
 						</svg>
 						<div>
-							<p class="font-medium" style="color: var(--sky-accent-green);">احراز هویت دو مرحله‌ای فعال است</p>
-							<p class="text-sm mt-1" style="color: var(--sky-text-secondary);">حساب شما با امنیت بیشتری محافظت می‌شود.</p>
+							<p class="font-medium" style="color: var(--sr-success);">احراز هویت دو مرحله‌ای فعال است</p>
+							<p class="text-sm mt-1" style="color: var(--sr-text-secondary);">حساب شما با امنیت بیشتری محافظت می‌شود.</p>
 						</div>
 					</div>
 
-					<div class="rounded-xl p-4" style="border: 1px solid var(--sky-border);">
-						<h4 class="font-semibold mb-3 flex items-center gap-2" style="color: var(--sky-text-primary);">
-							<svg class="w-5 h-5" style="color: var(--sky-text-secondary);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<div class="rounded-xl p-4" style="border: 1px solid var(--sr-border);">
+						<h4 class="font-semibold mb-3 flex items-center gap-2" style="color: var(--sr-text);">
+							<svg class="w-5 h-5" style="color: var(--sr-text-secondary);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
 							</svg>
 							کدهای پشتیبان
 						</h4>
 						{#if backupCodes.length > 0}
 							<button onclick={() => showBackupCodes = !showBackupCodes}
-								class="text-sm font-medium hover:underline mb-2" style="color: var(--sky-accent-blue);">
+								class="text-sm font-medium hover:underline mb-2" style="color: var(--sr-primary);">
 								{showBackupCodes ? 'مخفی کردن کدها' : 'نمایش کدهای پشتیبان'}
 							</button>
 							{#if showBackupCodes}
-								<div class="rounded-lg p-3" style="background: var(--sky-bg-input); border: 1px solid var(--sky-border);">
-									<p class="text-xs mb-2" style="color: var(--sky-text-secondary);">این کدها را در مکانی امن ذخیره کنید. هر کد فقط یک بار قابل استفاده است.</p>
+								<div class="rounded-lg p-3" style="background: var(--sr-bg-alt); border: 1px solid var(--sr-border);">
+									<p class="text-xs mb-2" style="color: var(--sr-text-secondary);">این کدها را در مکانی امن ذخیره کنید. هر کد فقط یک بار قابل استفاده است.</p>
 									<div class="grid grid-cols-2 gap-2 font-mono text-sm" dir="ltr">
 										{#each backupCodes as code}
-											<code class="px-2 py-1 rounded" style="background: var(--sky-bg-dark); color: var(--sky-text-primary);">{code}</code>
+											<code class="px-2 py-1 rounded" style="background: var(--sr-bg); color: var(--sr-text);">{code}</code>
 										{/each}
 									</div>
 								</div>
 							{/if}
 						{:else}
-							<p class="text-sm mb-3" style="color: var(--sky-text-secondary);">کدهای پشتیبان موجود نیست.</p>
+							<p class="text-sm mb-3" style="color: var(--sr-text-secondary);">کدهای پشتیبان موجود نیست.</p>
 						{/if}
 						<button onclick={handleRegenerateBackupCodes} disabled={twoFactorRegenerating}
-							class="mt-3 text-sm font-medium flex items-center gap-1.5 disabled:opacity-50" style="color: var(--sky-accent-blue);">
+							class="mt-3 text-sm font-medium flex items-center gap-1.5 disabled:opacity-50" style="color: var(--sr-primary);">
 							{#if twoFactorRegenerating}
 								<svg class="animate-spin h-4 w-4" viewBox="0 0 24 24">
 									<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/>
@@ -523,13 +523,13 @@
 
 					<!-- Disable 2FA -->
 					<div class="rounded-xl p-4" style="border: 1px solid rgba(233, 69, 96, 0.3);">
-						<h4 class="font-semibold mb-2 flex items-center gap-2" style="color: var(--sky-accent-red);">
+						<h4 class="font-semibold mb-2 flex items-center gap-2" style="color: var(--sr-danger);">
 							<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
 							</svg>
 							غیرفعال کردن احراز هویت دو مرحله‌ای
 						</h4>
-						<p class="text-sm mb-3" style="color: var(--sky-text-secondary);">غیرفعال کردن احراز هویت دو مرحله‌ای امنیت حساب شما را کاهش می‌دهد.</p>
+						<p class="text-sm mb-3" style="color: var(--sr-text-secondary);">غیرفعال کردن احراز هویت دو مرحله‌ای امنیت حساب شما را کاهش می‌دهد.</p>
 
 						{#if !showDisableConfirm}
 							<button onclick={() => showDisableConfirm = true}
@@ -541,7 +541,7 @@
 							</button>
 						{:else}
 							<div class="space-y-3">
-								<p class="text-sm font-medium" style="color: var(--sky-accent-red);">برای غیرفعال کردن، رمز عبور خود را وارد کنید:</p>
+								<p class="text-sm font-medium" style="color: var(--sr-danger);">برای غیرفعال کردن، رمز عبور خود را وارد کنید:</p>
 								<input type="password" bind:value={disablePassword}
 									class="input-field" placeholder="رمز عبور فعلی" dir="ltr" />
 								<div class="flex items-center gap-2">

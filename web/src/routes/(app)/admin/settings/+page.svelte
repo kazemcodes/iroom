@@ -25,9 +25,9 @@
 		max_file_size_mb: 50,
 		session_auto_end_minutes: 120,
 		// Video
-		livekit_url: '',
-		livekit_api_key: '',
-		livekit_api_secret: '',
+		janus_http_url: '',
+		janus_ws_url: '',
+		janus_admin_key: '',
 		// Security
 		password_min_length: '6',
 		password_require_uppercase: false,
@@ -502,33 +502,33 @@
 				{:else}
 					<div class="space-y-6">
 						<div>
-							<h2 class="text-lg font-semibold text-gray-900">تنظیمات ویدیو و LiveKit</h2>
+							<h2 class="text-lg font-semibold text-gray-900">تنظیمات ویدیو و Janus</h2>
 							<p class="text-sm text-gray-500 mt-1">پیکربندی سرور ویدیو برای جلسات آنلاین</p>
 						</div>
 						<div class="divide-y">
-							<!-- LiveKit URL -->
+							<!-- Janus HTTP URL -->
 							<div class="py-4 flex items-center justify-between">
 								<div>
-									<p class="font-medium text-gray-900">آدرس سرور LiveKit</p>
-									<p class="text-sm text-gray-500 mt-0.5">آدرس WebSocket سرور ویدیو</p>
+									<p class="font-medium text-gray-900">آدرس HTTP سرور Janus</p>
+									<p class="text-sm text-gray-500 mt-0.5">آدرس HTTP API سرور ویدیو</p>
 								</div>
-								<input type="text" bind:value={settings.livekit_url} placeholder="ws://localhost:7880" dir="ltr" class="w-64 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+								<input type="text" bind:value={settings.janus_http_url} placeholder="http://localhost:8088" dir="ltr" class="w-64 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
 							</div>
-							<!-- LiveKit API Key -->
+							<!-- Janus WebSocket URL -->
 							<div class="py-4 flex items-center justify-between">
 								<div>
-									<p class="font-medium text-gray-900">کلید API</p>
-									<p class="text-sm text-gray-500 mt-0.5">کلید دسترسی به LiveKit</p>
+									<p class="font-medium text-gray-900">آدرس WebSocket سرور Janus</p>
+									<p class="text-sm text-gray-500 mt-0.5">آدرس WebSocket برای اتصال کلاینت</p>
 								</div>
-								<input type="text" bind:value={settings.livekit_api_key} placeholder="API Key" dir="ltr" class="w-64 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+								<input type="text" bind:value={settings.janus_ws_url} placeholder="ws://localhost:8188" dir="ltr" class="w-64 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
 							</div>
-							<!-- LiveKit API Secret -->
+							<!-- Janus Admin Key -->
 							<div class="py-4 flex items-center justify-between">
 								<div>
-									<p class="font-medium text-gray-900">رمز API</p>
-									<p class="text-sm text-gray-500 mt-0.5">رمز مخفی LiveKit (فقط در صورت نیاز تغییر دهید)</p>
+									<p class="font-medium text-gray-900">کلید مدیریت Janus</p>
+									<p class="text-sm text-gray-500 mt-0.5">کلید دسترسی مدیریتی سرور Janus</p>
 								</div>
-								<input type="password" bind:value={settings.livekit_api_secret} placeholder="••••••••" dir="ltr" class="w-64 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+								<input type="password" bind:value={settings.janus_admin_key} placeholder="••••••••" dir="ltr" class="w-64 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
 							</div>
 							<!-- Allow student video -->
 							<div class="py-4 flex items-center justify-between">
@@ -740,7 +740,7 @@
 						<div class="flex items-center gap-3 pt-4 border-t">
 							<button onclick={testEmail} disabled={emailTesting || !settings.smtp_enabled} class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
 								{#if emailTesting}
-									<div class="animate-spin h-4 w-4 border-2 border-gray-600 border-t-transparent rounded-full"></div>
+									<div class="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
 									در حال ارسال...
 								{:else}
 									<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

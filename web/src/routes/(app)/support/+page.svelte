@@ -246,7 +246,7 @@
 		{#if !loading && tickets.length > 0}
 			<!-- Status Count Badges -->
 			<div class="flex items-center gap-3">
-				<button onclick={() => filterStatus = 'all'} class="px-3 py-1.5 text-xs rounded-full font-medium transition-colors {filterStatus === 'all' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">
+				<button onclick={() => filterStatus = 'all'} class="px-3 py-1.5 text-xs rounded-full font-medium transition-colors {filterStatus === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">
 					همه ({toPersianNum(tickets.length)})
 				</button>
 				<button onclick={() => filterStatus = 'open'} class="px-3 py-1.5 text-xs rounded-full font-medium transition-colors {filterStatus === 'open' ? 'bg-green-600 text-white' : 'bg-green-50 text-green-700 hover:bg-green-100'}">
@@ -255,7 +255,7 @@
 				<button onclick={() => filterStatus = 'answered'} class="px-3 py-1.5 text-xs rounded-full font-medium transition-colors {filterStatus === 'answered' ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-700 hover:bg-blue-100'}">
 					پاسخ داده شده ({toPersianNum(statusCounts().answered)})
 				</button>
-				<button onclick={() => filterStatus = 'closed'} class="px-3 py-1.5 text-xs rounded-full font-medium transition-colors {filterStatus === 'closed' ? 'bg-gray-600 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}">
+				<button onclick={() => filterStatus = 'closed'} class="px-3 py-1.5 text-xs rounded-full font-medium transition-colors {filterStatus === 'closed' ? 'bg-gray-500 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}">
 					بسته شده ({toPersianNum(statusCounts().closed)})
 				</button>
 			</div>

@@ -53,7 +53,7 @@ func main() {
 	webhookDeliveryRepo := repository.NewWebhookDeliveryRepo(db)
 
 	// Services
-	livekitSvc := services.NewLiveKitService(cfg.LiveKit.APIKey, cfg.LiveKit.APISecret, cfg.LiveKit.URL)
+	janusSvc := services.NewJanusService(cfg.Janus.HTTPURL, cfg.Janus.WSURL, cfg.Janus.AdminKey, cfg.Janus.RoomSecret)
 	wsHub := services.NewHub()
 	go wsHub.Run()
 	totpSvc := services.NewTOTPService("IRoom")
@@ -65,7 +65,7 @@ func main() {
 	classHandler := handlers.NewClassHandler(classRepo, sessionRepo)
 	sessionHandler := handlers.NewSessionHandler(sessionRepo, classRepo)
 	messageHandler := handlers.NewMessageHandler(messageRepo)
-	livekitHandler := handlers.NewLiveKitHandler(sessionRepo, livekitSvc)
+	janusHandler := handlers.NewJanusHandler(sessionRepo, janusSvc)
 	fileHandler := handlers.NewFileHandler(fileRepo, sessionRepo, classRepo, cfg.Upload.UploadDir)
 	recordingHandler := handlers.NewRecordingHandler(recordingRepo, sessionRepo, classRepo, cfg.Upload.UploadDir)
 	chatHandler := handlers.NewChatHandler(messageRepo, cfg.JWT.Secret)
@@ -90,7 +90,7 @@ func main() {
 	e.Use(middleware.RateLimit(100, time.Minute))
 
 	// Health
-	healthHandler := handlers.NewHealthHandler(db, cfg.Database.Path, livekitSvc)
+	healthHandler := handlers.NewHealthHandler(db, cfg.Database.Path, janusSvc)
 	e.GET("/api/v1/health", healthHandler.Health)
 
 	// Auth (with stricter rate limit)
@@ -156,8 +156,10 @@ func main() {
 	api.GET("/sessions/recurring", sessionHandler.ListRecurring)
 	api.DELETE("/sessions/recurring/:id", sessionHandler.DeleteRecurring)
 
-	// LiveKit
-	api.GET("/sessions/:id/livekit-token", livekitHandler.GetJoinToken)
+	// Janus
+	api.GET("/sessions/:id/classroom", janusHandler.GetJoinInfo)
+	api.POST("/sessions/:id/classroom/mute/:participant_id", janusHandler.MuteParticipant)
+	api.POST("/sessions/:id/classroom/kick/:participant_id", janusHandler.KickParticipant)
 
 	// Messages
 	api.GET("/sessions/:id/messages", messageHandler.List)
@@ -199,9 +201,6 @@ func main() {
 	api.GET("/notifications/unread-count", notificationHandler.UnreadCount)
 	api.POST("/notifications/:id/read", notificationHandler.MarkRead)
 	api.POST("/notifications/read-all", notificationHandler.MarkAllRead)
-
-	// LiveKit webhook
-	e.POST("/api/v1/livekit/webhook", livekitHandler.Webhook)
 
 	// External webhook receiver (API key auth required)
 	webhookExt := e.Group("/api/v1/webhooks")

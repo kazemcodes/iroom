@@ -1,9 +1,50 @@
 <script lang="ts">
-	import { auth } from '$lib/stores';
+	import { browser } from '$app/environment';
+	import { auth, isAdmin } from '$lib/stores';
+	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
+	import { api } from '$lib/api';
+	import { toPersianNum } from '$lib/utils/persian';
+	import { notifications, unreadCount } from '$lib/stores/notifications';
+	import type { Notification } from '$lib/stores/notifications';
 
 	let { children } = $props();
+	let currentPath = $derived(page.url.pathname);
+	let mobileOpen = $state(false);
+	let sidebarCollapsed = $state(false);
+	let counts = $state({ classes: 0, sessions: 0 });
+	let showNotifications = $state(false);
+
+	let ws = $state<WebSocket | null>(null);
+	let reconnectTimeout: ReturnType<typeof setTimeout>;
+	let mounted = $state(false);
+
+	function connectWebSocket() {
+		if (!browser) return;
+		const token = localStorage.getItem('access_token');
+		if (!token) return;
+
+		const wsBase = api.getWsUrl();
+		ws = new WebSocket(`${wsBase}/api/v1/ws?token=${token}`);
+
+		ws.onmessage = (event) => {
+			try {
+				const msg = JSON.parse(event.data);
+				if (msg.type === 'notification' && msg.data) {
+					notifications.add(msg.data as Notification);
+				}
+			} catch {}
+		};
+
+		ws.onclose = () => {
+			reconnectTimeout = setTimeout(connectWebSocket, 5000);
+		};
+
+		ws.onerror = () => {
+			ws?.close();
+		};
+	}
 
 	onMount(() => {
 		auth.init();
@@ -12,10 +53,407 @@
 				goto('/auth');
 			}
 		});
+
+		mounted = true;
+
 		return unsub;
 	});
+
+	$effect(() => {
+		if (!mounted) return;
+		const token = localStorage.getItem('access_token');
+		if (!token) return;
+
+		(async () => {
+			try {
+				const [c, s] = await Promise.all([
+					api.get<any>('/classes'),
+					api.get<any>('/sessions')
+				]);
+				if (c.success && c.data) counts.classes = Array.isArray(c.data) ? c.data.length : (c.data?.total || 0);
+				if (s.success && s.data) counts.sessions = Array.isArray(s.data) ? s.data.length : (s.data?.total || 0);
+			} catch {}
+
+			await notifications.load();
+			connectWebSocket();
+		})();
+
+		return () => {
+			if (reconnectTimeout) clearTimeout(reconnectTimeout);
+			if (ws) ws.close();
+			ws = null;
+		};
+	});
+
+	const isOnAdmin = $derived(currentPath.startsWith('/admin'));
+
+	const navItems = $derived.by(() => {
+		const items = [
+			{ href: '/dashboard', label: 'داشبورد', icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0h4' },
+			{ href: '/classes', label: 'کلاس‌ها', icon: 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253' },
+			{ href: '/sessions', label: 'جلسات', icon: 'M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z' },
+			{ href: '/files', label: 'فایل‌ها', icon: 'M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m6.75 12H9.75m0-3h6m-6 6h6M3.375 6.75h17.25a.375.375 0 01.375.375v11.25a.375.375 0 01-.375.375H3.375a.375.375 0 01-.375-.375V7.125a.375.375 0 01.375-.375z' },
+			{ href: '/support', label: 'پشتیبانی', icon: 'M20.25 8.511c.884.284 1.5 1.128 1.5 2.097v4.286c0 1.136-.847 2.1-1.98 2.193-.34.027-.68.052-1.02.072v3.091l-3-3c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 01-.825-.242m9.345-8.334a2.126 2.126 0 00-.476-.095 48.64 48.64 0 00-8.048 0c-1.131.094-1.976.94-1.976 2.097v4.286c0 .837.46 1.58 1.155 1.951m9.345-8.334V6.637c0-1.621-1.152-3.026-2.76-3.235A48.455 48.455 0 0011.25 3c-2.115 0-4.198.137-6.24.402-1.608.209-2.76 1.614-2.76 3.235v6.226c0 1.621 1.152 3.026 2.76 3.235.577.075 1.157.14 1.74.194V21l4.155-4.155' },
+			{ href: '/profile', label: 'حساب کاربری', icon: 'M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z' }
+		];
+
+		return items;
+	});
+
+	const adminNavItems = $derived.by(() => {
+		if (!$isAdmin) return [];
+		return [
+			{ href: '/admin', label: 'داشبورد مدیریت', icon: 'M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z' },
+			{ href: '/admin/users', label: 'کاربران', icon: 'M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z' },
+			{ href: '/admin/rooms', label: 'اتاق‌ها', icon: 'M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3H21m-3.75 3H21' },
+			{ href: '/admin/recordings', label: 'ضبط‌ها', icon: 'M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z' },
+			{ href: '/admin/logs', label: 'لاگ‌ها', icon: 'M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z' },
+			{ href: '/admin/settings', label: 'تنظیمات', icon: 'M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 010 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 01-.22.128c-.331.183-.582-.495.644-.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 010-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28z M15 12a3 3 0 11-6 0 3 3 0 016 0z' }
+		];
+	});
+
+	const roleLabels: Record<string, string> = { admin: 'مدیر سیستم', teacher: 'مدرس', student: 'دانش‌آموز' };
+	const roleBadgeColors: Record<string, string> = {
+		admin: 'bg-amber-500/20 text-amber-400',
+		teacher: 'bg-violet-500/20 text-violet-400',
+		student: 'bg-teal-500/20 text-teal-400'
+	};
+
+	function timeAgo(dateStr: string): string {
+		const now = new Date();
+		const date = new Date(dateStr);
+		const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+		if (seconds < 60) return 'لحظاتی پیش';
+		const minutes = Math.floor(seconds / 60);
+		if (minutes < 60) return `${toPersianNum(minutes)} دقیقه پیش`;
+		const hours = Math.floor(minutes / 60);
+		if (hours < 24) return `${toPersianNum(hours)} ساعت پیش`;
+		const days = Math.floor(hours / 24);
+		return `${toPersianNum(days)} روز پیش`;
+	}
+
+	function notifIcon(type: string): { icon: string; color: string; bg: string } {
+		switch (type) {
+			case 'session_created':
+			case 'session_started':
+				return { icon: 'M12 6v6m0 0v6m0-6h6m-6 0H6', color: 'var(--sr-primary)', bg: 'rgba(35, 185, 215, 0.2)' };
+			case 'ticket_replied':
+			case 'ticket_closed':
+				return { icon: 'M5 13l4 4L19 7', color: 'var(--sr-success)', bg: 'rgba(0, 210, 106, 0.2)' };
+			case 'warning':
+			case 'storage_full':
+				return { icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z', color: 'var(--sr-danger)', bg: 'rgba(233, 69, 96, 0.2)' };
+			case 'class_invite':
+				return { icon: 'M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z', color: 'var(--sky-accent-violet, #7c3aed)', bg: 'rgba(124, 58, 237, 0.2)' };
+			default:
+				return { icon: 'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9', color: 'var(--sr-primary)', bg: 'rgba(35, 185, 215, 0.2)' };
+		}
+	}
+
+	function handleClickOutside(event: MouseEvent) {
+		const target = event.target as HTMLElement;
+		if (!target.closest('.notification-dropdown') && !target.closest('.notification-bell')) {
+			showNotifications = false;
+		}
+	}
+
+	async function handleMarkAllRead() {
+		await notifications.markAllRead();
+	}
+
+	async function handleMarkRead(id: number) {
+		await notifications.markRead(id);
+	}
+
+	function confirmLogout() {
+		if (confirm('آیا از خروج از حساب کاربری اطمینان دارید؟')) {
+			auth.logout();
+		}
+	}
 </script>
 
-{#if $auth.isLoggedIn}
-	{@render children()}
-{/if}
+<svelte:document onclick={handleClickOutside} />
+
+<div class="flex min-h-screen" style="background: var(--sr-bg);">
+	<!-- Sidebar -->
+	<aside class="fixed inset-y-0 right-0 z-30 transform transition-all duration-300 ease-in-out
+		{mobileOpen ? 'translate-x-0' : 'translate-x-full'}
+		lg:translate-x-0 lg:static
+		{sidebarCollapsed ? 'w-[60px]' : 'w-60'}"
+		style="background: var(--sr-pure); border-left: 1px solid var(--sr-border);">
+		<div class="flex flex-col h-full">
+			<!-- Logo -->
+			<div class="px-4 py-4" style="border-bottom: 1px solid var(--sr-border);">
+				<div class="flex items-center gap-3">
+					<div class="w-9 h-9 rounded-lg flex items-center justify-center text-white font-bold text-sm shrink-0"
+						style="background: var(--sr-primary);">
+						آ
+					</div>
+					{#if !sidebarCollapsed}
+						<div class="min-w-0">
+							<h1 class="font-extrabold text-sm" style="color: var(--sr-text);">آی‌روم</h1>
+						</div>
+					{/if}
+				</div>
+			</div>
+
+			<!-- Navigation -->
+			<nav class="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto">
+				{#each navItems as item}
+					<a
+						href={item.href}
+						class="sky-sidebar-link {currentPath === item.href || (item.href !== '/admin' && currentPath.startsWith(item.href)) ? 'active' : ''}"
+						onclick={() => mobileOpen = false}
+						title={sidebarCollapsed ? item.label : undefined}
+					>
+						<svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" d={item.icon} />
+						</svg>
+						{#if !sidebarCollapsed}
+							<span>{item.label}</span>
+						{/if}
+					</a>
+				{/each}
+
+				{#if $isAdmin && adminNavItems.length > 0}
+					<div class="pt-2 mt-2" style="border-top: 1px solid var(--sr-border);">
+						{#if !sidebarCollapsed}
+							<p class="px-3 mb-1 text-[10px] font-bold" style="color: var(--sr-text-muted);">مدیریت</p>
+						{/if}
+						{#each adminNavItems as item}
+							<a
+								href={item.href}
+								class="sky-sidebar-link {currentPath === item.href || (item.href === '/admin' && currentPath === '/admin') ? 'active' : ''}"
+								onclick={() => mobileOpen = false}
+								title={sidebarCollapsed ? item.label : undefined}
+							>
+								<svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" d={item.icon} />
+								</svg>
+								{#if !sidebarCollapsed}
+									<span>{item.label}</span>
+								{/if}
+							</a>
+						{/each}
+					</div>
+				{/if}
+			</nav>
+
+			<!-- User info -->
+			<div class="px-3 py-3" style="border-top: 1px solid var(--sr-border);">
+				{#if $auth.user}
+					<div class="flex items-center gap-3 mb-2">
+						<div class="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs shrink-0"
+							style="background: var(--sr-primary);">
+							{$auth.user.display_name.charAt(0)}
+						</div>
+						{#if !sidebarCollapsed}
+							<div class="flex-1 min-w-0">
+								<p class="text-xs font-bold truncate" style="color: var(--sr-text);">{$auth.user.display_name}</p>
+							</div>
+						{/if}
+					</div>
+				{/if}
+			<button
+				onclick={confirmLogout}
+				class="w-full flex items-center gap-2 px-3 py-2 text-xs rounded-lg transition-all duration-150 font-medium hover:bg-red-50"
+				style="color: var(--sr-danger);"
+			>
+					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+					</svg>
+					{#if !sidebarCollapsed}
+						خروج
+					{/if}
+				</button>
+			</div>
+		</div>
+	</aside>
+
+	<!-- Mobile overlay -->
+	{#if mobileOpen}
+		<div class="fixed inset-0 bg-black/50 backdrop-blur-sm z-20 lg:hidden" onclick={() => mobileOpen = false} role="button" tabindex="-1"></div>
+	{/if}
+
+	<!-- Main content -->
+	<div class="flex-1 min-w-0">
+		<!-- Desktop header -->
+		<header class="sticky top-0 z-10 px-6 py-3 flex items-center justify-between hidden lg:flex"
+			style="background: var(--sr-pure); border-bottom: 1px solid var(--sr-border);">
+			<div class="flex items-center gap-4">
+				<button onclick={() => mobileOpen = true} class="p-2 rounded-lg transition-colors" style="color: var(--sr-text-muted);" aria-label="منو">
+					<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+					</svg>
+				</button>
+			</div>
+			
+			<div class="flex items-center gap-4">
+				<!-- Notification Bell -->
+				<div class="relative">
+					<button class="notification-bell p-2 rounded-lg transition-colors relative"
+						style="color: var(--sr-text-muted);"
+						onclick={() => showNotifications = !showNotifications}>
+						<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+						</svg>
+						{#if $unreadCount > 0}
+							<span class="absolute -top-1 -right-1 w-4 h-4 flex items-center justify-center text-[9px] font-bold text-white rounded-full"
+								style="background: var(--sr-danger);">
+								{toPersianNum($unreadCount)}
+							</span>
+						{/if}
+					</button>
+				</div>
+			</div>
+		</header>
+
+		<!-- Mobile header -->
+		<header class="sticky top-0 z-10 px-4 py-3 flex items-center justify-between lg:hidden"
+			style="background: var(--sr-pure); border-bottom: 1px solid var(--sr-border);">
+			<button onclick={() => mobileOpen = true} class="p-2 rounded-lg transition-colors" style="color: var(--sr-text-muted);" aria-label="منو">
+				<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+				</svg>
+			</button>
+			<h1 class="font-extrabold text-sm" style="color: var(--sr-text);">آی‌روم</h1>
+			<button class="notification-bell p-2 rounded-lg transition-colors relative"
+				style="color: var(--sr-text-muted);"
+				onclick={() => showNotifications = !showNotifications}>
+				<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+				</svg>
+				{#if $unreadCount > 0}
+					<span class="absolute -top-1 -right-1 w-4 h-4 flex items-center justify-center text-[9px] font-bold text-white rounded-full"
+						style="background: var(--sr-danger);">
+						{toPersianNum($unreadCount)}
+					</span>
+				{/if}
+			</button>
+		</header>
+
+		<!-- Shared Notification Dropdown -->
+		{#if showNotifications}
+			<div class="fixed top-14 right-4 z-50 w-80 rounded-xl shadow-2xl overflow-hidden lg:right-6"
+				style="background: var(--sr-pure); border: 1px solid var(--sr-border);">
+				<div class="px-4 py-3 flex items-center justify-between" style="border-bottom: 1px solid var(--sr-border);">
+					<h3 class="font-bold text-sm" style="color: var(--sr-text);">اعلان‌ها</h3>
+					{#if $unreadCount > 0}
+						<button class="text-xs font-medium hover:underline cursor-pointer" style="color: var(--sr-primary);" onclick={handleMarkAllRead}>
+							علامت‌گذاری همه به عنوان خوانده شده
+						</button>
+					{/if}
+				</div>
+				<div class="max-h-80 overflow-y-auto">
+					{#if $notifications.length === 0}
+						<div class="px-4 py-8 text-center">
+							<svg class="w-10 h-10 mx-auto mb-2" style="color: var(--sr-text-muted);" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+							</svg>
+							<p class="text-sm" style="color: var(--sr-text-muted);">اعلانی وجود ندارد</p>
+						</div>
+					{:else}
+						{#each $notifications as notification (notification.id)}
+							{@const icon = notifIcon(notification.type)}
+							<div class="px-4 py-3 transition-colors cursor-pointer {notification.is_read ? 'opacity-60' : ''}"
+								style="border-bottom: 1px solid var(--sr-border);"
+								onclick={() => handleMarkRead(notification.id)}>
+								<div class="flex items-start gap-3">
+									<div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
+										style="background: {icon.bg};">
+										<svg class="w-4 h-4" style="color: {icon.color};" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d={icon.icon} />
+										</svg>
+									</div>
+									<div class="flex-1 min-w-0">
+										<p class="text-sm font-medium" style="color: var(--sr-text);">{notification.title}</p>
+										{#if notification.message}
+											<p class="text-xs mt-0.5 truncate" style="color: var(--sr-text-muted);">{notification.message}</p>
+										{/if}
+										<p class="text-xs mt-1" style="color: var(--sr-text-muted);">{timeAgo(notification.created_at)}</p>
+									</div>
+									{#if !notification.is_read}
+										<div class="w-2 h-2 rounded-full shrink-0 mt-1.5" style="background: var(--sr-primary);"></div>
+									{/if}
+								</div>
+							</div>
+						{/each}
+					{/if}
+				</div>
+				{#if $notifications.length > 0}
+					<div class="px-4 py-3 text-center" style="border-top: 1px solid var(--sr-border);">
+						<button class="text-sm font-medium hover:underline cursor-pointer" style="color: var(--sr-primary);"
+							onclick={() => { showNotifications = false; }}>
+							مشاهده همه اعلان‌ها
+						</button>
+					</div>
+				{/if}
+			</div>
+		{/if}
+
+		<main class="p-4 lg:p-8 max-w-7xl mx-auto" style="color: var(--sr-text);">
+			{@render children()}
+		</main>
+	</div>
+</div>
+
+<style>
+	:global(.sky-sidebar-link) {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		padding: 0.625rem 0.875rem;
+		border-radius: 0.75rem;
+		font-size: 0.875rem;
+		font-weight: 500;
+		color: var(--sr-text-secondary);
+		transition: all 0.15s ease;
+		position: relative;
+	}
+
+	:global(.sky-sidebar-link:hover) {
+		background: var(--sr-bg-alt);
+		color: var(--sr-text);
+	}
+
+	:global(.sky-sidebar-link.active) {
+		background: rgba(35, 185, 215, 0.1);
+		color: var(--sr-primary);
+		font-weight: 600;
+	}
+
+	:global(.sky-sidebar-link.active::before) {
+		content: '';
+		position: absolute;
+		right: 0;
+		top: 50%;
+		transform: translateY(-50%);
+		width: 3px;
+		height: 60%;
+		background: var(--sr-primary);
+		border-radius: 2px 0 0 2px;
+	}
+
+		:global(.sky-sidebar-link[title]:hover::after) {
+			content: attr(title);
+			position: absolute;
+			right: 100%;
+			top: 50%;
+			transform: translateY(-50%);
+			background: var(--sr-pure);
+			color: var(--sr-text);
+			padding: 0.5rem 0.75rem;
+			border-radius: 0.5rem;
+			font-size: 0.75rem;
+			white-space: nowrap;
+			margin-right: 0.5rem;
+			box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+			border: 1px solid var(--sr-border);
+			z-index: 50;
+			pointer-events: none;
+		}
+
+		:global(.logout-btn:hover) {
+		color: var(--sr-danger) !important;
+	}
+</style>

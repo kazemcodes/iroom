@@ -245,8 +245,8 @@
 <div class="space-y-6">
 	<div class="flex items-center justify-between">
 		<div>
-			<h1 class="text-2xl font-bold" style="color: var(--sky-text-primary);">فایل‌ها</h1>
-			<p style="color: var(--sky-text-secondary);">{toPersianNum(totalFiles)} فایل</p>
+			<h1 class="text-2xl font-bold" style="color: var(--sr-text);">فایل‌ها</h1>
+			<p style="color: var(--sr-text-secondary);">{toPersianNum(totalFiles)} فایل</p>
 		</div>
 		<div class="flex items-center gap-3">
 			<input type="file" multiple bind:this={fileInput} onchange={handleUpload} class="hidden" />
@@ -262,8 +262,8 @@
 		onclick={() => fileInput?.click()}
 		class="relative border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all duration-200"
 		style={isDragging
-			? 'border-color: var(--sky-accent-blue); background: rgba(67, 97, 238, 0.1);'
-			: 'border-color: var(--sky-border); background: var(--sky-bg-panel);'}
+			? 'border-color: var(--sr-primary); background: rgba(35, 185, 215, 0.1);'
+			: 'border-color: var(--sr-border); background: var(--sr-pure);'}
 	>
 		{#if isDragging}
 			<div class="pointer-events-none">
@@ -286,12 +286,12 @@
 				<div class="flex items-center gap-3">
 					<div class="flex-1 min-w-0">
 						<div class="flex items-center justify-between mb-1">
-							<span class="text-sm truncate" style="color: var(--sky-text-primary);">{upload.filename}</span>
+							<span class="text-sm truncate" style="color: var(--sr-text);">{upload.filename}</span>
 							<span class="text-sm font-medium" style="color: {upload.status === 'success'
-								? 'var(--sky-accent-green)'
+								? 'var(--sr-success)'
 								: upload.status === 'error'
-									? 'var(--sky-accent-red)'
-									: 'var(--sky-accent-blue)'};">
+									? 'var(--sr-danger)'
+									: 'var(--sr-primary)'};">
 								{#if upload.status === 'success'}
 									✓ آپلود شد
 								{:else if upload.status === 'error'}
@@ -320,7 +320,7 @@
 	<!-- Session Selector -->
 	<div class="card p-5">
 		<div class="flex items-center gap-3">
-			<label class="text-sm font-medium" style="color: var(--sky-text-secondary);">جلسه:</label>
+			<label class="text-sm font-medium" style="color: var(--sr-text-secondary);">جلسه:</label>
 			<select
 				bind:value={selectedSessionId}
 				onchange={() => { currentPage = 1; activeFilter = 'all'; loadFiles(); }}
@@ -344,8 +344,8 @@
 				onclick={() => { activeFilter = filter.key; }}
 				class="px-4 py-2 text-sm rounded-xl font-medium transition-colors"
 				style={activeFilter === filter.key
-					? 'background: var(--sky-primary); color: white;'
-					: 'background: var(--sky-bg-panel); color: var(--sky-text-secondary); border: 1px solid var(--sky-border);'}
+					? 'background: var(--sr-primary); color: white;'
+					: 'background: var(--sr-pure); color: var(--sr-text-secondary); border: 1px solid var(--sr-border);'}
 			>
 				{filter.label}
 				{#if filter.key !== 'all'}
@@ -365,42 +365,42 @@
 		</div>
 	{:else if filteredFiles.length === 0}
 		<div class="text-center py-20 card">
-			<svg class="w-12 h-12 mx-auto mb-3" style="color: var(--sky-text-secondary);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m6.75 12H9.75m0-3h6m-6 6h6M3.375 6.75h17.25a.375.375 0 01.375.375v11.25a.375.375 0 01-.375.375H3.375a.375.375 0 01-.375-.375V7.125a.375.375 0 01.375-.375z" /></svg>
-			<p style="color: var(--sky-text-secondary);">فایلی وجود ندارد</p>
+			<svg class="w-12 h-12 mx-auto mb-3" style="color: var(--sr-text-secondary);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m6.75 12H9.75m0-3h6m-6 6h6M3.375 6.75h17.25a.375.375 0 01.375.375v11.25a.375.375 0 01-.375.375H3.375a.375.375 0 01-.375-.375V7.125a.375.375 0 01.375-.375z" /></svg>
+			<p style="color: var(--sr-text-secondary);">فایلی وجود ندارد</p>
 		</div>
 	{:else}
-		<div class="overflow-hidden" style="background: var(--sky-bg-panel); border: 1px solid var(--sky-border); border-radius: 0.75rem;">
+		<div class="overflow-hidden" style="background: var(--sr-pure); border: 1px solid var(--sr-border); border-radius: 0.75rem;">
 			<table class="w-full">
 				<thead>
-					<tr style="border-bottom: 1px solid var(--sky-border);">
-						<th class="text-right px-5 py-3 text-xs font-semibold" style="color: var(--sky-text-secondary);">فایل</th>
-						<th class="text-right px-5 py-3 text-xs font-semibold" style="color: var(--sky-text-secondary);">اندازه</th>
-						<th class="text-right px-5 py-3 text-xs font-semibold" style="color: var(--sky-text-secondary);">تاریخ</th>
-						<th class="text-right px-5 py-3 text-xs font-semibold" style="color: var(--sky-text-secondary);">عملیات</th>
+					<tr style="border-bottom: 1px solid var(--sr-border);">
+						<th class="text-right px-5 py-3 text-xs font-semibold" style="color: var(--sr-text-secondary);">فایل</th>
+						<th class="text-right px-5 py-3 text-xs font-semibold" style="color: var(--sr-text-secondary);">اندازه</th>
+						<th class="text-right px-5 py-3 text-xs font-semibold" style="color: var(--sr-text-secondary);">تاریخ</th>
+						<th class="text-right px-5 py-3 text-xs font-semibold" style="color: var(--sr-text-secondary);">عملیات</th>
 					</tr>
 				</thead>
 				<tbody>
 					{#each filteredFiles as file}
-						<tr class="table-row" style="border-bottom: 1px solid var(--sky-border);">
+						<tr class="table-row" style="border-bottom: 1px solid var(--sr-border);">
 							<td class="px-5 py-3.5">
 								<div class="flex items-center gap-3">
 									<span class="text-xl">{getFileIcon(file.filename)}</span>
-									<span class="text-sm font-medium truncate max-w-[300px]" style="color: var(--sky-text-primary);">{file.filename}</span>
+									<span class="text-sm font-medium truncate max-w-[300px]" style="color: var(--sr-text);">{file.filename}</span>
 								</div>
 							</td>
-							<td class="px-5 py-3.5 text-sm" style="color: var(--sky-text-secondary);">{formatSize(file.filesize)}</td>
-							<td class="px-5 py-3.5 text-sm" style="color: var(--sky-text-secondary);">{toPersianDateTime(file.created_at)}</td>
+							<td class="px-5 py-3.5 text-sm" style="color: var(--sr-text-secondary);">{formatSize(file.filesize)}</td>
+							<td class="px-5 py-3.5 text-sm" style="color: var(--sr-text-secondary);">{toPersianDateTime(file.created_at)}</td>
 							<td class="px-5 py-3.5">
 								<a href="{api.getBaseUrl()}/files/{file.id}/download" 
 									class="p-2 rounded-lg transition-colors inline-flex"
-									style="color: var(--sky-text-secondary);"
+									style="color: var(--sr-text-secondary);"
 									title="دانلود" download>
 									<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
 								</a>
 								<button
 									onclick={() => confirmDelete(file)}
 									class="p-2 rounded-lg transition-colors"
-									style="color: var(--sky-text-secondary);"
+									style="color: var(--sr-text-secondary);"
 									title="حذف فایل"
 								>
 									<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>

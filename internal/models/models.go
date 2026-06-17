@@ -37,16 +37,18 @@ type ClassStudent struct {
 }
 
 type Session struct {
-	ID           int64     `json:"id" db:"id"`
-	ClassID      int64     `json:"class_id" db:"class_id"`
-	Title        string    `json:"title" db:"title"`
-	ScheduledAt  time.Time `json:"scheduled_at" db:"scheduled_at"`
-	Duration     int       `json:"duration" db:"duration"`
-	Status       string    `json:"status" db:"status"`
-	LivekitRoom  string    `json:"livekit_room" db:"livekit_room"`
-	RecordingURL string    `json:"recording_url" db:"recording_url"`
-	CreatedAt    time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at" db:"updated_at"`
+	ID              int64     `json:"id" db:"id"`
+	ClassID         int64     `json:"class_id" db:"class_id"`
+	Title           string    `json:"title" db:"title"`
+	ScheduledAt     time.Time `json:"scheduled_at" db:"scheduled_at"`
+	Duration        int       `json:"duration" db:"duration"`
+	Status          string    `json:"status" db:"status"`
+	LivekitRoom     string    `json:"livekit_room" db:"livekit_room"`
+	RecordingURL    string    `json:"recording_url" db:"recording_url"`
+	JanusSessionID  int64     `json:"janus_session_id" db:"janus_session_id"`
+	JanusHandleID   int64     `json:"janus_handle_id" db:"janus_handle_id"`
+	CreatedAt       time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at" db:"updated_at"`
 }
 
 type Message struct {

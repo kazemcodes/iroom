@@ -316,12 +316,12 @@
 											<svg class="w-3 h-3 text-green-500" fill="currentColor" viewBox="0 0 8 8"><circle cx="4" cy="4" r="4" /></svg>
 											ورود: {formatTime(log.joined_at)}
 										</span>
-										<span class="text-gray-300">→</span>
+										<span class="text-gray-400">→</span>
 										<span class="flex items-center gap-1">
-											<svg class="w-3 h-3 {log.left_at ? 'text-red-400' : 'text-gray-300'}" fill="currentColor" viewBox="0 0 8 8"><circle cx="4" cy="4" r="4" /></svg>
+											<svg class="w-3 h-3 {log.left_at ? 'text-red-400' : 'text-gray-400'}" fill="currentColor" viewBox="0 0 8 8"><circle cx="4" cy="4" r="4" /></svg>
 											خروج: {log.left_at ? formatTime(log.left_at) : '—'}
 										</span>
-										<span class="text-gray-300">•</span>
+										<span class="text-gray-400">•</span>
 										<span>{formatDuration(log.duration)}</span>
 									</div>
 									<p class="text-[10px] text-gray-400 mt-0.5 font-mono">{log.ip_address}</p>
