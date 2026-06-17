@@ -11,14 +11,14 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-COPY --from=frontend /app/web/.svelte-kit/output ./web/.svelte-kit/output
 RUN CGO_ENABLED=1 GOOS=linux go build -o /server ./cmd/server
 
 FROM alpine:3.19
 RUN apk add --no-cache ca-certificates tzdata
 WORKDIR /app
 COPY --from=backend /server .
+COPY --from=frontend /app/web/.svelte-kit/output/client ./static
 COPY config.yaml .
-RUN mkdir -p uploads recordings
+RUN mkdir -p uploads recordings data
 EXPOSE 8080
 CMD ["./server"]

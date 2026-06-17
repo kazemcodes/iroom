@@ -24,10 +24,6 @@
 		allow_student_video: false,
 		max_file_size_mb: 50,
 		session_auto_end_minutes: 120,
-		// Video
-		janus_http_url: '',
-		janus_ws_url: '',
-		janus_admin_key: '',
 		// Security
 		password_min_length: '6',
 		password_require_uppercase: false,
@@ -502,34 +498,10 @@
 				{:else}
 					<div class="space-y-6">
 						<div>
-							<h2 class="text-lg font-semibold text-gray-900">تنظیمات ویدیو و Janus</h2>
+							<h2 class="text-lg font-semibold text-gray-900">تنظیمات ویدیو</h2>
 							<p class="text-sm text-gray-500 mt-1">پیکربندی سرور ویدیو برای جلسات آنلاین</p>
 						</div>
 						<div class="divide-y">
-							<!-- Janus HTTP URL -->
-							<div class="py-4 flex items-center justify-between">
-								<div>
-									<p class="font-medium text-gray-900">آدرس HTTP سرور Janus</p>
-									<p class="text-sm text-gray-500 mt-0.5">آدرس HTTP API سرور ویدیو</p>
-								</div>
-								<input type="text" bind:value={settings.janus_http_url} placeholder="http://localhost:8088" dir="ltr" class="w-64 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
-							</div>
-							<!-- Janus WebSocket URL -->
-							<div class="py-4 flex items-center justify-between">
-								<div>
-									<p class="font-medium text-gray-900">آدرس WebSocket سرور Janus</p>
-									<p class="text-sm text-gray-500 mt-0.5">آدرس WebSocket برای اتصال کلاینت</p>
-								</div>
-								<input type="text" bind:value={settings.janus_ws_url} placeholder="ws://localhost:8188" dir="ltr" class="w-64 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
-							</div>
-							<!-- Janus Admin Key -->
-							<div class="py-4 flex items-center justify-between">
-								<div>
-									<p class="font-medium text-gray-900">کلید مدیریت Janus</p>
-									<p class="text-sm text-gray-500 mt-0.5">کلید دسترسی مدیریتی سرور Janus</p>
-								</div>
-								<input type="password" bind:value={settings.janus_admin_key} placeholder="••••••••" dir="ltr" class="w-64 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
-							</div>
 							<!-- Allow student video -->
 							<div class="py-4 flex items-center justify-between">
 								<div>

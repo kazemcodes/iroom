@@ -1,67 +1,147 @@
 <script lang="ts">
+	import type { UserRole } from '$lib/classroom/types';
+
 	let {
-		showUsersPanel = $bindable(true),
-		showChatPanel = $bindable(true),
-		isOwner = false,
+		userRole = 'student',
+		onUserInfo,
+		onConnectionStatus,
 		onSettings,
-		onExit,
+		onLayout,
+		onLeave,
 		onCloseRoom,
-		onClose,
+		onDismiss,
 	}: {
-		showUsersPanel: boolean;
-		showChatPanel: boolean;
-		isOwner: boolean;
+		userRole: UserRole;
+		onUserInfo: () => void;
+		onConnectionStatus: () => void;
 		onSettings: () => void;
-		onExit: () => void;
+		onLayout: () => void;
+		onLeave: () => void;
 		onCloseRoom: () => void;
-		onClose: () => void;
+		onDismiss: () => void;
 	} = $props();
+
+	const isOperator = $derived(['owner', 'admin', 'operator'].includes(userRole));
+
+	let menuEl = $state<HTMLDivElement>();
+
+	function handleClickOutside(e: MouseEvent) {
+		if (menuEl && !menuEl.contains(e.target as Node)) {
+			onDismiss();
+		}
+	}
+
+	function handleKeydown(e: KeyboardEvent) {
+		if (e.key === 'Escape') onDismiss();
+	}
 </script>
 
-<div class="absolute top-12 left-4 z-50 w-56 rounded-lg overflow-hidden shadow-xl" style="background: #ffffff; border: 1px solid #e0e4eb; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
-	<!-- Menu Items -->
-	<div class="py-1">
-		<!-- User Info -->
-		<button class="w-full px-4 py-2.5 flex items-center gap-3 text-[13px] text-[#1c293a] hover:bg-[#f0f2f5] transition-colors">
-			<svg class="w-4 h-4 text-[#94a3b8]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-			اطلاعات کاربری
-		</button>
+<svelte:window onclick={handleClickOutside} onkeydown={handleKeydown} />
 
-		<!-- Connection Status -->
-		<button class="w-full px-4 py-2.5 flex items-center gap-3 text-[13px] text-[#1c293a] hover:bg-[#f0f2f5] transition-colors">
-			<svg class="w-4 h-4 text-[#94a3b8]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
-			وضعیت اتصال
-		</button>
-
-		<!-- Settings -->
-		<button onclick={() => { onSettings(); onClose(); }} class="w-full px-4 py-2.5 flex items-center gap-3 text-[13px] text-[#1c293a] hover:bg-[#f0f2f5] transition-colors">
-			<svg class="w-4 h-4 text-[#94a3b8]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-			تنظیمات
-		</button>
-
-		<!-- Layout -->
-		<button class="w-full px-4 py-2.5 flex items-center gap-3 text-[13px] text-[#1c293a] hover:bg-[#f0f2f5] transition-colors">
-			<svg class="w-4 h-4 text-[#94a3b8]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" /></svg>
-			چیدمان
-			<svg class="w-3 h-3 text-[#94a3b8] mr-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
-		</button>
-	</div>
-
-	<!-- Separator -->
-	<div class="h-px bg-[#e0e4eb]"></div>
-
-	<!-- Exit Actions -->
-	<div class="py-1">
-		<button onclick={() => { onExit(); onClose(); }} class="w-full px-4 py-2.5 flex items-center gap-3 text-[13px] text-[#1c293a] hover:bg-[#f0f2f5] transition-colors">
-			<svg class="w-4 h-4 text-[#94a3b8]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
-			خروج
-		</button>
-
-		{#if isOwner}
-			<button onclick={() => { onCloseRoom(); onClose(); }} class="w-full px-4 py-2.5 flex items-center gap-3 text-[13px] text-[#e05252] hover:bg-[#fde8e8] transition-colors">
-				<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" /></svg>
-				بستن اتاق
-			</button>
+<div class="app-menu" bind:this={menuEl}>
+	<ul>
+		<li onclick={() => { onUserInfo(); onDismiss(); }}>
+			<svg width="20" height="20"><use xlink:href="#shape_info_outline"></use></svg>
+			<span>اطلاعات کاربری</span>
+		</li>
+		<li onclick={() => { onConnectionStatus(); onDismiss(); }}>
+			<svg width="20" height="20"><use xlink:href="#shape_network_check"></use></svg>
+			<span>وضعیت اتصال</span>
+		</li>
+		<li onclick={() => { onSettings(); onDismiss(); }}>
+			<svg width="20" height="20"><use xlink:href="#shape_settings"></use></svg>
+			<span>تنظیمات</span>
+		</li>
+		{#if isOperator}
+			<li onclick={() => { onLayout(); onDismiss(); }}>
+				<svg width="20" height="20"><use xlink:href="#shape_web"></use></svg>
+				<span>چیدمان</span>
+			</li>
 		{/if}
-	</div>
+		<li class="separator"></li>
+		<li onclick={() => { onLeave(); onDismiss(); }}>
+			<svg width="20" height="20"><use xlink:href="#shape_exit"></use></svg>
+			<span>خروج</span>
+		</li>
+		{#if isOperator}
+			<li class="danger" onclick={() => { onCloseRoom(); onDismiss(); }}>
+				<svg width="20" height="20"><use xlink:href="#shape_power_settings_new"></use></svg>
+				<span>بستن اتاق</span>
+			</li>
+		{/if}
+	</ul>
 </div>
+
+<style>
+	.app-menu {
+		position: absolute;
+		top: 48px;
+		right: 8px;
+		background: #1c2a3a;
+		border-radius: 10px;
+		box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+		z-index: 100;
+		min-width: 200px;
+		padding: 6px 0;
+		animation: menuFadeIn 0.15s ease;
+	}
+
+	@keyframes menuFadeIn {
+		from { opacity: 0; transform: translateY(-8px); }
+		to { opacity: 1; transform: translateY(0); }
+	}
+
+	ul {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+	}
+
+	li {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		padding: 10px 16px;
+		cursor: pointer;
+		color: #e0e0e6;
+		font-size: 0.875rem;
+		transition: background 0.15s;
+	}
+
+	li:hover {
+		background: rgba(255,255,255,0.06);
+	}
+
+	li svg {
+		fill: #8a8a96;
+		flex-shrink: 0;
+	}
+
+	li:hover svg {
+		fill: #23b9d7;
+	}
+
+	.separator {
+		height: 1px;
+		background: rgba(255,255,255,0.08);
+		margin: 4px 0;
+		padding: 0;
+		cursor: default;
+	}
+
+	.separator:hover {
+		background: rgba(255,255,255,0.08);
+	}
+
+	.danger {
+		color: #e05252;
+	}
+
+	.danger svg {
+		fill: #e05252;
+	}
+
+	.danger:hover {
+		background: rgba(224, 82, 82, 0.1);
+	}
+</style>

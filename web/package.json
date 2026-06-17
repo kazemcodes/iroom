@@ -25,6 +25,7 @@
 		"vite": "^8.0.16"
 	},
 	"dependencies": {
+		"@sveltejs/adapter-static": "^3.0.10",
 		"date-fns-jalali": "^4.4.0-0",
 		"fabric": "^7.4.0",
 		"janus-gateway": "^1.2.1"

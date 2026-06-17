@@ -1,281 +1,729 @@
 @import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800&display=swap');
 @import "tailwindcss";
 
-:root {
-	/* Skyroom Admin Panel — Light Theme */
-	--sr-pure: #ffffff;
-	--sr-bg: #f9fafb;
-	--sr-bg-alt: #f0f2f5;
-	--sr-bg-subtle: #f7f7f7;
-	--sr-border: #e0e4eb;
-	--sr-border-focus: #23b9d7;
-	--sr-text: #1c293a;
-	--sr-text-secondary: #6790a0;
-	--sr-text-muted: #9ea6b0;
-	--sr-primary: #23b9d7;
-	--sr-primary-dark: #1a9ad4;
-	--sr-link: #004ff2;
-	--sr-success: #40bf7f;
-	--sr-danger: #e05252;
-	--sr-danger-dark: #c33d22;
-	--sr-warning: #d7911d;
-	--sr-warning-bg: #fff4e5;
-
-	/* Skyroom Classroom — Dark Theme */
-	--sr-dark-bg: #1a1a2e;
-	--sr-dark-surface: #252540;
-	--sr-dark-border: #3a3a5a;
-	--sr-dark-text: #e2e8f0;
-	--sr-dark-muted: #94a3b8;
-
-	/* Legacy aliases (for backward compatibility) */
-	--sky-primary: var(--sr-primary);
-	--sky-primary-gradient: linear-gradient(135deg, var(--sr-primary), var(--sr-primary-dark));
-	--sky-bg-dark: var(--sr-bg);
-	--sky-bg-panel: var(--sr-pure);
-	--sky-bg-input: var(--sr-bg-alt);
-	--sky-accent-red: var(--sr-danger);
-	--sky-accent-green: var(--sr-success);
-	--sky-accent-blue: var(--sr-primary);
-	--sky-accent-purple: #8b5cf6;
-	--sky-accent-warm: var(--sr-warning);
-	--sky-text-primary: var(--sr-text);
-	--sky-text-secondary: var(--sr-text-secondary);
-	--sky-border: var(--sr-border);
-}
-
-/* Scrollbar styles for dark areas (classroom) */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: var(--sr-bg-alt); }
-::-webkit-scrollbar-thumb { background: var(--sr-border); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--sr-primary); }
-
 @theme {
-	--font-vazirmatn: 'Vazirmatn', sans-serif;
-	--color-primary: var(--sr-primary);
-	--color-primary-light: #309aff;
-	--color-primary-dark: #1a9ad4;
-	--color-accent: var(--sr-primary);
-	--color-accent-warm: var(--sr-warning);
-	--color-surface: var(--sr-pure);
-	--color-surface-warm: var(--sr-bg);
+	--color-border-default: #e0e4eb;
+	--color-border: #e0e4eb;
+	--tw-border-opacity: 1;
+	--tw-border-style: solid;
+	--tw-border-width: 1px;
+	--tw-ring-color: rgba(35, 185, 215, 0.5);
 }
 
-@layer base {
-	body {
-		font-family: 'Vazirmatn', system-ui, sans-serif;
-		min-height: 100vh;
-	}
+/* ============================================
+   Skyroom Design System — Exact Tokens
+   ============================================ */
+:root {
+	/* Skyroom Colors — Light Theme (Admin Panel) */
+	--color-pure: #ffffff;
+	--color-eternal-snow: #f9fafb;
+	--color-secret-glow: #f0f2f5;
+	--color-dreamers-night: #dfe0eb;
+	--color-zen-garden: #e0e4eb;
+	--color-muted-mountain: #c5c7cd;
+	--color-moonlit-mist: #9fa2b4;
+	--color-ghostly-whisper: #9ea6b0;
+	--color-soft-cloud: #8592ad;
+	--color-mystic-sea: #6790a0;
+	--color-ocean-wave: #233348;
+	--color-midnight-sky: #1c293a;
+	--color-crystal-clear: #23b9d7;
+	--color-polar-ice: #d8eef5;
+	--color-lush-meadow: #40bf7f;
+	--color-fiery-passion: #e05252;
+	--color-fiery-accent: #c33d22;
+	--color-dawn-warm: #d7911d;
+	--color-azure-sky: #004ff2;
+	--color-azure-waters: #309aff;
+	--color-deep-heaven: #f0f8fa;
 
-	input, textarea, select {
-		font-family: 'Vazirmatn', system-ui, sans-serif;
-	}
+	/* Skyroom Colors — Dark Theme (Classroom) */
+	--dark-bg: #1a1a2e;
+	--dark-surface: #252540;
+	--dark-border: #3a3a5a;
+	--dark-text: #e2e8f0;
+	--dark-muted: #94a3b8;
+
+	/* Semantic aliases */
+	--sr-primary: var(--color-crystal-clear);
+	--sr-primary-dark: #1a9ad4;
+	--sr-success: var(--color-lush-meadow);
+	--sr-danger: var(--color-fiery-passion);
+	--sr-warning: var(--color-dawn-warm);
+	--sr-text: var(--color-midnight-sky);
+	--sr-text-secondary: var(--color-mystic-sea);
+	--sr-text-muted: var(--color-moonlit-mist);
+	--sr-bg: var(--color-eternal-snow);
+	--sr-bg-alt: var(--color-secret-glow);
+	--sr-border: var(--color-zen-garden);
+	--sr-pure: var(--color-pure);
 }
 
-@layer components {
-	/* === Light Theme Components === */
-	.card {
-		background: var(--sr-pure);
-		border-radius: 12px;
-		box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
-		color: var(--sr-text);
-		transition: all 0.2s ease;
-	}
-	.card:hover {
-		box-shadow: 0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
-	}
+/* ============================================
+   Scrollbar — Skyroom Style
+   ============================================ */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-dreamers-night); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-muted-mountain); }
 
-	.btn-primary {
-		background: var(--sr-primary);
-		color: white;
-		padding: 0.5rem 1rem;
-		border-radius: 8px;
-		font-weight: 600;
-		font-size: 0.875rem;
-		transition: all 0.15s ease;
-	}
-	.btn-primary:hover {
-		background: var(--sr-primary-dark);
-	}
-
-	.btn-danger {
-		background: var(--sr-danger);
-		color: white;
-		padding: 0.5rem 1rem;
-		border-radius: 8px;
-		font-weight: 600;
-		font-size: 0.875rem;
-		transition: all 0.15s ease;
-	}
-	.btn-danger:hover {
-		background: #c44040;
-	}
-
-	.btn-ghost {
-		color: var(--sr-text-secondary);
-		padding: 0.5rem 1rem;
-		border-radius: 8px;
-		font-weight: 500;
-		font-size: 0.875rem;
-		transition: all 0.15s ease;
-	}
-	.btn-ghost:hover {
-		background: var(--sr-bg-alt);
-		color: var(--sr-text);
-	}
-
-	.input-field {
-		width: 100%;
-		padding: 0.625rem 0.875rem;
-		border: 2px solid var(--sr-border);
-		border-radius: 8px;
-		font-size: 0.875rem;
-		background: var(--sr-pure);
-		color: var(--sr-text);
-		transition: all 0.15s ease;
-		outline: none;
-	}
-	.input-field:focus {
-		border-color: var(--sr-primary);
-	}
-	.input-field::placeholder {
-		color: var(--sr-text-muted);
-	}
-
-	.sidebar-link {
-		display: flex;
-		align-items: center;
-		gap: 0.75rem;
-		padding: 0.625rem 0.875rem;
-		border-radius: 8px;
-		font-size: 0.875rem;
-		font-weight: 500;
-		color: var(--sr-text-secondary);
-		transition: all 0.15s ease;
-	}
-	.sidebar-link:hover {
-		background: var(--sr-bg-alt);
-		color: var(--sr-text);
-	}
-	.sidebar-link.active {
-		background: rgba(35, 185, 215, 0.1);
-		color: var(--sr-primary);
-		font-weight: 600;
-	}
-
-	.badge {
-		display: inline-flex;
-		align-items: center;
-		padding: 0.25rem 0.75rem;
-		border-radius: 9999px;
-		font-size: 0.75rem;
-		font-weight: 600;
-		background: var(--sr-bg-alt);
-		color: var(--sr-text-secondary);
-	}
-
-	.stat-card {
-		background: var(--sr-pure);
-		border-radius: 12px;
-		padding: 1.25rem;
-		color: var(--sr-text);
-		box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
-		transition: all 0.2s ease;
-	}
-
-	.table-row {
-		transition: background-color 0.15s ease;
-	}
-	.table-row:hover {
-		background-color: rgba(35, 185, 215, 0.05);
-	}
-
-	.modal-overlay {
-		position: fixed;
-		inset: 0;
-		background: rgba(0, 0, 0, 0.6);
-		backdrop-filter: blur(4px);
-		z-index: 50;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		animation: fadeIn 0.15s ease;
-	}
-
-	.modal-content {
-		background: var(--sr-pure);
-		border: 1px solid var(--sr-border);
-		border-radius: 12px;
-		box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-		width: 100%;
-		max-width: 28rem;
-		color: var(--sr-text);
-		animation: slideUp 0.2s ease;
-	}
-
-	@keyframes fadeIn {
-		from { opacity: 0; }
-		to { opacity: 1; }
-	}
-
-	@keyframes slideUp {
-		from { opacity: 0; transform: translateY(10px) scale(0.98); }
-		to { opacity: 1; transform: translateY(0) scale(1); }
-	}
-
-	.gradient-text {
-		background: linear-gradient(135deg, var(--sr-primary), #8b5cf6);
-		-webkit-background-clip: text;
-		-webkit-text-fill-color: transparent;
-		background-clip: text;
-	}
+/* ============================================
+   Base — Body & Typography
+   ============================================ */
+body {
+	font-family: 'Vazirmatn', system-ui, sans-serif;
+	background: var(--color-eternal-snow);
+	color: var(--color-midnight-sky);
+	min-height: 100vh;
+	font-size: 14px;
+	line-height: 1.5;
 }
 
-@keyframes pulse-recording {
-	0%, 100% { opacity: 1; }
-	50% { opacity: 0.4; }
+input, textarea, select {
+	font-family: 'Vazirmatn', system-ui, sans-serif;
 }
 
-@keyframes speaking-glow {
-	0% { box-shadow: 0 0 0 0 rgba(35, 185, 215, 0.5); }
-	100% { box-shadow: 0 0 0 8px rgba(35, 185, 215, 0); }
+/* Override Tailwind default border color to light gray */
+.border { border-color: var(--color-zen-garden) !important; }
+.border-gray-200 { border-color: var(--color-zen-garden) !important; }
+.border-gray-300 { border-color: var(--color-muted-mountain) !important; }
+
+/* ============================================
+   Skyroom Buttons — Exact Match
+   ============================================ */
+.sky-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.5rem;
+	padding: 0.625rem 1.25rem;
+	border: none;
+	border-radius: 8px;
+	font-size: 14px;
+	font-weight: 600;
+	font-family: 'Vazirmatn', system-ui, sans-serif;
+	cursor: pointer;
+	transition: all 0.15s ease;
+	text-decoration: none;
+	line-height: 1;
+}
+.sky-btn:active { transform: scale(0.98); }
+.sky-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+.sky-btn-primary {
+	background: var(--color-crystal-clear);
+	color: white;
+}
+.sky-btn-primary:hover { background: #1a9ad4; }
+
+.sky-btn-secondary {
+	background: var(--color-secret-glow);
+	color: var(--color-midnight-sky);
+}
+.sky-btn-secondary:hover { background: var(--color-zen-garden); }
+
+.sky-btn-danger {
+	background: var(--color-fiery-passion);
+	color: white;
+}
+.sky-btn-danger:hover { background: #c33d22; }
+
+.sky-btn-ghost {
+	background: transparent;
+	color: var(--color-crystal-clear);
+	padding: 0.5rem 0.75rem;
+}
+.sky-btn-ghost:hover { background: var(--color-deep-heaven); }
+
+.sky-btn-outline {
+	background: var(--color-pure);
+	color: var(--color-midnight-sky);
+	border: 1px solid var(--color-zen-garden);
+}
+.sky-btn-outline:hover { border-color: var(--color-crystal-clear); color: var(--color-crystal-clear); }
+
+.sky-btn-icon {
+	width: 40px;
+	height: 40px;
+	padding: 0;
+	border-radius: 50%;
+	background: transparent;
+	color: var(--color-moonlit-mist);
+	border: none;
+}
+.sky-btn-icon:hover { background: var(--color-secret-glow); color: var(--color-midnight-sky); }
+.sky-btn-icon svg { width: 24px; height: 24px; }
+
+/* ============================================
+   Skyroom Inputs — Exact Match
+   ============================================ */
+.sky-input {
+	width: 100%;
+	padding: 0.625rem 0.875rem;
+	border: 2px solid var(--color-zen-garden);
+	border-radius: 8px;
+	font-size: 14px;
+	font-weight: 500;
+	background: var(--color-pure);
+	color: var(--color-midnight-sky);
+	transition: border-color 0.15s ease;
+	outline: none;
+	font-family: 'Vazirmatn', system-ui, sans-serif;
+}
+.sky-input:focus {
+	border-color: var(--color-crystal-clear);
+}
+.sky-input::placeholder {
+	color: var(--color-moonlit-mist);
+	font-weight: 400;
+}
+.sky-input:disabled {
+	background: var(--color-eternal-snow);
+	cursor: not-allowed;
 }
 
-@keyframes shimmer {
-	0% { background-position: -200% 0; }
-	100% { background-position: 200% 0; }
+/* ============================================
+   Skyroom Cards — Exact Match (Window Feel)
+   ============================================ */
+.sky-card {
+	background: var(--color-pure);
+	border-radius: 12px;
+	box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+	transition: box-shadow 0.2s ease;
+}
+.sky-card:hover {
+	box-shadow: 0 4px 12px rgba(0,0,0,0.08);
 }
 
-/* Light Theme Components (backward compat) */
-.sky-card { background: var(--sr-pure); border-radius: 12px; padding: 1.25rem; color: var(--sr-text); box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04); }
-.sky-modal-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(4px); z-index: 50; display: flex; align-items: center; justify-content: center; animation: fadeIn 0.15s ease; }
-.sky-modal-content { background: var(--sr-pure); border-radius: 12px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); width: 100%; max-width: 28rem; color: var(--sr-text); animation: slideUp 0.2s ease; }
-.sky-input { width: 100%; padding: 0.75rem 1rem; border: 2px solid var(--sr-border); border-radius: 8px; font-size: 0.875rem; background: var(--sr-pure); color: var(--sr-text); transition: all 0.15s ease; outline: none; }
-.sky-input:focus { border-color: var(--sr-primary); }
-.sky-input::placeholder { color: var(--sr-text-muted); }
+.sky-card-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 1rem 1.25rem;
+	border-bottom: 1px solid var(--color-zen-garden);
+}
+.sky-card-header h2 {
+	font-size: 16px;
+	font-weight: 700;
+	color: var(--color-midnight-sky);
+}
 
-.sky-table { width: 100%; border-collapse: collapse; }
-.sky-table th { text-align: left; padding: 0.75rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--sr-text-muted); border-bottom: 1px solid var(--sr-border); }
-.sky-table td { padding: 0.75rem 1rem; font-size: 0.875rem; color: var(--sr-text); border-bottom: 1px solid var(--sr-border); }
-.sky-table tr:hover td { background: rgba(35, 185, 215, 0.05); }
+.sky-card-body {
+	padding: 1.25rem;
+}
 
-.badge-success { display: inline-flex; align-items: center; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; background: rgba(64, 191, 127, 0.15); color: var(--sr-success); }
-.badge-danger { display: inline-flex; align-items: center; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; background: rgba(224, 82, 82, 0.15); color: var(--sr-danger); }
-.badge-info { display: inline-flex; align-items: center; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; background: rgba(35, 185, 215, 0.15); color: var(--sr-primary); }
-.badge-purple { display: inline-flex; align-items: center; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; background: rgba(139, 92, 246, 0.15); color: #8b5cf6; }
+/* ============================================
+   Skyroom Table — Exact Match
+   ============================================ */
+.sky-table {
+	width: 100%;
+	border-collapse: collapse;
+}
+.sky-table th {
+	text-align: right;
+	padding: 0.75rem 1rem;
+	font-size: 12px;
+	font-weight: 600;
+	color: var(--color-moonlit-mist);
+	background: var(--color-eternal-snow);
+	border-bottom: 1px solid var(--color-zen-garden);
+}
+.sky-table td {
+	padding: 0.75rem 1rem;
+	font-size: 14px;
+	color: var(--color-midnight-sky);
+	border-bottom: 1px solid var(--color-zen-garden);
+}
+.sky-table tr:hover td {
+	background: var(--color-deep-heaven);
+}
 
-.btn-icon { width: 40px; height: 40px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: var(--sr-bg-alt); color: var(--sr-text); transition: all 0.2s ease; cursor: pointer; }
-.btn-icon:hover { background: var(--sr-border); }
+/* ============================================
+   Skyroom Sidebar — Dark Navy
+   ============================================ */
+.sky-sidebar {
+	background: var(--color-midnight-sky);
+	color: var(--color-dreamers-night);
+	width: 260px;
+	height: 100vh;
+	position: fixed;
+	right: 0;
+	top: 0;
+	z-index: 30;
+	display: flex;
+	flex-direction: column;
+	transition: width 0.25s ease;
+	overflow: hidden;
+}
+.sky-sidebar.collapsed {
+	width: 60px;
+}
 
-.skeleton { background: linear-gradient(90deg, var(--sr-bg-alt) 25%, var(--sr-border) 50%, var(--sr-bg-alt) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 0.5rem; }
-.recording-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--sr-danger); animation: pulse-recording 1500ms ease-in-out infinite; }
+.sky-sidebar-logo {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	padding: 1.25rem 1rem;
+	border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.sky-sidebar-logo .logo-icon {
+	width: 32px;
+	height: 32px;
+	border-radius: 8px;
+	background: var(--color-crystal-clear);
+	color: white;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-weight: 800;
+	font-size: 14px;
+	flex-shrink: 0;
+}
+.sky-sidebar-logo .logo-text {
+	font-size: 16px;
+	font-weight: 800;
+	color: var(--color-pure);
+	white-space: nowrap;
+}
+
+.sky-nav-item {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	padding: 0.625rem 1rem;
+	border-radius: 8px;
+	font-size: 14px;
+	font-weight: 500;
+	color: var(--color-moonlit-mist);
+	transition: all 0.15s ease;
+	text-decoration: none;
+	white-space: nowrap;
+}
+.sky-nav-item:hover {
+	background: rgba(255,255,255,0.05);
+	color: var(--color-pure);
+}
+.sky-nav-item.active {
+	background: rgba(255,255,255,0.1);
+	color: var(--color-pure);
+	font-weight: 600;
+}
+.sky-nav-item svg {
+	width: 20px;
+	height: 20px;
+	flex-shrink: 0;
+}
+
+/* ============================================
+   Skyroom Header — White Bar
+   ============================================ */
+.sky-header {
+	height: 56px;
+	background: var(--color-pure);
+	border-bottom: 1px solid var(--color-zen-garden);
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 0 1.5rem;
+	position: sticky;
+	top: 0;
+	z-index: 20;
+}
+
+/* ============================================
+   Skyroom Badge
+   ============================================ */
+.sky-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.375rem;
+	padding: 0.25rem 0.75rem;
+	border-radius: 9999px;
+	font-size: 12px;
+	font-weight: 600;
+}
+.sky-badge-success { background: rgba(64,191,127,0.12); color: var(--color-lush-meadow); }
+.sky-badge-danger { background: rgba(224,82,82,0.12); color: var(--color-fiery-passion); }
+.sky-badge-warning { background: rgba(215,145,29,0.12); color: var(--color-dawn-warm); }
+.sky-badge-info { background: rgba(35,185,215,0.12); color: var(--color-crystal-clear); }
+.sky-badge-default { background: var(--color-secret-glow); color: var(--color-mystic-sea); }
+.sky-badge .dot {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: currentColor;
+}
+
+/* ============================================
+   Skyroom Modal
+   ============================================ */
+.sky-modal-overlay {
+	position: fixed;
+	inset: 0;
+	background: rgba(0,0,0,0.5);
+	backdrop-filter: blur(4px);
+	z-index: 50;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	animation: fadeIn 0.15s ease;
+}
+.sky-modal {
+	background: var(--color-pure);
+	border-radius: 12px;
+	box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+	width: 100%;
+	max-width: 550px;
+	max-height: 90vh;
+	overflow: hidden;
+	animation: slideUp 0.2s ease;
+}
+.sky-modal-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 1rem 1.25rem;
+	border-bottom: 1px solid var(--color-zen-garden);
+}
+.sky-modal-header h2 {
+	font-size: 16px;
+	font-weight: 700;
+	color: var(--color-midnight-sky);
+}
+.sky-modal-body {
+	padding: 1.25rem;
+	overflow-y: auto;
+}
+.sky-modal-footer {
+	display: flex;
+	justify-content: flex-end;
+	gap: 0.5rem;
+	padding: 1rem 1.25rem;
+	border-top: 1px solid var(--color-zen-garden);
+}
+
+/* ============================================
+   Skyroom Toast
+   ============================================ */
+.sky-toast {
+	position: fixed;
+	top: 1rem;
+	left: 1rem;
+	z-index: 9999;
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+}
+.sky-toast-item {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	padding: 0.75rem 1rem;
+	background: var(--color-pure);
+	border-radius: 8px;
+	box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+	border-left: 4px solid;
+	animation: slideIn 0.3s ease;
+	min-width: 280px;
+}
+.sky-toast-item.success { border-left-color: var(--color-lush-meadow); }
+.sky-toast-item.error { border-left-color: var(--color-fiery-passion); }
+.sky-toast-item.warning { border-left-color: var(--color-dawn-warm); }
+
+/* ============================================
+   Skyroom Tabs
+   ============================================ */
+.sky-tabs {
+	display: flex;
+	border-bottom: 1px solid var(--color-zen-garden);
+	gap: 1.5rem;
+}
+.sky-tab {
+	padding: 0.75rem 0;
+	font-size: 14px;
+	font-weight: 500;
+	color: var(--color-moonlit-mist);
+	cursor: pointer;
+	border: none;
+	background: none;
+	position: relative;
+	transition: color 0.15s ease;
+	font-family: 'Vazirmatn', system-ui, sans-serif;
+}
+.sky-tab:hover { color: var(--color-midnight-sky); }
+.sky-tab.active {
+	color: var(--color-crystal-clear);
+	font-weight: 600;
+}
+.sky-tab.active::after {
+	content: '';
+	position: absolute;
+	bottom: -1px;
+	left: 0;
+	right: 0;
+	height: 2px;
+	background: var(--color-crystal-clear);
+	border-radius: 1px;
+}
+
+/* ============================================
+   Skyroom Empty State
+   ============================================ */
+.sky-empty {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	padding: 3rem 1rem;
+	text-align: center;
+}
+.sky-empty-icon {
+	font-size: 48px;
+	margin-bottom: 1rem;
+	opacity: 0.5;
+}
+.sky-empty-title {
+	font-size: 16px;
+	font-weight: 500;
+	color: var(--color-midnight-sky);
+	margin-bottom: 0.25rem;
+}
+.sky-empty-desc {
+	font-size: 13px;
+	color: var(--color-moonlit-mist);
+	margin-bottom: 1rem;
+}
+
+/* ============================================
+   Skyroom Search
+   ============================================ */
+.sky-search {
+	position: relative;
+}
+.sky-search input {
+	padding-right: 2.5rem;
+}
+.sky-search-icon {
+	position: absolute;
+	right: 0.75rem;
+	top: 50%;
+	transform: translateY(-50%);
+	color: var(--color-moonlit-mist);
+	pointer-events: none;
+}
+.sky-search-icon svg { width: 16px; height: 16px; }
+.sky-search-clear {
+	position: absolute;
+	left: 0.5rem;
+	top: 50%;
+	transform: translateY(-50%);
+	color: var(--color-moonlit-mist);
+	cursor: pointer;
+	background: none;
+	border: none;
+	padding: 0.25rem;
+}
+.sky-search-clear:hover { color: var(--color-midnight-sky); }
+
+/* ============================================
+   Skyroom Dropdown
+   ============================================ */
+.sky-dropdown {
+	position: relative;
+}
+.sky-dropdown-menu {
+	position: absolute;
+	top: 100%;
+	right: 0;
+	min-width: 180px;
+	background: var(--color-pure);
+	border: 1px solid var(--color-zen-garden);
+	border-radius: 8px;
+	box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+	padding: 0.25rem;
+	z-index: 50;
+	animation: fadeIn 0.15s ease;
+}
+.sky-dropdown-item {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 0.5rem 0.75rem;
+	border-radius: 6px;
+	font-size: 13px;
+	color: var(--color-midnight-sky);
+	cursor: pointer;
+	transition: background 0.1s ease;
+	border: none;
+	background: none;
+	width: 100%;
+	text-align: right;
+	font-family: 'Vazirmatn', system-ui, sans-serif;
+}
+.sky-dropdown-item:hover {
+	background: var(--color-secret-glow);
+}
+.sky-dropdown-item svg { width: 16px; height: 16px; color: var(--color-moonlit-mist); }
+.sky-dropdown-separator {
+	height: 1px;
+	background: var(--color-zen-garden);
+	margin: 0.25rem 0;
+}
+
+/* ============================================
+   Skyroom Pagination
+   ============================================ */
+.sky-pagination {
+	display: flex;
+	align-items: center;
+	gap: 0.25rem;
+}
+.sky-page-btn {
+	width: 32px;
+	height: 32px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border: 1px solid var(--color-zen-garden);
+	border-radius: 4px;
+	font-size: 13px;
+	color: var(--color-midnight-sky);
+	cursor: pointer;
+	transition: all 0.15s ease;
+	background: var(--color-pure);
+}
+.sky-page-btn:hover { border-color: var(--color-crystal-clear); color: var(--color-crystal-clear); }
+.sky-page-btn.active {
+	background: var(--color-crystal-clear);
+	border-color: var(--color-crystal-clear);
+	color: white;
+}
+.sky-page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ============================================
+   Skyroom Info Row
+   ============================================ */
+.sky-info-row {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	padding: 0.625rem 0;
+	border-bottom: 1px solid var(--color-zen-garden);
+}
+.sky-info-row:last-child { border-bottom: none; }
+.sky-info-row .label {
+	font-size: 13px;
+	color: var(--color-moonlit-mist);
+	flex: 1;
+}
+.sky-info-row .value {
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--color-midnight-sky);
+}
+
+/* ============================================
+   Skyroom Spinner
+   ============================================ */
+.sky-spinner {
+	display: inline-block;
+	animation: spin 0.9s linear infinite;
+}
+.sky-spinner.sm { width: 16px; height: 16px; }
+.sky-spinner.md { width: 24px; height: 24px; }
+.sky-spinner.lg { width: 38px; height: 38px; }
+
+@keyframes spin {
+	to { transform: rotate(360deg); }
+}
+
+/* ============================================
+   Animations
+   ============================================ */
+@keyframes fadeIn {
+	from { opacity: 0; }
+	to { opacity: 1; }
+}
+@keyframes slideUp {
+	from { opacity: 0; transform: translateY(10px) scale(0.98); }
+	to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes slideIn {
+	from { transform: translateX(-100%); opacity: 0; }
+	to { transform: translateX(0); opacity: 1; }
+}
+
+/* ============================================
+   Utility Classes
+   ============================================ */
+.text-primary { color: var(--color-crystal-clear); }
+.text-success { color: var(--color-lush-meadow); }
+.text-danger { color: var(--color-fiery-passion); }
+.text-warning { color: var(--color-dawn-warm); }
+.text-muted { color: var(--color-moonlit-mist); }
+.text-dark { color: var(--color-midnight-sky); }
+
+.bg-primary { background: var(--color-crystal-clear); }
+.bg-success { background: var(--color-lush-meadow); }
+.bg-danger { background: var(--color-fiery-passion); }
+.bg-warning { background: var(--color-dawn-warm); }
+.bg-light { background: var(--color-secret-glow); }
+.bg-surface { background: var(--color-pure); }
+
+.border-light { border-color: var(--color-zen-garden); }
+.border-focus { border-color: var(--color-crystal-clear); }
+
+/* ============================================
+   Backward Compat — Existing Class Names
+   ============================================ */
+.card { background: var(--color-pure); border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); color: var(--color-midnight-sky); transition: box-shadow 0.2s; }
+.card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+
+.stat-card { background: var(--color-pure); border-radius: 12px; padding: 1.25rem; color: var(--color-midnight-sky); box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+
+.btn-primary { background: var(--color-crystal-clear); color: white; padding: 0.5rem 1rem; border-radius: 8px; font-weight: 600; font-size: 14px; transition: all 0.15s; border: none; cursor: pointer; font-family: 'Vazirmatn', system-ui, sans-serif; }
+.btn-primary:hover { background: #1a9ad4; }
+
+.btn-danger { background: var(--color-fiery-passion); color: white; padding: 0.5rem 1rem; border-radius: 8px; font-weight: 600; font-size: 14px; transition: all 0.15s; border: none; cursor: pointer; font-family: 'Vazirmatn', system-ui, sans-serif; }
+.btn-danger:hover { background: #c33d22; }
+
+.btn-ghost { color: var(--color-crystal-clear); padding: 0.5rem 1rem; border-radius: 8px; font-weight: 500; font-size: 14px; transition: all 0.15s; border: none; background: none; cursor: pointer; font-family: 'Vazirmatn', system-ui, sans-serif; }
+.btn-ghost:hover { background: var(--color-deep-heaven); }
+
+.input-field { width: 100%; padding: 0.625rem 0.875rem; border: 2px solid var(--color-zen-garden); border-radius: 8px; font-size: 14px; background: var(--color-pure); color: var(--color-midnight-sky); transition: border-color 0.15s; outline: none; font-family: 'Vazirmatn', system-ui, sans-serif; }
+.input-field:focus { border-color: var(--color-crystal-clear); }
+.input-field::placeholder { color: var(--color-moonlit-mist); }
+
+.badge { display: inline-flex; align-items: center; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 12px; font-weight: 600; background: var(--color-secret-glow); color: var(--color-mystic-sea); }
+
+.table-row { transition: background-color 0.15s; }
+.table-row:hover { background-color: var(--color-deep-heaven); }
+
+.btn-icon { width: 40px; height: 40px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: var(--color-secret-glow); color: var(--color-midnight-sky); transition: all 0.2s; cursor: pointer; border: none; }
+.btn-icon:hover { background: var(--color-zen-garden); }
+
+.badge-success { display: inline-flex; align-items: center; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 12px; font-weight: 600; background: rgba(64,191,127,0.12); color: var(--color-lush-meadow); }
+.badge-danger { display: inline-flex; align-items: center; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 12px; font-weight: 600; background: rgba(224,82,82,0.12); color: var(--color-fiery-passion); }
+.badge-info { display: inline-flex; align-items: center; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 12px; font-weight: 600; background: rgba(35,185,215,0.12); color: var(--color-crystal-clear); }
+.badge-purple { display: inline-flex; align-items: center; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 12px; font-weight: 600; background: rgba(139,92,246,0.12); color: #8b5cf6; }
+
+.skeleton { background: linear-gradient(90deg, var(--color-secret-glow) 25%, var(--color-zen-garden) 50%, var(--color-secret-glow) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 8px; }
+.recording-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--color-fiery-passion); animation: pulse-recording 1500ms ease-in-out infinite; }
 .speaking-indicator { border-radius: 50%; animation: speaking-glow 100ms ease; }
 
-/* Classroom-specific dark theme (scoped) */
-.classroom-dark .text-gray-900, .classroom-dark .text-gray-800, .classroom-dark .text-gray-700 { color: var(--sr-dark-text); }
-.classroom-dark .text-gray-600, .classroom-dark .text-gray-500, .classroom-dark .text-gray-400, .classroom-dark .text-gray-300 { color: var(--sr-dark-muted); }
-.classroom-dark .bg-white { background: var(--sr-dark-surface); }
-.classroom-dark .bg-gray-50, .classroom-dark .bg-gray-100 { background: rgba(255,255,255,0.05); }
-.classroom-dark .border-gray-100, .classroom-dark .border-gray-200, .classroom-dark .border-gray-300 { border-color: var(--sr-dark-border); }
-.classroom-dark .hover\:bg-gray-50:hover, .classroom-dark .hover\:bg-gray-100:hover { background: rgba(255,255,255,0.05); }
-.classroom-dark .divide-y > :not([hidden]) ~ :not([hidden]) { border-color: var(--sr-dark-border); }
+@keyframes pulse-recording { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+@keyframes speaking-glow { 0% { box-shadow: 0 0 0 0 rgba(35,185,215,0.5); } 100% { box-shadow: 0 0 0 8px rgba(35,185,215,0); } }
+@keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+
+.gradient-text { background: linear-gradient(135deg, var(--color-crystal-clear), #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+
+/* Skyroom Table (backward compat) */
+.sky-table { width: 100%; border-collapse: collapse; }
+.sky-table th { text-align: right; padding: 0.75rem 1rem; font-size: 12px; font-weight: 600; color: var(--color-moonlit-mist); background: var(--color-eternal-snow); border-bottom: 1px solid var(--color-zen-garden); }
+.sky-table td { padding: 0.75rem 1rem; font-size: 14px; color: var(--color-midnight-sky); border-bottom: 1px solid var(--color-zen-garden); }
+.sky-table tr:hover td { background: var(--color-deep-heaven); }
+
+/* Skyroom Input (backward compat) */
+.sky-input { width: 100%; padding: 0.625rem 0.875rem; border: 2px solid var(--color-zen-garden); border-radius: 8px; font-size: 14px; background: var(--color-pure); color: var(--color-midnight-sky); transition: border-color 0.15s; outline: none; font-family: 'Vazirmatn', system-ui, sans-serif; }
+.sky-input:focus { border-color: var(--color-crystal-clear); }
+.sky-input::placeholder { color: var(--color-moonlit-mist); }

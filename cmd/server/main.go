@@ -12,7 +12,7 @@ import (
 	"github.com/iroom/iroom/internal/middleware"
 	"github.com/iroom/iroom/internal/repository"
 	"github.com/iroom/iroom/internal/services"
-	"github.com/iroom/iroom/internal/webrtc"
+	iroomwebrtc "github.com/iroom/iroom/internal/webrtc"
 	"github.com/labstack/echo/v4"
 	echoMiddleware "github.com/labstack/echo/v4/middleware"
 	"github.com/pion/webrtc/v4"
@@ -66,10 +66,10 @@ func main() {
 			{URLs: []string{"stun:stun.l.google.com:19302"}},
 		},
 	}
-	signaling := webrtc.NewSignalingServer(rtcConfig)
+	signaling := iroomwebrtc.NewSignalingServer(rtcConfig)
 
 	// Handlers
-	authHandler := handlers.NewAuthHandler(userRepo, logRepo, resetRepo, cfg.Upload.UploadDir, cfg.JWT.Secret, cfg.JWT.AccessExpiry, cfg.JWT.RefreshExpiry, totpSvc)
+	authHandler := handlers.NewAuthHandler(userRepo, sessionRepo, logRepo, resetRepo, cfg.Upload.UploadDir, cfg.JWT.Secret, cfg.JWT.AccessExpiry, cfg.JWT.RefreshExpiry, totpSvc)
 	adminHandler := handlers.NewAdminHandler(userRepo, classRepo, sessionRepo, messageRepo, recordingRepo, logRepo, settingsRepo, ticketRepo, sessionLogRepo, cfg.JWT.Secret, cfg.JWT.AccessExpiry, cfg.JWT.RefreshExpiry)
 	classHandler := handlers.NewClassHandler(classRepo, sessionRepo)
 	sessionHandler := handlers.NewSessionHandler(sessionRepo, classRepo)
@@ -102,11 +102,15 @@ func main() {
 	healthHandler := handlers.NewHealthHandler(db, cfg.Database.Path)
 	e.GET("/api/v1/health", healthHandler.Health)
 
+	// Public session info (for join page, no auth required)
+	e.GET("/api/v1/sessions/:id/info", sessionHandler.GetPublicInfo)
+
 	// Auth (with stricter rate limit)
 	authGroup := e.Group("/api/v1/auth")
 	authGroup.Use(middleware.AuthRateLimit())
 	authGroup.POST("/register", authHandler.Register)
 	authGroup.POST("/login", authHandler.Login)
+	authGroup.POST("/guest-login", authHandler.GuestLogin)
 	authGroup.POST("/refresh", authHandler.Refresh)
 	authGroup.POST("/forgot-password", authHandler.ForgotPassword)
 	authGroup.POST("/reset-password", authHandler.ResetPassword)

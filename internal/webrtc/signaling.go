@@ -60,8 +60,6 @@ func (ss *SignalingServer) HandleOffer(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "missing required fields")
 	}
 
-	room := ss.roomManager.GetOrCreateRoom(req.RoomID, 30, 0)
-
 	peerConn, err := ss.createPeerConnection(req.UserID, req.RoomID)
 	if err != nil {
 		slog.Error("failed to create peer connection", "error", err, "user_id", req.UserID)
@@ -297,9 +295,9 @@ func (ss *SignalingServer) broadcastToRoom(roomID string, message interface{}) {
 		if p.Conn != nil && p.Conn.ConnectionState() == webrtc.PeerConnectionStateConnected {
 			for _, sender := range p.Conn.GetSenders() {
 				if sender.Track() != nil {
-					if track, ok := sender.Track().(*webrtc.TrackLocalStaticRTP); ok {
+						if track, ok := sender.Track().(*webrtc.TrackLocalStaticRTP); ok {
 						if track.Kind() == webrtc.RTPCodecTypeVideo {
-							_ = track.Write(data)
+							track.Write(data)
 						}
 					}
 				}

@@ -250,7 +250,7 @@
 					<div class="flex gap-2 flex-wrap">
 						{#each colorOptions as color}
 							<button
-								class="w-8 h-8 rounded-full border-2 transition-all {newRoom.color === color ? 'border-gray-900 scale-110' : 'border-transparent hover:scale-105'}"
+								class="w-8 h-8 rounded-full border-2 transition-all {newRoom.color === color ? 'border-gray-700 scale-110' : 'border-transparent hover:scale-105'}"
 								style="background-color: {color}"
 								onclick={() => newRoom.color = color}
 							></button>

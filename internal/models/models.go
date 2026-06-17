@@ -45,8 +45,6 @@ type Session struct {
 	Status          string    `json:"status" db:"status"`
 	LivekitRoom     string    `json:"livekit_room" db:"livekit_room"`
 	RecordingURL    string    `json:"recording_url" db:"recording_url"`
-	JanusSessionID  int64     `json:"janus_session_id" db:"janus_session_id"`
-	JanusHandleID   int64     `json:"janus_handle_id" db:"janus_handle_id"`
 	CreatedAt       time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt       time.Time `json:"updated_at" db:"updated_at"`
 }
@@ -82,6 +80,11 @@ type RegisterRequest struct {
 type LoginRequest struct {
 	Email    string `json:"email" validate:"required,email"`
 	Password string `json:"password" validate:"required"`
+}
+
+type GuestLoginRequest struct {
+	SessionID   int64  `json:"session_id" validate:"required"`
+	DisplayName string `json:"display_name" validate:"required"`
 }
 
 type TokenResponse struct {

@@ -57,8 +57,7 @@ func setup(t *testing.T) *testEnv {
 
 	token, _ := jwt.Generate(cfg.JWT.Secret, jwt.Claims{UserID: 1, Email: "admin@iroom.local", Role: "admin"}, cfg.JWT.AccessExpiry)
 
-	janusSvc := services.NewJanusService("http://localhost:8088", "ws://localhost:8188", "", "")
-	healthHandler := handlers.NewHealthHandler(db, ":memory:", janusSvc)
+	healthHandler := handlers.NewHealthHandler(db, ":memory:")
 
 	resetRepo := repository.NewPasswordResetRepo(db)
 	totpSvc := services.NewTOTPService("IRoom")
@@ -113,7 +112,7 @@ func jsonBody(t *testing.T, rec *httptest.ResponseRecorder) map[string]interface
 
 func TestRegister(t *testing.T) {
 	env := setup(t)
-	h := handlers.NewAuthHandler(env.userRepo, env.logRepo, env.resetRepo, "", env.cfg.JWT.Secret, env.cfg.JWT.AccessExpiry, env.cfg.JWT.RefreshExpiry, env.totpSvc)
+	h := handlers.NewAuthHandler(env.userRepo, env.sessionRepo, env.logRepo, env.resetRepo, "", env.cfg.JWT.Secret, env.cfg.JWT.AccessExpiry, env.cfg.JWT.RefreshExpiry, env.totpSvc)
 	env.e.POST("/api/v1/auth/register", h.Register)
 
 	w := req(env.e, "POST", "/api/v1/auth/register", map[string]string{
@@ -126,7 +125,7 @@ func TestRegister(t *testing.T) {
 
 func TestLogin(t *testing.T) {
 	env := setup(t)
-	h := handlers.NewAuthHandler(env.userRepo, env.logRepo, env.resetRepo, "", env.cfg.JWT.Secret, env.cfg.JWT.AccessExpiry, env.cfg.JWT.RefreshExpiry, env.totpSvc)
+	h := handlers.NewAuthHandler(env.userRepo, env.sessionRepo, env.logRepo, env.resetRepo, "", env.cfg.JWT.Secret, env.cfg.JWT.AccessExpiry, env.cfg.JWT.RefreshExpiry, env.totpSvc)
 	env.e.POST("/api/v1/auth/login", h.Login)
 
 	w := req(env.e, "POST", "/api/v1/auth/login", map[string]string{
@@ -143,7 +142,7 @@ func TestLogin(t *testing.T) {
 
 func TestLoginWrongPassword(t *testing.T) {
 	env := setup(t)
-	h := handlers.NewAuthHandler(env.userRepo, env.logRepo, env.resetRepo, "", env.cfg.JWT.Secret, env.cfg.JWT.AccessExpiry, env.cfg.JWT.RefreshExpiry, env.totpSvc)
+	h := handlers.NewAuthHandler(env.userRepo, env.sessionRepo, env.logRepo, env.resetRepo, "", env.cfg.JWT.Secret, env.cfg.JWT.AccessExpiry, env.cfg.JWT.RefreshExpiry, env.totpSvc)
 	env.e.POST("/api/v1/auth/login", h.Login)
 
 	w := req(env.e, "POST", "/api/v1/auth/login", map[string]string{
@@ -156,7 +155,7 @@ func TestLoginWrongPassword(t *testing.T) {
 
 func TestRefresh(t *testing.T) {
 	env := setup(t)
-	h := handlers.NewAuthHandler(env.userRepo, env.logRepo, env.resetRepo, "", env.cfg.JWT.Secret, env.cfg.JWT.AccessExpiry, env.cfg.JWT.RefreshExpiry, env.totpSvc)
+	h := handlers.NewAuthHandler(env.userRepo, env.sessionRepo, env.logRepo, env.resetRepo, "", env.cfg.JWT.Secret, env.cfg.JWT.AccessExpiry, env.cfg.JWT.RefreshExpiry, env.totpSvc)
 	env.e.POST("/api/v1/auth/login", h.Login)
 	env.e.POST("/api/v1/auth/refresh", h.Refresh)
 

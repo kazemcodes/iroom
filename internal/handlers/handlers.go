@@ -27,6 +27,7 @@ import (
 
 type AuthHandler struct {
 	userRepo    *repository.UserRepo
+	sessionRepo *repository.SessionRepo
 	logRepo     *repository.ActivityLogRepo
 	resetRepo  *repository.PasswordResetRepo
 	uploadDir   string
@@ -40,13 +41,14 @@ type jwtConfig struct {
 	refreshExpiry int
 }
 
-func NewAuthHandler(userRepo *repository.UserRepo, logRepo *repository.ActivityLogRepo, resetRepo *repository.PasswordResetRepo, uploadDir string, secret string, accessExpiry, refreshExpiry int, totpSvc *services.TOTPService) *AuthHandler {
+func NewAuthHandler(userRepo *repository.UserRepo, sessionRepo *repository.SessionRepo, logRepo *repository.ActivityLogRepo, resetRepo *repository.PasswordResetRepo, uploadDir string, secret string, accessExpiry, refreshExpiry int, totpSvc *services.TOTPService) *AuthHandler {
 	return &AuthHandler{
-		userRepo:   userRepo,
-		logRepo:    logRepo,
-		resetRepo:  resetRepo,
-		uploadDir:  uploadDir,
-		totpSvc:    totpSvc,
+		userRepo:    userRepo,
+		sessionRepo: sessionRepo,
+		logRepo:     logRepo,
+		resetRepo:   resetRepo,
+		uploadDir:   uploadDir,
+		totpSvc:     totpSvc,
 		jwtCfg: jwtConfig{
 			secret:        secret,
 			accessExpiry:  accessExpiry,
@@ -149,6 +151,59 @@ func (h *AuthHandler) Login(c echo.Context) error {
 
 	return response.Success(c, map[string]interface{}{
 		"user":   user,
+		"tokens": tokens,
+	})
+}
+
+func (h *AuthHandler) GuestLogin(c echo.Context) error {
+	var req models.GuestLoginRequest
+	if err := c.Bind(&req); err != nil {
+		return response.BadRequest(c, "داده‌های نامعتبر")
+	}
+
+	if req.DisplayName == "" {
+		return response.BadRequest(c, "نام نمایشی الزامی است")
+	}
+
+	if req.SessionID == 0 {
+		return response.BadRequest(c, "شناسه جلسه الزامی است")
+	}
+
+	session, err := h.sessionRepo.GetByID(req.SessionID)
+	if err != nil {
+		return response.NotFound(c, "جلسه یافت نشد")
+	}
+
+	if session.Status != "live" {
+		return response.BadRequest(c, "جلسه در حال برگزاری نیست")
+	}
+
+	guestEmail := fmt.Sprintf("guest_%d_%d@iroom.local", req.SessionID, time.Now().UnixMilli())
+	hashedPassword, _ := hash.Hash("guest_no_password")
+
+	guestUser := &models.User{
+		Email:        guestEmail,
+		PasswordHash: hashedPassword,
+		DisplayName:  req.DisplayName,
+		Role:         "student",
+		IsActive:     true,
+	}
+
+	if err := h.userRepo.Create(guestUser); err != nil {
+		slog.Error("guest login: failed to create guest user", "error", err)
+		return response.InternalError(c, "خطا در ورود مهمان")
+	}
+
+	h.log(guestUser.ID, "guest_login", "session", session.ID, req.DisplayName, c.RealIP())
+
+	tokens, err := h.generateTokens(guestUser)
+	if err != nil {
+		slog.Error("guest login: failed to generate tokens", "error", err, "user_id", guestUser.ID)
+		return response.InternalError(c, "خطا در تولید توکن")
+	}
+
+	return response.Success(c, map[string]interface{}{
+		"user":   guestUser,
 		"tokens": tokens,
 	})
 }
@@ -1073,9 +1128,6 @@ func (h *AdminHandler) UpdateSettings(c echo.Context) error {
 		"allow_student_video":      true,
 		"max_file_size_mb":         true,
 		"session_auto_end_minutes": true,
-		"janus_http_url":           true,
-		"janus_ws_url":             true,
-		"janus_admin_key":          true,
 		"password_min_length":      true,
 		"password_require_uppercase": true,
 		"password_require_number":  true,
@@ -1561,6 +1613,24 @@ func (h *SessionHandler) GetByID(c echo.Context) error {
 	}
 
 	return response.Success(c, session)
+}
+
+func (h *SessionHandler) GetPublicInfo(c echo.Context) error {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return response.BadRequest(c, "شناسه نامعتبر")
+	}
+
+	session, err := h.sessionRepo.GetByID(id)
+	if err != nil {
+		return response.NotFound(c, "جلسه یافت نشد")
+	}
+
+	return response.Success(c, map[string]interface{}{
+		"id":     session.ID,
+		"title":  session.Title,
+		"status": session.Status,
+	})
 }
 
 func (h *SessionHandler) Delete(c echo.Context) error {

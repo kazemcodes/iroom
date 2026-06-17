@@ -33,8 +33,8 @@ func (r *SessionRepo) Create(s *models.Session) error {
 func (r *SessionRepo) GetByID(id int64) (*models.Session, error) {
 	s := &models.Session{}
 	err := r.db.QueryRow(
-		`SELECT id, class_id, title, scheduled_at, duration, status, livekit_room, recording_url, janus_session_id, janus_handle_id, created_at, updated_at FROM sessions WHERE id = ?`, id,
-	).Scan(&s.ID, &s.ClassID, &s.Title, &s.ScheduledAt, &s.Duration, &s.Status, &s.LivekitRoom, &s.RecordingURL, &s.JanusSessionID, &s.JanusHandleID, &s.CreatedAt, &s.UpdatedAt)
+		`SELECT id, class_id, title, scheduled_at, duration, status, livekit_room, recording_url, created_at, updated_at FROM sessions WHERE id = ?`, id,
+	).Scan(&s.ID, &s.ClassID, &s.Title, &s.ScheduledAt, &s.Duration, &s.Status, &s.LivekitRoom, &s.RecordingURL, &s.CreatedAt, &s.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +43,7 @@ func (r *SessionRepo) GetByID(id int64) (*models.Session, error) {
 
 func (r *SessionRepo) ListByClass(classID int64) ([]models.Session, error) {
 	rows, err := r.db.Query(
-		`SELECT id, class_id, title, scheduled_at, duration, status, livekit_room, recording_url, janus_session_id, janus_handle_id, created_at, updated_at FROM sessions WHERE class_id = ? ORDER BY scheduled_at DESC`, classID,
+		`SELECT id, class_id, title, scheduled_at, duration, status, livekit_room, recording_url, created_at, updated_at FROM sessions WHERE class_id = ? ORDER BY scheduled_at DESC`, classID,
 	)
 	if err != nil {
 		return nil, err
@@ -53,7 +53,7 @@ func (r *SessionRepo) ListByClass(classID int64) ([]models.Session, error) {
 	var sessions []models.Session
 	for rows.Next() {
 		var s models.Session
-		if err := rows.Scan(&s.ID, &s.ClassID, &s.Title, &s.ScheduledAt, &s.Duration, &s.Status, &s.LivekitRoom, &s.RecordingURL, &s.JanusSessionID, &s.JanusHandleID, &s.CreatedAt, &s.UpdatedAt); err != nil {
+		if err := rows.Scan(&s.ID, &s.ClassID, &s.Title, &s.ScheduledAt, &s.Duration, &s.Status, &s.LivekitRoom, &s.RecordingURL, &s.CreatedAt, &s.UpdatedAt); err != nil {
 			return nil, err
 		}
 		sessions = append(sessions, s)
@@ -76,7 +76,7 @@ func (r *SessionRepo) ListAll(page, perPage int, search string) ([]models.Sessio
 	}
 
 	offset := (page - 1) * perPage
-	query := `SELECT id, class_id, title, scheduled_at, duration, status, livekit_room, recording_url, janus_session_id, janus_handle_id, created_at, updated_at FROM sessions WHERE 1=1`
+	query := `SELECT id, class_id, title, scheduled_at, duration, status, livekit_room, recording_url, created_at, updated_at FROM sessions WHERE 1=1`
 	if search != "" {
 		query += ` AND title LIKE ?`
 	}
@@ -92,7 +92,7 @@ func (r *SessionRepo) ListAll(page, perPage int, search string) ([]models.Sessio
 	var sessions []models.Session
 	for rows.Next() {
 		var s models.Session
-		if err := rows.Scan(&s.ID, &s.ClassID, &s.Title, &s.ScheduledAt, &s.Duration, &s.Status, &s.LivekitRoom, &s.RecordingURL, &s.JanusSessionID, &s.JanusHandleID, &s.CreatedAt, &s.UpdatedAt); err != nil {
+		if err := rows.Scan(&s.ID, &s.ClassID, &s.Title, &s.ScheduledAt, &s.Duration, &s.Status, &s.LivekitRoom, &s.RecordingURL, &s.CreatedAt, &s.UpdatedAt); err != nil {
 			return nil, 0, err
 		}
 		sessions = append(sessions, s)
