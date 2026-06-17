@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log/slog"
 	"strconv"
 	"time"
 
@@ -61,7 +62,9 @@ func (h *TicketHandler) Create(c echo.Context) error {
 			Content:  req.Message,
 			IsAdmin:  false,
 		}
-		h.ticketRepo.SendMessage(msg)
+		if err := h.ticketRepo.SendMessage(msg); err != nil {
+			slog.Error("failed to send initial ticket message", "error", err)
+		}
 	}
 
 	created, err := h.ticketRepo.GetByID(ticket.ID)
@@ -82,6 +85,9 @@ func (h *TicketHandler) ListMy(c echo.Context) error {
 	perPage, _ := strconv.Atoi(c.QueryParam("per_page"))
 	if perPage < 1 {
 		perPage = 20
+	}
+	if perPage > 100 {
+		perPage = 100
 	}
 
 	tickets, total, err := h.ticketRepo.ListByUser(userID, page, perPage)

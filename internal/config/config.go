@@ -1,6 +1,8 @@
 package config
 
 import (
+	"crypto/rand"
+	"fmt"
 	"os"
 	"strconv"
 
@@ -61,11 +63,26 @@ func Load(path string) (*Config, error) {
 
 	data, err := os.ReadFile(path)
 	if err == nil {
-		_ = yaml.Unmarshal(data, cfg)
+		if err := yaml.Unmarshal(data, cfg); err != nil {
+			return nil, fmt.Errorf("parse config: %w", err)
+		}
 	}
 
 	applyEnvOverrides(cfg)
+
+	if cfg.JWT.Secret == "change-me-in-production" {
+		cfg.JWT.Secret = generateRandomSecret(32)
+	}
+
 	return cfg, nil
+}
+
+func generateRandomSecret(length int) string {
+	b := make([]byte, length)
+	if _, err := rand.Read(b); err != nil {
+		return "change-me-in-production"
+	}
+	return fmt.Sprintf("%x", b)
 }
 
 func applyEnvOverrides(cfg *Config) {

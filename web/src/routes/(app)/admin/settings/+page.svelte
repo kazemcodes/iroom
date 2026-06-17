@@ -24,10 +24,36 @@
 		allow_student_video: false,
 		max_file_size_mb: 50,
 		session_auto_end_minutes: 120,
+		// Video
+		livekit_url: '',
+		livekit_api_key: '',
+		livekit_api_secret: '',
+		// Security
+		password_min_length: '6',
+		password_require_uppercase: false,
+		password_require_number: false,
+		password_require_special: false,
+		session_timeout_minutes: '60',
+		max_login_attempts: '5',
+		lockout_duration_minutes: '30',
+		require_2fa: false,
+		// Email
+		smtp_enabled: false,
+		smtp_host: 'smtp.gmail.com',
+		smtp_port: '587',
+		smtp_username: '',
+		smtp_password: '',
+		smtp_from: 'noreply@iroom.ir',
+		// API
+		external_api_key: '',
 	});
 	let loading = $state(true);
 	let saving = $state(false);
 	let saved = $state(false);
+
+	// Email test state
+	let emailTesting = $state(false);
+	let emailTestResult = $state<'success' | 'error' | null>(null);
 
 	// Webhook state
 	let webhooks = $state<Webhook[]>([]);
@@ -186,6 +212,22 @@
 
 	function formatDate(dateStr: string): string {
 		return new Date(dateStr).toLocaleString('fa-IR');
+	}
+
+	// Email test
+	async function testEmail() {
+		emailTesting = true;
+		emailTestResult = null;
+		const res = await api.post('/admin/settings/test-email', {
+			smtp_host: settings.smtp_host,
+			smtp_port: parseInt(settings.smtp_port as string) || 587,
+			smtp_username: settings.smtp_username,
+			smtp_password: settings.smtp_password,
+			smtp_from: settings.smtp_from,
+		});
+		emailTestResult = res.success ? 'success' : 'error';
+		emailTesting = false;
+		setTimeout(() => emailTestResult = null, 5000);
 	}
 </script>
 
@@ -451,15 +493,372 @@
 					{/if}
 				</div>
 
-			{:else}
-				<!-- Other tabs placeholder -->
-				<div class="text-center py-12">
-					<svg class="w-12 h-12 mx-auto text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-					</svg>
-					<p class="mt-4 text-gray-500">این بخش در حال توسعه است</p>
-				</div>
+			{:else if activeTab === 'video'}
+				<!-- Video Settings -->
+				{#if loading}
+					<div class="flex items-center justify-center py-12">
+						<div class="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full"></div>
+					</div>
+				{:else}
+					<div class="space-y-6">
+						<div>
+							<h2 class="text-lg font-semibold text-gray-900">تنظیمات ویدیو و LiveKit</h2>
+							<p class="text-sm text-gray-500 mt-1">پیکربندی سرور ویدیو برای جلسات آنلاین</p>
+						</div>
+						<div class="divide-y">
+							<!-- LiveKit URL -->
+							<div class="py-4 flex items-center justify-between">
+								<div>
+									<p class="font-medium text-gray-900">آدرس سرور LiveKit</p>
+									<p class="text-sm text-gray-500 mt-0.5">آدرس WebSocket سرور ویدیو</p>
+								</div>
+								<input type="text" bind:value={settings.livekit_url} placeholder="ws://localhost:7880" dir="ltr" class="w-64 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+							</div>
+							<!-- LiveKit API Key -->
+							<div class="py-4 flex items-center justify-between">
+								<div>
+									<p class="font-medium text-gray-900">کلید API</p>
+									<p class="text-sm text-gray-500 mt-0.5">کلید دسترسی به LiveKit</p>
+								</div>
+								<input type="text" bind:value={settings.livekit_api_key} placeholder="API Key" dir="ltr" class="w-64 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+							</div>
+							<!-- LiveKit API Secret -->
+							<div class="py-4 flex items-center justify-between">
+								<div>
+									<p class="font-medium text-gray-900">رمز API</p>
+									<p class="text-sm text-gray-500 mt-0.5">رمز مخفی LiveKit (فقط در صورت نیاز تغییر دهید)</p>
+								</div>
+								<input type="password" bind:value={settings.livekit_api_secret} placeholder="••••••••" dir="ltr" class="w-64 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+							</div>
+							<!-- Allow student video -->
+							<div class="py-4 flex items-center justify-between">
+								<div>
+									<p class="font-medium text-gray-900">ارسال ویدیو توسط دانش‌آموز</p>
+									<p class="text-sm text-gray-500 mt-0.5">اجازه ارسال ویدیو به دانش‌آموزان</p>
+								</div>
+								<button
+									onclick={() => settings.allow_student_video = !settings.allow_student_video}
+									class="relative w-11 h-6 rounded-full transition-colors {settings.allow_student_video ? 'bg-blue-600' : 'bg-gray-300'}"
+								>
+									<span class="absolute top-0.5 right-0.5 w-5 h-5 bg-white rounded-full transition-transform {settings.allow_student_video ? 'translate-x-[-20px]' : ''}"></span>
+								</button>
+							</div>
+						</div>
+						<div class="flex items-center justify-between pt-4 border-t">
+							{#if saved}
+								<span class="text-sm text-green-600">ذخیره شد</span>
+							{:else}
+								<span></span>
+							{/if}
+							<button onclick={saveSettings} disabled={saving} class="px-6 py-2.5 bg-blue-600 text-white rounded-lg font-medium text-sm hover:bg-blue-700 transition-colors disabled:opacity-50">
+								{saving ? 'در حال ذخیره...' : 'ذخیره تنظیمات'}
+							</button>
+						</div>
+					</div>
+				{/if}
+
+			{:else if activeTab === 'security'}
+				<!-- Security Settings -->
+				{#if loading}
+					<div class="flex items-center justify-center py-12">
+						<div class="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full"></div>
+					</div>
+				{:else}
+					<div class="space-y-6">
+						<div>
+							<h2 class="text-lg font-semibold text-gray-900">تنظیمات امنیتی</h2>
+							<p class="text-sm text-gray-500 mt-1">سیاست رمز عبور و امنیت حساب کاربران</p>
+						</div>
+						<div class="divide-y">
+							<!-- Password min length -->
+							<div class="py-4 flex items-center justify-between">
+								<div>
+									<p class="font-medium text-gray-900">حداقل طول رمز عبور</p>
+									<p class="text-sm text-gray-500 mt-0.5">حداقل تعداد کاراکتر رمز عبور</p>
+								</div>
+								<input type="number" bind:value={settings.password_min_length} min="6" max="32" class="w-20 px-3 py-2 border rounded-lg text-sm text-center focus:ring-2 focus:ring-blue-500 outline-none" />
+							</div>
+							<!-- Require uppercase -->
+							<div class="py-4 flex items-center justify-between">
+								<div>
+									<p class="font-medium text-gray-900"> الزام حرف بزرگ</p>
+									<p class="text-sm text-gray-500 mt-0.5">رمز عبور باید شامل حداقل یک حرف بزرگ باشد</p>
+								</div>
+								<button
+									onclick={() => settings.password_require_uppercase = !settings.password_require_uppercase}
+									class="relative w-11 h-6 rounded-full transition-colors {settings.password_require_uppercase ? 'bg-blue-600' : 'bg-gray-300'}"
+								>
+									<span class="absolute top-0.5 right-0.5 w-5 h-5 bg-white rounded-full transition-transform {settings.password_require_uppercase ? 'translate-x-[-20px]' : ''}"></span>
+								</button>
+							</div>
+							<!-- Require number -->
+							<div class="py-4 flex items-center justify-between">
+								<div>
+									<p class="font-medium text-gray-900">الزام عدد</p>
+									<p class="text-sm text-gray-500 mt-0.5">رمز عبور باید شامل حداقل یک عدد باشد</p>
+								</div>
+								<button
+									onclick={() => settings.password_require_number = !settings.password_require_number}
+									class="relative w-11 h-6 rounded-full transition-colors {settings.password_require_number ? 'bg-blue-600' : 'bg-gray-300'}"
+								>
+									<span class="absolute top-0.5 right-0.5 w-5 h-5 bg-white rounded-full transition-transform {settings.password_require_number ? 'translate-x-[-20px]' : ''}"></span>
+								</button>
+							</div>
+							<!-- Require special char -->
+							<div class="py-4 flex items-center justify-between">
+								<div>
+									<p class="font-medium text-gray-900">الزام کاراکتر خاص</p>
+									<p class="text-sm text-gray-500 mt-0.5">رمز عبور باید شامل کاراکتر خاص باشد (مانند @, #, $)</p>
+								</div>
+								<button
+									onclick={() => settings.password_require_special = !settings.password_require_special}
+									class="relative w-11 h-6 rounded-full transition-colors {settings.password_require_special ? 'bg-blue-600' : 'bg-gray-300'}"
+								>
+									<span class="absolute top-0.5 right-0.5 w-5 h-5 bg-white rounded-full transition-transform {settings.password_require_special ? 'translate-x-[-20px]' : ''}"></span>
+								</button>
+							</div>
+							<!-- Session timeout -->
+							<div class="py-4 flex items-center justify-between">
+								<div>
+									<p class="font-medium text-gray-900">مدت زمان نشست (دقیقه)</p>
+									<p class="text-sm text-gray-500 mt-0.5">مدت زمان قبل از خودکار خروج کاربر</p>
+								</div>
+								<input type="number" bind:value={settings.session_timeout_minutes} min="5" max="1440" class="w-20 px-3 py-2 border rounded-lg text-sm text-center focus:ring-2 focus:ring-blue-500 outline-none" />
+							</div>
+							<!-- Max login attempts -->
+							<div class="py-4 flex items-center justify-between">
+								<div>
+								<p class="font-medium text-gray-900">حداکثر تلاش ورود</p>
+								<p class="text-sm text-gray-500 mt-0.5">تعداد حداکثر تلاش ناموفق قبل از قفل شدن حساب</p>
+								</div>
+								<input type="number" bind:value={settings.max_login_attempts} min="3" max="20" class="w-20 px-3 py-2 border rounded-lg text-sm text-center focus:ring-2 focus:ring-blue-500 outline-none" />
+							</div>
+							<!-- Lockout duration -->
+							<div class="py-4 flex items-center justify-between">
+								<div>
+									<p class="font-medium text-gray-900">مدت قفل حساب (دقیقه)</p>
+									<p class="text-sm text-gray-500 mt-0.5">مدت زمان قفل شدن حساب پس از تلاش‌های ناموفق</p>
+								</div>
+								<input type="number" bind:value={settings.lockout_duration_minutes} min="5" max="1440" class="w-20 px-3 py-2 border rounded-lg text-sm text-center focus:ring-2 focus:ring-blue-500 outline-none" />
+							</div>
+							<!-- Require 2FA -->
+							<div class="py-4 flex items-center justify-between">
+								<div>
+									<p class="font-medium text-gray-900">الزام احراز هویت دو مرحله‌ای</p>
+									<p class="text-sm text-gray-500 mt-0.5">فعال‌سازی اجباری ۲FA برای تمام کاربران</p>
+								</div>
+								<button
+									onclick={() => settings.require_2fa = !settings.require_2fa}
+									class="relative w-11 h-6 rounded-full transition-colors {settings.require_2fa ? 'bg-blue-600' : 'bg-gray-300'}"
+								>
+									<span class="absolute top-0.5 right-0.5 w-5 h-5 bg-white rounded-full transition-transform {settings.require_2fa ? 'translate-x-[-20px]' : ''}"></span>
+								</button>
+							</div>
+						</div>
+						<div class="flex items-center justify-between pt-4 border-t">
+							{#if saved}
+								<span class="text-sm text-green-600">ذخیره شد</span>
+							{:else}
+								<span></span>
+							{/if}
+							<button onclick={saveSettings} disabled={saving} class="px-6 py-2.5 bg-blue-600 text-white rounded-lg font-medium text-sm hover:bg-blue-700 transition-colors disabled:opacity-50">
+								{saving ? 'در حال ذخیره...' : 'ذخیره تنظیمات'}
+							</button>
+						</div>
+					</div>
+				{/if}
+
+			{:else if activeTab === 'email'}
+				<!-- Email Settings -->
+				{#if loading}
+					<div class="flex items-center justify-center py-12">
+						<div class="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full"></div>
+					</div>
+				{:else}
+					<div class="space-y-6">
+						<div>
+							<h2 class="text-lg font-semibold text-gray-900">تنظیمات ایمیل</h2>
+							<p class="text-sm text-gray-500 mt-1">پیکربندی سرور SMTP برای ارسال ایمیل</p>
+						</div>
+						<div class="divide-y">
+							<!-- SMTP Enabled -->
+							<div class="py-4 flex items-center justify-between">
+								<div>
+									<p class="font-medium text-gray-900">فعال‌سازی ایمیل</p>
+									<p class="text-sm text-gray-500 mt-0.5">فعال‌سازی سرویس ارسال ایمیل</p>
+								</div>
+								<button
+									onclick={() => settings.smtp_enabled = !settings.smtp_enabled}
+									class="relative w-11 h-6 rounded-full transition-colors {settings.smtp_enabled ? 'bg-blue-600' : 'bg-gray-300'}"
+								>
+									<span class="absolute top-0.5 right-0.5 w-5 h-5 bg-white rounded-full transition-transform {settings.smtp_enabled ? 'translate-x-[-20px]' : ''}"></span>
+								</button>
+							</div>
+							<!-- SMTP Host -->
+							<div class="py-4 flex items-center justify-between">
+								<div>
+									<p class="font-medium text-gray-900">آدرس سرور SMTP</p>
+									<p class="text-sm text-gray-500 mt-0.5">آدرس سرور پست الکترونیک</p>
+								</div>
+								<input type="text" bind:value={settings.smtp_host} placeholder="smtp.gmail.com" dir="ltr" class="w-64 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+							</div>
+							<!-- SMTP Port -->
+							<div class="py-4 flex items-center justify-between">
+								<div>
+									<p class="font-medium text-gray-900">پورت SMTP</p>
+									<p class="text-sm text-gray-500 mt-0.5">پورت اتصال به سرور SMTP</p>
+								</div>
+								<input type="number" bind:value={settings.smtp_port} min="1" max="65535" class="w-24 px-3 py-2 border rounded-lg text-sm text-center focus:ring-2 focus:ring-blue-500 outline-none" />
+							</div>
+							<!-- SMTP Username -->
+							<div class="py-4 flex items-center justify-between">
+								<div>
+									<p class="font-medium text-gray-900">نام کاربری SMTP</p>
+									<p class="text-sm text-gray-500 mt-0.5">نام کاربری احراز هویت SMTP</p>
+								</div>
+								<input type="text" bind:value={settings.smtp_username} placeholder="your@email.com" dir="ltr" class="w-64 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+							</div>
+							<!-- SMTP Password -->
+							<div class="py-4 flex items-center justify-between">
+								<div>
+									<p class="font-medium text-gray-900">رمز عبور SMTP</p>
+									<p class="text-sm text-gray-500 mt-0.5">رمز عبور احراز هویت SMTP</p>
+								</div>
+								<input type="password" bind:value={settings.smtp_password} placeholder="••••••••" dir="ltr" class="w-64 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+							</div>
+							<!-- SMTP From -->
+							<div class="py-4 flex items-center justify-between">
+								<div>
+									<p class="font-medium text-gray-900">آدرس فرستنده</p>
+									<p class="text-sm text-gray-500 mt-0.5">آدرس ایمیل نمایش داده شده به عنوان فرستنده</p>
+								</div>
+								<input type="email" bind:value={settings.smtp_from} placeholder="noreply@iroom.ir" dir="ltr" class="w-64 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+							</div>
+						</div>
+
+						<!-- Test Email -->
+						<div class="flex items-center gap-3 pt-4 border-t">
+							<button onclick={testEmail} disabled={emailTesting || !settings.smtp_enabled} class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
+								{#if emailTesting}
+									<div class="animate-spin h-4 w-4 border-2 border-gray-600 border-t-transparent rounded-full"></div>
+									در حال ارسال...
+								{:else}
+									<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+									</svg>
+									ارسال ایمیل تست
+								{/if}
+							</button>
+							{#if emailTestResult === 'success'}
+								<span class="text-sm text-green-600">ایمیل تست با موفقیت ارسال شد</span>
+							{:else if emailTestResult === 'error'}
+								<span class="text-sm text-red-600">خطا در ارسال ایمیل تست</span>
+							{/if}
+						</div>
+
+						<div class="flex items-center justify-between pt-4 border-t">
+							{#if saved}
+								<span class="text-sm text-green-600">ذخیره شد</span>
+							{:else}
+								<span></span>
+							{/if}
+							<button onclick={saveSettings} disabled={saving} class="px-6 py-2.5 bg-blue-600 text-white rounded-lg font-medium text-sm hover:bg-blue-700 transition-colors disabled:opacity-50">
+								{saving ? 'در حال ذخیره...' : 'ذخیره تنظیمات'}
+							</button>
+						</div>
+					</div>
+				{/if}
+
+			{:else if activeTab === 'api'}
+				<!-- API Settings -->
+				{#if loading}
+					<div class="flex items-center justify-center py-12">
+						<div class="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full"></div>
+					</div>
+				{:else}
+					<div class="space-y-6">
+						<div>
+							<h2 class="text-lg font-semibold text-gray-900">تنظیمات API خارجی</h2>
+							<p class="text-sm text-gray-500 mt-1">مدیریت کلید API و مستندات اندپوینت‌ها</p>
+						</div>
+
+						<!-- API Key -->
+						<div class="bg-gray-50 rounded-xl p-4">
+							<h3 class="font-medium text-gray-900 mb-3">کلید API خارجی</h3>
+							<div class="flex items-center gap-3">
+								<input type="text" bind:value={settings.external_api_key} placeholder="کلید API را وارد کنید" dir="ltr" class="flex-1 px-4 py-2.5 border rounded-lg text-sm font-mono focus:ring-2 focus:ring-blue-500 outline-none" />
+							</div>
+							<p class="text-xs text-gray-500 mt-2">این کلید برای احراز هویت درخواست‌های API خارجی استفاده می‌شود</p>
+						</div>
+
+						<!-- API Endpoints Documentation -->
+						<div>
+							<h3 class="font-medium text-gray-900 mb-3">اندپوینت‌های API</h3>
+							<div class="bg-gray-50 rounded-xl divide-y">
+								<div class="p-4">
+									<div class="flex items-center gap-2">
+										<span class="px-2 py-0.5 rounded text-xs font-bold bg-green-100 text-green-800">POST</span>
+										<code class="text-sm font-mono text-gray-900">/api/v1/external/users</code>
+									</div>
+									<p class="text-sm text-gray-500 mt-1 mr-16">ایجاد کاربر جدید از طریق API خارجی</p>
+								</div>
+								<div class="p-4">
+									<div class="flex items-center gap-2">
+										<span class="px-2 py-0.5 rounded text-xs font-bold bg-green-100 text-green-800">POST</span>
+										<code class="text-sm font-mono text-gray-900">/api/v1/external/classes</code>
+									</div>
+									<p class="text-sm text-gray-500 mt-1 mr-16">ایجاد کلاس جدید از طریق API خارجی</p>
+								</div>
+								<div class="p-4">
+									<div class="flex items-center gap-2">
+										<span class="px-2 py-0.5 rounded text-xs font-bold bg-green-100 text-green-800">POST</span>
+										<code class="text-sm font-mono text-gray-900">/api/v1/external/sessions</code>
+									</div>
+									<p class="text-sm text-gray-500 mt-1 mr-16">ایجاد جلسه جدید از طریق API خارجی</p>
+								</div>
+								<div class="p-4">
+									<div class="flex items-center gap-2">
+										<span class="px-2 py-0.5 rounded text-xs font-bold bg-blue-100 text-blue-800">GET</span>
+										<code class="text-sm font-mono text-gray-900">/api/v1/external/status</code>
+									</div>
+									<p class="text-sm text-gray-500 mt-1 mr-16">دریافت وضعیت سیستم</p>
+								</div>
+								<div class="p-4">
+									<div class="flex items-center gap-2">
+										<span class="px-2 py-0.5 rounded text-xs font-bold bg-blue-100 text-blue-800">GET</span>
+										<code class="text-sm font-mono text-gray-900">/api/v1/external/stats</code>
+									</div>
+									<p class="text-sm text-gray-500 mt-1 mr-16">دریافت آمار سیستم</p>
+								</div>
+							</div>
+						</div>
+
+						<!-- Rate Limit Info -->
+						<div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
+							<div class="flex items-start gap-3">
+								<svg class="w-5 h-5 text-amber-600 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+								</svg>
+								<div>
+									<p class="font-medium text-amber-800">محدودیت نرخ درخواست</p>
+									<p class="text-sm text-amber-700 mt-1">حداکثر ۶۰ درخواست در دقیقه برای هر کلید API مجاز است. در صورت تجاوز از این حد، درخواست‌ها با خطای 429 مواجه می‌شوند.</p>
+								</div>
+							</div>
+						</div>
+
+						<div class="flex items-center justify-between pt-4 border-t">
+							{#if saved}
+								<span class="text-sm text-green-600">ذخیره شد</span>
+							{:else}
+								<span></span>
+							{/if}
+							<button onclick={saveSettings} disabled={saving} class="px-6 py-2.5 bg-blue-600 text-white rounded-lg font-medium text-sm hover:bg-blue-700 transition-colors disabled:opacity-50">
+								{saving ? 'در حال ذخیره...' : 'ذخیره تنظیمات'}
+							</button>
+						</div>
+					</div>
+				{/if}
+
 			{/if}
 		</div>
 	</div>

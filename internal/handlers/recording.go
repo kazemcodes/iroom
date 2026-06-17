@@ -14,11 +14,13 @@ import (
 
 type RecordingHandler struct {
 	recordingRepo *repository.RecordingRepo
+	sessionRepo   *repository.SessionRepo
+	classRepo     *repository.ClassRepo
 	uploadDir     string
 }
 
-func NewRecordingHandler(recordingRepo *repository.RecordingRepo, uploadDir string) *RecordingHandler {
-	return &RecordingHandler{recordingRepo: recordingRepo, uploadDir: uploadDir}
+func NewRecordingHandler(recordingRepo *repository.RecordingRepo, sessionRepo *repository.SessionRepo, classRepo *repository.ClassRepo, uploadDir string) *RecordingHandler {
+	return &RecordingHandler{recordingRepo: recordingRepo, sessionRepo: sessionRepo, classRepo: classRepo, uploadDir: uploadDir}
 }
 
 func (h *RecordingHandler) Upload(c echo.Context) error {
@@ -27,9 +29,27 @@ func (h *RecordingHandler) Upload(c echo.Context) error {
 		return response.BadRequest(c, "شناسه نامعتبر")
 	}
 
+	userID := c.Get("user_id").(int64)
+	role, _ := c.Get("role").(string)
+
+	if role != "admin" {
+		session, err := h.sessionRepo.GetByID(sessionID)
+		if err != nil {
+			return response.NotFound(c, "جلسه یافت نشد")
+		}
+		class, err := h.classRepo.GetByID(session.ClassID)
+		if err != nil || class.TeacherID != userID {
+			return response.Forbidden(c, "شما اجازه آپلود ضبط در این جلسه را ندارید")
+		}
+	}
+
 	file, err := c.FormFile("file")
 	if err != nil {
 		return response.BadRequest(c, "فایل ارائه نشده")
+	}
+
+	if file.Size > 500<<20 {
+		return response.BadRequest(c, "حجم فایل بیش از حد مجاز است (حداکثر ۵۰۰ مگابایت)")
 	}
 
 	src, err := file.Open()
@@ -67,7 +87,6 @@ func (h *RecordingHandler) Upload(c echo.Context) error {
 		}
 	}
 
-	userID := c.Get("user_id").(int64)
 	rec := &models.Recording{
 		SessionID:  sessionID,
 		UploadedBy: userID,
@@ -94,6 +113,23 @@ func (h *RecordingHandler) Download(c echo.Context) error {
 	rec, err := h.recordingRepo.GetByID(id)
 	if err != nil {
 		return response.NotFound(c, "ضبط یافت نشد")
+	}
+
+	userID := c.Get("user_id").(int64)
+	role, _ := c.Get("role").(string)
+
+	if rec.UploadedBy != userID && role != "admin" {
+		session, err := h.sessionRepo.GetByID(rec.SessionID)
+		if err != nil {
+			return response.Forbidden(c, "دسترسی غیرمجاز")
+		}
+		class, err := h.classRepo.GetByID(session.ClassID)
+		if err != nil {
+			return response.Forbidden(c, "دسترسی غیرمجاز")
+		}
+		if class.TeacherID != userID && !h.classRepo.IsEnrolled(class.ID, userID) {
+			return response.Forbidden(c, "دسترسی غیرمجاز")
+		}
 	}
 
 	return c.File(rec.Filepath)

@@ -47,9 +47,9 @@
 	}
 
 	async function startSession(id: number) {
-		const res = await api.post(`/sessions/${id}/start`);
+		const res = await api.post<{ livekit_room?: string }>(`/sessions/${id}/start`);
 		if (res.success) {
-			sessions = sessions.map(s => s.id === id ? { ...s, status: 'live', livekit_room: res.data!.livekit_room } : s);
+			sessions = sessions.map(s => s.id === id ? { ...s, status: 'live', livekit_room: res.data?.livekit_room } as any : s);
 		}
 	}
 

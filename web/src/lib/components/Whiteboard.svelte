@@ -165,7 +165,7 @@
 	function handleRemoteOp(msg: any) {
 		if (msg.data?.op === 'add') {
 			isLocalUpdate = true;
-			fabric.util.enlivenObjects([msg.data.data], (objects: fabric.FabricObject[]) => {
+			(fabric.util as any).enlivenObjects([msg.data.data], (objects: fabric.FabricObject[]) => {
 				objects.forEach(obj => canvas.add(obj));
 			});
 			isLocalUpdate = false;
@@ -175,9 +175,9 @@
 			canvas.renderAll();
 		} else if (msg.data?.op === 'update' && msg.data.data) {
 			isLocalUpdate = true;
-			fabric.util.enlivenObjects([msg.data.data], (objects: fabric.FabricObject[]) => {
+			(fabric.util as any).enlivenObjects([msg.data.data], (objects: fabric.FabricObject[]) => {
 				objects.forEach(obj => {
-					const existing = canvas.getObjects().find((o: any) => o.id === obj.id);
+					const existing = canvas.getObjects().find((o: any) => o.id === (obj as any).id);
 					if (existing) {
 						existing.set(obj);
 						canvas.renderAll();

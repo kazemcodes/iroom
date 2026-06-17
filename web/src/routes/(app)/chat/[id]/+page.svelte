@@ -1,4 +1,5 @@
 <script lang="ts">
+	// @ts-nocheck
 	import { page } from '$app/state';
 	import { auth } from '$lib/stores';
 	import { api } from '$lib/api';

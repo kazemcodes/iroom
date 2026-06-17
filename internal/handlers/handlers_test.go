@@ -2,6 +2,7 @@ package handlers_test
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/json"
 	"net/http/httptest"
 	"testing"
@@ -19,20 +20,23 @@ import (
 )
 
 type testEnv struct {
-	e             *echo.Echo
-	api           *echo.Group
-	cfg           *config.Config
-	token         string
-	userRepo      *repository.UserRepo
-	classRepo     *repository.ClassRepo
-	sessionRepo   *repository.SessionRepo
-	messageRepo   *repository.MessageRepo
-	recordingRepo *repository.RecordingRepo
-	logRepo       *repository.ActivityLogRepo
-	settingsRepo  *repository.SettingsRepo
-	ticketRepo    *repository.TicketRepo
+	e              *echo.Echo
+	api            *echo.Group
+	cfg            *config.Config
+	token          string
+	db             *sql.DB
+	userRepo       *repository.UserRepo
+	classRepo      *repository.ClassRepo
+	sessionRepo    *repository.SessionRepo
+	messageRepo    *repository.MessageRepo
+	recordingRepo  *repository.RecordingRepo
+	logRepo        *repository.ActivityLogRepo
+	settingsRepo   *repository.SettingsRepo
+	ticketRepo     *repository.TicketRepo
 	sessionLogRepo *repository.SessionLogRepo
-	healthHandler *handlers.HealthHandler
+	resetRepo      *repository.PasswordResetRepo
+	healthHandler  *handlers.HealthHandler
+	totpSvc        *services.TOTPService
 }
 
 func setup(t *testing.T) *testEnv {
@@ -56,21 +60,27 @@ func setup(t *testing.T) *testEnv {
 	livekitSvc := services.NewLiveKitService("test-key", "test-secret", "")
 	healthHandler := handlers.NewHealthHandler(db, ":memory:", livekitSvc)
 
+	resetRepo := repository.NewPasswordResetRepo(db)
+	totpSvc := services.NewTOTPService("IRoom")
+
 	return &testEnv{
-		e:             e,
-		api:           api,
-		cfg:           cfg,
-		token:         token,
-		userRepo:      repository.NewUserRepo(db),
-		classRepo:     repository.NewClassRepo(db),
-		sessionRepo:   repository.NewSessionRepo(db),
-		messageRepo:   repository.NewMessageRepo(db),
-		recordingRepo: repository.NewRecordingRepo(db),
-		logRepo:       repository.NewActivityLogRepo(db),
-		settingsRepo:  repository.NewSettingsRepo(db),
-		ticketRepo:    repository.NewTicketRepo(db),
+		e:              e,
+		api:            api,
+		cfg:            cfg,
+		token:          token,
+		db:             db,
+		userRepo:       repository.NewUserRepo(db),
+		classRepo:      repository.NewClassRepo(db),
+		sessionRepo:    repository.NewSessionRepo(db),
+		messageRepo:    repository.NewMessageRepo(db),
+		recordingRepo:  repository.NewRecordingRepo(db),
+		logRepo:        repository.NewActivityLogRepo(db),
+		settingsRepo:   repository.NewSettingsRepo(db),
+		ticketRepo:     repository.NewTicketRepo(db),
 		sessionLogRepo: repository.NewSessionLogRepo(db),
-		healthHandler: healthHandler,
+		resetRepo:      resetRepo,
+		healthHandler:  healthHandler,
+		totpSvc:        totpSvc,
 	}
 }
 
@@ -103,7 +113,7 @@ func jsonBody(t *testing.T, rec *httptest.ResponseRecorder) map[string]interface
 
 func TestRegister(t *testing.T) {
 	env := setup(t)
-	h := handlers.NewAuthHandler(env.userRepo, env.logRepo, env.cfg.JWT.Secret, env.cfg.JWT.AccessExpiry, env.cfg.JWT.RefreshExpiry)
+	h := handlers.NewAuthHandler(env.userRepo, env.logRepo, env.resetRepo, "", env.cfg.JWT.Secret, env.cfg.JWT.AccessExpiry, env.cfg.JWT.RefreshExpiry, env.totpSvc)
 	env.e.POST("/api/v1/auth/register", h.Register)
 
 	w := req(env.e, "POST", "/api/v1/auth/register", map[string]string{
@@ -116,7 +126,7 @@ func TestRegister(t *testing.T) {
 
 func TestLogin(t *testing.T) {
 	env := setup(t)
-	h := handlers.NewAuthHandler(env.userRepo, env.logRepo, env.cfg.JWT.Secret, env.cfg.JWT.AccessExpiry, env.cfg.JWT.RefreshExpiry)
+	h := handlers.NewAuthHandler(env.userRepo, env.logRepo, env.resetRepo, "", env.cfg.JWT.Secret, env.cfg.JWT.AccessExpiry, env.cfg.JWT.RefreshExpiry, env.totpSvc)
 	env.e.POST("/api/v1/auth/login", h.Login)
 
 	w := req(env.e, "POST", "/api/v1/auth/login", map[string]string{
@@ -133,7 +143,7 @@ func TestLogin(t *testing.T) {
 
 func TestLoginWrongPassword(t *testing.T) {
 	env := setup(t)
-	h := handlers.NewAuthHandler(env.userRepo, env.logRepo, env.cfg.JWT.Secret, env.cfg.JWT.AccessExpiry, env.cfg.JWT.RefreshExpiry)
+	h := handlers.NewAuthHandler(env.userRepo, env.logRepo, env.resetRepo, "", env.cfg.JWT.Secret, env.cfg.JWT.AccessExpiry, env.cfg.JWT.RefreshExpiry, env.totpSvc)
 	env.e.POST("/api/v1/auth/login", h.Login)
 
 	w := req(env.e, "POST", "/api/v1/auth/login", map[string]string{
@@ -146,7 +156,7 @@ func TestLoginWrongPassword(t *testing.T) {
 
 func TestRefresh(t *testing.T) {
 	env := setup(t)
-	h := handlers.NewAuthHandler(env.userRepo, env.logRepo, env.cfg.JWT.Secret, env.cfg.JWT.AccessExpiry, env.cfg.JWT.RefreshExpiry)
+	h := handlers.NewAuthHandler(env.userRepo, env.logRepo, env.resetRepo, "", env.cfg.JWT.Secret, env.cfg.JWT.AccessExpiry, env.cfg.JWT.RefreshExpiry, env.totpSvc)
 	env.e.POST("/api/v1/auth/login", h.Login)
 	env.e.POST("/api/v1/auth/refresh", h.Refresh)
 
@@ -330,7 +340,7 @@ func TestMessages(t *testing.T) {
 
 func TestAdmin(t *testing.T) {
 	env := setup(t)
-	ah := handlers.NewAdminHandler(env.userRepo, env.classRepo, env.sessionRepo, env.messageRepo, env.recordingRepo, env.logRepo, env.settingsRepo, env.ticketRepo, env.sessionLogRepo)
+	ah := handlers.NewAdminHandler(env.userRepo, env.classRepo, env.sessionRepo, env.messageRepo, env.recordingRepo, env.logRepo, env.settingsRepo, env.ticketRepo, env.sessionLogRepo, env.cfg.JWT.Secret, env.cfg.JWT.AccessExpiry, env.cfg.JWT.RefreshExpiry)
 	env.api.GET("/admin/dashboard/stats", ah.DashboardStats)
 	env.api.GET("/admin/users", ah.ListUsers)
 	env.api.GET("/admin/settings", ah.GetSettings)

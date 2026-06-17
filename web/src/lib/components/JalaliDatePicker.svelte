@@ -171,13 +171,13 @@
 
 <div class="jalali-datepicker" dir="rtl" onkeydown={handleKeydown}>
 	{#if label}
-		<label class="block text-sm font-semibold text-gray-700 mb-1.5">{label}</label>
+		<label class="block text-sm font-semibold mb-1.5" style="color: var(--sky-text-secondary);">{label}</label>
 	{/if}
 
 	<button
 		type="button"
 		class="jalali-input"
-		onclick={togglePicker}
+		onclick={(e) => { e.stopPropagation(); togglePicker(); }}
 		aria-haspopup="dialog"
 		aria-expanded={isOpen}
 	>
@@ -194,7 +194,9 @@
 	</button>
 
 	{#if isOpen}
-		<div class="jalali-popup" role="dialog" aria-label="انتخاب تاریخ شمسی">
+		<!-- svelte-ignore a11y_click_events_have_key_events -->
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<div class="jalali-popup" role="dialog" aria-label="انتخاب تاریخ شمسی" onclick={(e) => e.stopPropagation()}>
 			<!-- Header: Navigation -->
 			<div class="jalali-header">
 				<button type="button" class="jalali-nav-btn" onclick={nextMonth} aria-label="ماه بعد">
@@ -298,10 +300,10 @@
 		align-items: center;
 		justify-content: space-between;
 		padding: 0.75rem 1rem;
-		border: 1.5px solid #e2e8f0;
+		border: 1.5px solid var(--sky-border);
 		border-radius: 0.75rem;
 		font-size: 0.875rem;
-		background: #f8fafc;
+		background: var(--sky-bg-input);
 		cursor: pointer;
 		transition: all 0.2s ease;
 		outline: none;
@@ -309,27 +311,27 @@
 	}
 
 	.jalali-input:hover {
-		border-color: #4361ee;
+		border-color: var(--sky-accent-blue);
 	}
 
 	.jalali-input:focus {
-		border-color: #4361ee;
-		box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.15);
-		background: white;
+		border-color: var(--sky-accent-blue);
+		box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+		background: var(--sky-bg-input);
 	}
 
 	.jalali-input-text {
-		color: #1a1a2e;
+		color: var(--sky-text-primary);
 	}
 
 	.jalali-input-text.placeholder {
-		color: #94a3b8;
+		color: var(--sky-text-secondary);
 	}
 
 	.jalali-icon {
 		width: 1.25rem;
 		height: 1.25rem;
-		color: #64748b;
+		color: var(--sky-text-secondary);
 		flex-shrink: 0;
 	}
 
@@ -339,9 +341,9 @@
 		right: 0;
 		z-index: 100;
 		width: 300px;
-		background: #1a1a2e;
+		background: var(--sky-bg-panel);
 		border-radius: 1rem;
-		box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.05);
+		box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3), 0 0 0 1px var(--sky-border);
 		overflow: hidden;
 		animation: jalaliFadeIn 0.15s ease;
 	}
@@ -362,8 +364,8 @@
 		align-items: center;
 		justify-content: space-between;
 		padding: 0.75rem 1rem;
-		background: #16213e;
-		border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+		background: var(--sky-bg-dark);
+		border-bottom: 1px solid var(--sky-border);
 	}
 
 	.jalali-nav-btn {
@@ -375,14 +377,14 @@
 		border-radius: 0.5rem;
 		border: none;
 		background: transparent;
-		color: #a0aec0;
+		color: var(--sky-text-secondary);
 		cursor: pointer;
 		transition: all 0.15s ease;
 	}
 
 	.jalali-nav-btn:hover {
-		background: rgba(67, 97, 238, 0.2);
-		color: #4361ee;
+		background: rgba(59, 130, 246, 0.2);
+		color: var(--sky-accent-blue);
 	}
 
 	.jalali-header-center {
@@ -394,14 +396,14 @@
 	.jalali-month-name {
 		font-size: 0.875rem;
 		font-weight: 600;
-		color: #e2e8f0;
+		color: var(--sky-text-primary);
 		white-space: nowrap;
 	}
 
 	.jalali-year-select {
-		background: #2a2a4a;
-		color: #e2e8f0;
-		border: 1px solid rgba(255, 255, 255, 0.1);
+		background: var(--sky-bg-input);
+		color: var(--sky-text-primary);
+		border: 1px solid var(--sky-border);
 		border-radius: 0.5rem;
 		padding: 0.25rem 0.5rem;
 		font-size: 0.875rem;
@@ -411,7 +413,7 @@
 	}
 
 	.jalali-year-select:focus {
-		border-color: #4361ee;
+		border-color: var(--sky-accent-blue);
 	}
 
 	.jalali-day-names {
@@ -425,7 +427,7 @@
 		text-align: center;
 		font-size: 0.75rem;
 		font-weight: 600;
-		color: #718096;
+		color: var(--sky-text-secondary);
 		padding: 0.25rem 0;
 	}
 
@@ -444,7 +446,7 @@
 		border-radius: 0.5rem;
 		border: none;
 		background: transparent;
-		color: #e2e8f0;
+		color: var(--sky-text-primary);
 		font-size: 0.8125rem;
 		font-family: 'Vazirmatn', system-ui, sans-serif;
 		cursor: pointer;
@@ -452,22 +454,23 @@
 	}
 
 	.jalali-day:hover {
-		background: rgba(67, 97, 238, 0.2);
+		background: rgba(59, 130, 246, 0.2);
 		color: #fff;
 	}
 
 	.jalali-day.other-month {
-		color: #4a5568;
+		color: var(--sky-text-secondary);
+		opacity: 0.5;
 	}
 
 	.jalali-day.today {
-		border: 1px solid #4361ee;
-		color: #4361ee;
+		border: 1px solid var(--sky-accent-blue);
+		color: var(--sky-accent-blue);
 		font-weight: 600;
 	}
 
 	.jalali-day.selected {
-		background: #4361ee;
+		background: var(--sky-accent-blue);
 		color: white;
 		font-weight: 600;
 	}
@@ -481,15 +484,15 @@
 		align-items: center;
 		justify-content: space-between;
 		padding: 0.5rem 1rem 0.75rem;
-		border-top: 1px solid rgba(255, 255, 255, 0.06);
+		border-top: 1px solid var(--sky-border);
 	}
 
 	.jalali-today-btn {
 		padding: 0.375rem 0.75rem;
 		border-radius: 0.5rem;
-		border: 1px solid rgba(67, 97, 238, 0.4);
+		border: 1px solid rgba(59, 130, 246, 0.4);
 		background: transparent;
-		color: #4361ee;
+		color: var(--sky-accent-blue);
 		font-size: 0.75rem;
 		font-weight: 600;
 		font-family: 'Vazirmatn', system-ui, sans-serif;
@@ -498,7 +501,7 @@
 	}
 
 	.jalali-today-btn:hover {
-		background: rgba(67, 97, 238, 0.15);
+		background: rgba(59, 130, 246, 0.15);
 	}
 
 	.jalali-clear-btn {
@@ -506,7 +509,7 @@
 		border-radius: 0.5rem;
 		border: none;
 		background: transparent;
-		color: #718096;
+		color: var(--sky-text-secondary);
 		font-size: 0.75rem;
 		font-weight: 500;
 		font-family: 'Vazirmatn', system-ui, sans-serif;
@@ -515,6 +518,6 @@
 	}
 
 	.jalali-clear-btn:hover {
-		color: #e53e3e;
+		color: var(--sky-accent-red);
 	}
 </style>

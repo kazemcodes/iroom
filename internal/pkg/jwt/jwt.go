@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"strings"
 	"time"
 )
@@ -84,33 +83,6 @@ func Validate(secret, tokenStr string) (Claims, error) {
 	exp, ok := payload["exp"].(float64)
 	if !ok || time.Now().Unix() > int64(exp) {
 		return Claims{}, ErrExpired
-	}
-
-	userID, _ := payload["user_id"].(float64)
-	email, _ := payload["email"].(string)
-	role, _ := payload["role"].(string)
-
-	return Claims{
-		UserID: int64(userID),
-		Email:  email,
-		Role:   role,
-	}, nil
-}
-
-func ExtractClaims(tokenStr string) (Claims, error) {
-	parts := strings.Split(tokenStr, ".")
-	if len(parts) != 3 {
-		return Claims{}, fmt.Errorf("invalid token format")
-	}
-
-	payloadBytes, err := base64.RawURLEncoding.DecodeString(parts[1])
-	if err != nil {
-		return Claims{}, err
-	}
-
-	var payload map[string]interface{}
-	if err := json.Unmarshal(payloadBytes, &payload); err != nil {
-		return Claims{}, err
 	}
 
 	userID, _ := payload["user_id"].(float64)

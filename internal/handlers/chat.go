@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/gorilla/websocket"
@@ -19,7 +20,14 @@ import (
 )
 
 var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool { return true },
+	CheckOrigin: func(r *http.Request) bool {
+		origin := r.Header.Get("Origin")
+		if origin == "" {
+			return true
+		}
+		host := r.Host
+		return origin == "http://"+host || origin == "https://"+host
+	},
 }
 
 type ChatHub struct {
@@ -131,12 +139,14 @@ func (h *ChatHandler) HandleWS(c echo.Context) error {
 }
 
 type FileHandler struct {
-	fileRepo *repository.FileRepo
-	uploadDir string
+	fileRepo    *repository.FileRepo
+	sessionRepo *repository.SessionRepo
+	classRepo   *repository.ClassRepo
+	uploadDir   string
 }
 
-func NewFileHandler(fileRepo *repository.FileRepo, uploadDir string) *FileHandler {
-	return &FileHandler{fileRepo: fileRepo, uploadDir: uploadDir}
+func NewFileHandler(fileRepo *repository.FileRepo, sessionRepo *repository.SessionRepo, classRepo *repository.ClassRepo, uploadDir string) *FileHandler {
+	return &FileHandler{fileRepo: fileRepo, sessionRepo: sessionRepo, classRepo: classRepo, uploadDir: uploadDir}
 }
 
 func (h *FileHandler) Upload(c echo.Context) error {
@@ -145,9 +155,30 @@ func (h *FileHandler) Upload(c echo.Context) error {
 		return response.BadRequest(c, "شناسه نامعتبر")
 	}
 
+	userID := c.Get("user_id").(int64)
+	role, _ := c.Get("role").(string)
+
+	if role != "admin" {
+		session, err := h.sessionRepo.GetByID(sessionID)
+		if err != nil {
+			return response.NotFound(c, "جلسه یافت نشد")
+		}
+		class, err := h.classRepo.GetByID(session.ClassID)
+		if err != nil {
+			return response.Forbidden(c, "دسترسی غیرمجاز")
+		}
+		if class.TeacherID != userID && !h.classRepo.IsEnrolled(class.ID, userID) {
+			return response.Forbidden(c, "دسترسی غیرمجاز")
+		}
+	}
+
 	file, err := c.FormFile("file")
 	if err != nil {
 		return response.BadRequest(c, "فایل ارائه نشده")
+	}
+
+	if file.Size > 50<<20 {
+		return response.BadRequest(c, "حجم فایل بیش از حد مجاز است (حداکثر ۵۰ مگابایت)")
 	}
 
 	// Validate file type by extension
@@ -191,10 +222,10 @@ func (h *FileHandler) Upload(c echo.Context) error {
 		return response.InternalError(c, "خطا در کپی فایل")
 	}
 
-	userID := c.Get("user_id").(int64)
+	fileUserID := c.Get("user_id").(int64)
 	fileModel := &models.File{
 		SessionID:  sessionID,
-		UploadedBy: userID,
+		UploadedBy: fileUserID,
 		Filename:   file.Filename,
 		Filepath:   dstPath,
 		Filesize:   written,
@@ -247,6 +278,23 @@ func (h *FileHandler) Download(c echo.Context) error {
 	file, err := h.fileRepo.GetByID(id)
 	if err != nil {
 		return response.NotFound(c, "فایل یافت نشد")
+	}
+
+	userID := c.Get("user_id").(int64)
+	role, _ := c.Get("role").(string)
+
+	if file.UploadedBy != userID && role != "admin" {
+		session, err := h.sessionRepo.GetByID(file.SessionID)
+		if err != nil {
+			return response.Forbidden(c, "دسترسی غیرمجاز")
+		}
+		class, err := h.classRepo.GetByID(session.ClassID)
+		if err != nil {
+			return response.Forbidden(c, "دسترسی غیرمجاز")
+		}
+		if class.TeacherID != userID && !h.classRepo.IsEnrolled(class.ID, userID) {
+			return response.Forbidden(c, "دسترسی غیرمجاز")
+		}
 	}
 
 	return c.File(file.Filepath)

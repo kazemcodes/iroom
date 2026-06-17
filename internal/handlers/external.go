@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"sync"
 	"time"
 
 	"github.com/iroom/iroom/internal/models"
@@ -170,17 +171,23 @@ type WebhookEntry struct {
 	Active  bool     `json:"active"`
 }
 
-var webhookStore = map[string]*WebhookEntry{}
+var (
+	webhookStoreMu sync.Mutex
+	webhookStore   = map[string]*WebhookEntry{}
+)
 
 func (h *ExternalHandler) HandleWebhook(c echo.Context) error {
 	var req struct {
-		Action string `json:"action"`
-		URL    string `json:"url"`
+		Action string   `json:"action"`
+		URL    string   `json:"url"`
 		Events []string `json:"events"`
 	}
 	if err := c.Bind(&req); err != nil {
 		return response.BadRequest(c, "داده‌های نامعتبر")
 	}
+
+	webhookStoreMu.Lock()
+	defer webhookStoreMu.Unlock()
 
 	switch req.Action {
 	case "register":

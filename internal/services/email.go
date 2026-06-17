@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+	"html"
 	"log"
 	"net/smtp"
 	"strings"
@@ -160,6 +161,10 @@ func (s *EmailService) SendAnnouncement(to, fullName, title, content, link strin
 	s.Enqueue(Email{To: to, Subject: subject, Body: body})
 }
 
+func escapeHTML(s string) string {
+	return html.EscapeString(s)
+}
+
 // --- HTML Templates (Persian) ---
 
 func welcomeTemplate(fullName string) string {
@@ -181,7 +186,7 @@ func welcomeTemplate(fullName string) string {
 </div>
 </div>
 </body>
-</html>`, fullName)
+</html>`, escapeHTML(fullName))
 }
 
 func passwordResetTemplate(fullName, resetLink string) string {
@@ -203,7 +208,7 @@ func passwordResetTemplate(fullName, resetLink string) string {
 </div>
 </div>
 </body>
-</html>`, fullName, resetLink)
+</html>`, escapeHTML(fullName), resetLink)
 }
 
 func sessionReminderTemplate(fullName, sessionTitle, sessionTime, joinLink string) string {
@@ -228,7 +233,7 @@ func sessionReminderTemplate(fullName, sessionTitle, sessionTime, joinLink strin
 </div>
 </div>
 </body>
-</html>`, fullName, sessionTitle, sessionTime, joinLink)
+</html>`, escapeHTML(fullName), escapeHTML(sessionTitle), escapeHTML(sessionTime), joinLink)
 }
 
 func ticketReplyTemplate(fullName, ticketTitle, replyPreview, ticketLink string) string {
@@ -253,7 +258,7 @@ func ticketReplyTemplate(fullName, ticketTitle, replyPreview, ticketLink string)
 </div>
 </div>
 </body>
-</html>`, fullName, ticketTitle, replyPreview, ticketLink)
+</html>`, escapeHTML(fullName), escapeHTML(ticketTitle), escapeHTML(replyPreview), ticketLink)
 }
 
 func classEnrollmentTemplate(fullName, className, teacherName, classLink string) string {
@@ -278,7 +283,7 @@ func classEnrollmentTemplate(fullName, className, teacherName, classLink string)
 </div>
 </div>
 </body>
-</html>`, fullName, className, teacherName, classLink)
+</html>`, escapeHTML(fullName), escapeHTML(className), escapeHTML(teacherName), classLink)
 }
 
 func announcementTemplate(fullName, title, content, link string) string {
@@ -302,5 +307,5 @@ func announcementTemplate(fullName, title, content, link string) string {
 </div>
 </div>
 </body>
-</html>`, fullName, title, content, link)
+</html>`, escapeHTML(fullName), escapeHTML(title), escapeHTML(content), link)
 }

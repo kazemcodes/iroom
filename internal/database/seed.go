@@ -1,7 +1,9 @@
 package database
 
 import (
+	"crypto/rand"
 	"database/sql"
+	"fmt"
 	"log/slog"
 
 	"github.com/iroom/iroom/internal/pkg/hash"
@@ -17,7 +19,8 @@ func Seed(db *sql.DB) error {
 		return nil
 	}
 
-	hashedPassword, err := hash.Hash("admin123")
+	password := generateRandomPassword(12)
+	hashedPassword, err := hash.Hash(password)
 	if err != nil {
 		return err
 	}
@@ -30,6 +33,18 @@ func Seed(db *sql.DB) error {
 		return err
 	}
 
-	slog.Info("seeded admin user", "email", "admin@iroom.local")
+	slog.Info("seeded admin user", "email", "admin@iroom.local", "initial_password", password)
 	return nil
+}
+
+func generateRandomPassword(length int) string {
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%"
+	b := make([]byte, length)
+	if _, err := rand.Read(b); err != nil {
+		return "Admin@2024Secure"
+	}
+	for i := range b {
+		b[i] = charset[int(b[i])%len(charset)]
+	}
+	return fmt.Sprintf("%s", b)
 }

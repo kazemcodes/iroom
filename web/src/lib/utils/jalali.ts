@@ -108,8 +108,10 @@ export function toGregorian(jy: number, jm: number, jd: number): GregorianDate {
 		days = (days - 1) % 365;
 	}
 	const gd = days + 1;
-	const sal_a = [0, 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-	if (!isGregorianLeap(gy)) sal_a[2] = 28;
+	const sal_a = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365];
+	if (isGregorianLeap(gy)) {
+		for (let i = 2; i < sal_a.length; i++) sal_a[i]++;
+	}
 	let gm = 1;
 	while (gm <= 12 && gd > sal_a[gm]) {
 		gm++;

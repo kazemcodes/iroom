@@ -61,6 +61,12 @@ func (r *NotificationRepo) MarkAllRead(userID int64) error {
 	return err
 }
 
+func (r *NotificationRepo) CountByUser(userID int64) (int64, error) {
+	var count int64
+	err := r.db.QueryRow(`SELECT COUNT(*) FROM notifications WHERE user_id = ?`, userID).Scan(&count)
+	return count, err
+}
+
 func (r *NotificationRepo) CountUnread(userID int64) (int64, error) {
 	var count int64
 	err := r.db.QueryRow(`SELECT COUNT(*) FROM notifications WHERE user_id = ? AND is_read = FALSE`, userID).Scan(&count)

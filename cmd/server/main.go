@@ -66,8 +66,8 @@ func main() {
 	sessionHandler := handlers.NewSessionHandler(sessionRepo, classRepo)
 	messageHandler := handlers.NewMessageHandler(messageRepo)
 	livekitHandler := handlers.NewLiveKitHandler(sessionRepo, livekitSvc)
-	fileHandler := handlers.NewFileHandler(fileRepo, cfg.Upload.UploadDir)
-	recordingHandler := handlers.NewRecordingHandler(recordingRepo, cfg.Upload.UploadDir)
+	fileHandler := handlers.NewFileHandler(fileRepo, sessionRepo, classRepo, cfg.Upload.UploadDir)
+	recordingHandler := handlers.NewRecordingHandler(recordingRepo, sessionRepo, classRepo, cfg.Upload.UploadDir)
 	chatHandler := handlers.NewChatHandler(messageRepo, cfg.JWT.Secret)
 	externalHandler := handlers.NewExternalHandler(userRepo, classRepo, sessionRepo, cfg.External.APIKey)
 	ticketHandler := handlers.NewTicketHandler(ticketRepo, sessionLogRepo)
@@ -86,7 +86,7 @@ func main() {
 	e.Use(echoMiddleware.Logger())
 	e.Use(echoMiddleware.Recover())
 	e.Use(middleware.CORS())
-	e.Use(middleware.MaintenanceMode(db))
+	e.Use(middleware.MaintenanceMode(db, cfg.JWT.Secret))
 	e.Use(middleware.RateLimit(100, time.Minute))
 
 	// Health
@@ -228,6 +228,7 @@ func main() {
 	admin.GET("/tickets", adminTicketHandler.ListAll)
 	admin.PUT("/settings", adminHandler.UpdateSettings)
 	admin.GET("/settings", adminHandler.GetSettings)
+	admin.POST("/settings/test-email", adminHandler.TestEmail)
 
 	// Webhooks (admin only)
 	admin.POST("/webhooks", webhookHandler.Create)
@@ -237,8 +238,8 @@ func main() {
 	admin.GET("/webhooks/:id/deliveries", webhookHandler.ListDeliveries)
 	admin.POST("/webhooks/:id/test", webhookHandler.Test)
 
-	// External API (API key auth + rate limit)
-	ext := api.Group("/external")
+	// External API (API key auth only, no JWT required)
+	ext := e.Group("/api/v1/external")
 	ext.Use(middleware.APIKeyAuth(cfg.External.APIKey))
 	ext.Use(middleware.APIKeyRateLimit())
 	ext.POST("/users", externalHandler.CreateUser)

@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"time"
 )
 
@@ -49,11 +50,8 @@ type lkClaims struct {
 func (s *LiveKitService) GenerateToken(roomName string, identity string, name string, role string) (string, error) {
 	apiKey := s.apiKey
 	apiSecret := s.apiSecret
-	if apiKey == "" {
-		apiKey = "devkey"
-	}
-	if apiSecret == "" {
-		apiSecret = "devsecret"
+	if apiKey == "" || apiSecret == "" {
+		return "", fmt.Errorf("livekit API keys not configured")
 	}
 
 	header := lkHeader{Alg: "HS256", Typ: "JWT"}

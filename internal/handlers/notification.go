@@ -28,6 +28,9 @@ func (h *NotificationHandler) List(c echo.Context) error {
 	if perPage < 1 {
 		perPage = 20
 	}
+	if perPage > 100 {
+		perPage = 100
+	}
 
 	offset := (page - 1) * perPage
 	notifications, err := h.notificationRepo.ListByUser(userID, perPage, offset)
@@ -38,11 +41,15 @@ func (h *NotificationHandler) List(c echo.Context) error {
 		notifications = []*models.Notification{}
 	}
 
+	total, _ := h.notificationRepo.CountByUser(userID)
+	totalPages := int((total + int64(perPage) - 1) / int64(perPage))
+
 	return response.Success(c, models.PaginatedResponse{
 		Items:      notifications,
+		Total:      total,
 		Page:       page,
 		PerPage:    perPage,
-		TotalPages: 0,
+		TotalPages: totalPages,
 	})
 }
 

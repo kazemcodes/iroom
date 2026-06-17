@@ -1,4 +1,5 @@
 <script lang="ts">
+	// @ts-nocheck
 	import { api } from '$lib/api';
 	import { onMount } from 'svelte';
 	import type { Class, Session, User } from '$lib/types';

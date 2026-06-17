@@ -43,7 +43,11 @@ func (rl *rateLimiter) allow(key string) bool {
 		return false
 	}
 
-	rl.requests[key] = append(valid, now)
+	if len(valid) == 0 {
+		delete(rl.requests, key)
+	} else {
+		rl.requests[key] = valid
+	}
 	return true
 }
 

@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"bytes"
 	"crypto/rand"
 	"database/sql"
 	"encoding/csv"
@@ -201,7 +200,6 @@ func (h *AuthHandler) ForgotPassword(c echo.Context) error {
 		return response.InternalError(c, "خطای داخلی")
 	}
 	return response.Success(c, map[string]string{
-		"token":   token,
 		"message": "لینک بازنشانی ایجاد شد",
 	})
 }
@@ -232,7 +230,7 @@ func (h *AuthHandler) ResetPassword(c echo.Context) error {
 		return response.InternalError(c, "خطا در بروزرسانی رمز")
 	}
 	// Mark token as used
-	h.resetRepo.MarkUsed(req.Token)
+	_ = h.resetRepo.MarkUsed(req.Token)
 	return response.Success(c, map[string]string{"message": "رمز عبور با موفقیت تغییر کرد"})
 }
 
@@ -565,6 +563,16 @@ func (h *AuthHandler) generateTokens(user *models.User) (map[string]interface{},
 	}, nil
 }
 
+func getUserID(c echo.Context) (int64, bool) {
+	id, ok := c.Get("user_id").(int64)
+	return id, ok
+}
+
+func getUserRole(c echo.Context) string {
+	role, _ := c.Get("role").(string)
+	return role
+}
+
 func validateRegister(req *models.RegisterRequest) string {
 	if req.Email == "" {
 		return "ایمیل الزامی است"
@@ -634,6 +642,9 @@ func (h *AdminHandler) ListUsers(c echo.Context) error {
 	perPage, _ := strconv.Atoi(c.QueryParam("per_page"))
 	if perPage < 1 {
 		perPage = 20
+	}
+	if perPage > 100 {
+		perPage = 100
 	}
 	search := c.QueryParam("search")
 
@@ -758,6 +769,9 @@ func (h *AdminHandler) ListClasses(c echo.Context) error {
 	if perPage < 1 {
 		perPage = 20
 	}
+	if perPage > 100 {
+		perPage = 100
+	}
 	search := c.QueryParam("search")
 
 	classes, total, err := h.classRepo.ListAll(page, perPage, search)
@@ -783,6 +797,8 @@ func (h *AdminHandler) CreateClass(c echo.Context) error {
 		return response.BadRequest(c, "نام کلاس الزامی است")
 	}
 
+	adminID := c.Get("user_id").(int64)
+
 	color := req.Color
 	if color == "" {
 		color = "#3B82F6"
@@ -793,7 +809,7 @@ func (h *AdminHandler) CreateClass(c echo.Context) error {
 	}
 
 	class := &models.Class{
-		TeacherID:   1,
+		TeacherID:   adminID,
 		Name:        req.Name,
 		Description: req.Description,
 		Color:       color,
@@ -865,6 +881,9 @@ func (h *AdminHandler) ListSessions(c echo.Context) error {
 	if perPage < 1 {
 		perPage = 20
 	}
+	if perPage > 100 {
+		perPage = 100
+	}
 	search := c.QueryParam("search")
 
 	sessions, total, err := h.sessionRepo.ListAll(page, perPage, search)
@@ -917,6 +936,9 @@ func (h *AdminHandler) ListRecordings(c echo.Context) error {
 	if perPage < 1 {
 		perPage = 20
 	}
+	if perPage > 100 {
+		perPage = 100
+	}
 	search := c.QueryParam("search")
 
 	recordings, total, err := h.recordingRepo.ListAll(page, perPage, search)
@@ -954,6 +976,9 @@ func (h *AdminHandler) ListLogs(c echo.Context) error {
 	perPage, _ := strconv.Atoi(c.QueryParam("per_page"))
 	if perPage < 1 {
 		perPage = 20
+	}
+	if perPage > 100 {
+		perPage = 100
 	}
 
 	logs, total, err := h.logRepo.List(page, perPage)
@@ -995,8 +1020,38 @@ func (h *AdminHandler) UpdateSettings(c echo.Context) error {
 		return response.BadRequest(c, "داده‌های نامعتبر")
 	}
 
+	allowedKeys := map[string]bool{
+		"max_users_per_room":       true,
+		"recording_enabled":        true,
+		"maintenance_mode":         true,
+		"allow_student_video":      true,
+		"max_file_size_mb":         true,
+		"session_auto_end_minutes": true,
+		"livekit_url":              true,
+		"livekit_api_key":          true,
+		"livekit_api_secret":       true,
+		"password_min_length":      true,
+		"password_require_uppercase": true,
+		"password_require_number":  true,
+		"password_require_special": true,
+		"session_timeout_minutes":  true,
+		"max_login_attempts":       true,
+		"lockout_duration_minutes": true,
+		"require_2fa":              true,
+		"smtp_enabled":             true,
+		"smtp_host":                true,
+		"smtp_port":                true,
+		"smtp_username":            true,
+		"smtp_password":            true,
+		"smtp_from":                true,
+		"external_api_key":         true,
+	}
+
 	settings := make(map[string]string)
 	for k, v := range req {
+		if !allowedKeys[k] {
+			continue
+		}
 		switch val := v.(type) {
 		case bool:
 			if val {
@@ -1026,6 +1081,9 @@ func (h *AdminHandler) ListTickets(c echo.Context) error {
 	perPage, _ := strconv.Atoi(c.QueryParam("per_page"))
 	if perPage < 1 {
 		perPage = 20
+	}
+	if perPage > 100 {
+		perPage = 100
 	}
 	search := c.QueryParam("search")
 
@@ -1195,6 +1253,12 @@ func (h *ClassHandler) Update(c echo.Context) error {
 		return response.NotFound(c, "کلاس یافت نشد")
 	}
 
+	userID := c.Get("user_id").(int64)
+	role, _ := c.Get("role").(string)
+	if class.TeacherID != userID && role != "admin" {
+		return response.Forbidden(c, "شما اجازه ویرایش این کلاس را ندارید")
+	}
+
 	var req models.CreateClassRequest
 	if err := c.Bind(&req); err != nil {
 		return response.BadRequest(c, "داده‌های نامعتبر")
@@ -1224,6 +1288,17 @@ func (h *ClassHandler) Delete(c echo.Context) error {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
 		return response.BadRequest(c, "شناسه نامعتبر")
+	}
+
+	class, err := h.classRepo.GetByID(id)
+	if err != nil {
+		return response.NotFound(c, "کلاس یافت نشد")
+	}
+
+	userID := c.Get("user_id").(int64)
+	role, _ := c.Get("role").(string)
+	if class.TeacherID != userID && role != "admin" {
+		return response.Forbidden(c, "شما اجازه حذف این کلاس را ندارید")
 	}
 
 	if err := h.classRepo.Delete(id); err != nil {
@@ -1307,6 +1382,19 @@ func (h *SessionHandler) Create(c echo.Context) error {
 		return response.BadRequest(c, "عنوان جلسه الزامی است")
 	}
 
+	userID := c.Get("user_id").(int64)
+	role, _ := c.Get("role").(string)
+
+	if role != "admin" {
+		class, err := h.classRepo.GetByID(req.ClassID)
+		if err != nil {
+			return response.NotFound(c, "کلاس یافت نشد")
+		}
+		if class.TeacherID != userID {
+			return response.Forbidden(c, "شما اجازه ایجاد جلسه در این کلاس را ندارید")
+		}
+	}
+
 	scheduledAt, err := time.Parse(time.RFC3339, req.ScheduledAt)
 	if err != nil {
 		return response.BadRequest(c, "تاریخ نامعتبر")
@@ -1338,9 +1426,19 @@ func (h *SessionHandler) Start(c echo.Context) error {
 		return response.BadRequest(c, "شناسه نامعتبر")
 	}
 
+	userID := c.Get("user_id").(int64)
+	role, _ := c.Get("role").(string)
+
 	session, err := h.sessionRepo.GetByID(id)
 	if err != nil {
 		return response.NotFound(c, "جلسه یافت نشد")
+	}
+
+	if role != "admin" {
+		class, err := h.classRepo.GetByID(session.ClassID)
+		if err != nil || class.TeacherID != userID {
+			return response.Forbidden(c, "شما اجازه شروع این جلسه را ندارید")
+		}
 	}
 
 	roomName := "room-" + strconv.FormatInt(session.ID, 10)
@@ -1357,6 +1455,21 @@ func (h *SessionHandler) End(c echo.Context) error {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
 		return response.BadRequest(c, "شناسه نامعتبر")
+	}
+
+	userID := c.Get("user_id").(int64)
+	role, _ := c.Get("role").(string)
+
+	session, err := h.sessionRepo.GetByID(id)
+	if err != nil {
+		return response.NotFound(c, "جلسه یافت نشد")
+	}
+
+	if role != "admin" {
+		class, err := h.classRepo.GetByID(session.ClassID)
+		if err != nil || class.TeacherID != userID {
+			return response.Forbidden(c, "شما اجازه پایان این جلسه را ندارید")
+		}
 	}
 
 	if err := h.sessionRepo.UpdateStatus(id, "ended", ""); err != nil {
@@ -1384,6 +1497,21 @@ func (h *SessionHandler) Delete(c echo.Context) error {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
 		return response.BadRequest(c, "شناسه نامعتبر")
+	}
+
+	userID := c.Get("user_id").(int64)
+	role, _ := c.Get("role").(string)
+
+	session, err := h.sessionRepo.GetByID(id)
+	if err != nil {
+		return response.NotFound(c, "جلسه یافت نشد")
+	}
+
+	if role != "admin" {
+		class, err := h.classRepo.GetByID(session.ClassID)
+		if err != nil || class.TeacherID != userID {
+			return response.Forbidden(c, "شما اجازه حذف این جلسه را ندارید")
+		}
 	}
 
 	if err := h.sessionRepo.Delete(id); err != nil {
@@ -1728,9 +1856,6 @@ func (h *AdminHandler) ImportUsers(c echo.Context) error {
 	})
 }
 
-// Suppress unused import warning
-var _ = bytes.NewReader
-
 // Admin impersonation handlers
 
 func (h *AdminHandler) ImpersonateUser(c echo.Context) error {
@@ -1747,6 +1872,14 @@ func (h *AdminHandler) ImpersonateUser(c echo.Context) error {
 			return response.NotFound(c, "کاربر یافت نشد")
 		}
 		return response.InternalError(c, "خطا در دریافت کاربر")
+	}
+
+	if !targetUser.IsActive {
+		return response.BadRequest(c, "کاربر غیرفعال است")
+	}
+
+	if targetUser.Role == "admin" {
+		return response.Forbidden(c, "امکان جایگزینی حساب ادمین وجود ندارد")
 	}
 
 	// Generate token for target user
@@ -1774,6 +1907,41 @@ func (h *AdminHandler) ImpersonateUser(c echo.Context) error {
 		"expires_in":    h.jwtCfg.accessExpiry * 60,
 		"message":       "در حال ورود به حساب کاربر " + targetUser.DisplayName,
 	})
+}
+
+func (h *AdminHandler) TestEmail(c echo.Context) error {
+	var req struct {
+		SMTPHost     string `json:"smtp_host"`
+		SMTPPort     int    `json:"smtp_port"`
+		SMTPUsername string `json:"smtp_username"`
+		SMTPPassword string `json:"smtp_password"`
+		SMTPFrom     string `json:"smtp_from"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return response.BadRequest(c, "داده‌های نامعتبر")
+	}
+
+	if req.SMTPHost == "" || req.SMTPPort == 0 || req.SMTPUsername == "" {
+		return response.BadRequest(c, "تنظیمات SMTP ناقص است")
+	}
+
+	svc := services.NewEmailService(services.SMTPSettings{
+		Host:     req.SMTPHost,
+		Port:     req.SMTPPort,
+		Username: req.SMTPUsername,
+		Password: req.SMTPPassword,
+		From:     req.SMTPFrom,
+		Enabled:  true,
+	}, 1, 1)
+	defer svc.Shutdown()
+
+	svc.Enqueue(services.Email{
+		To:      req.SMTPUsername,
+		Subject: "تست ارسال ایمیل - آی‌روم",
+		Body:    "<h3>تست موفقیت‌آمیز</h3><p>این ایمیل جهت تست تنظیمات SMTP ارسال شده است.</p>",
+	})
+
+	return response.Success(c, map[string]string{"message": "ایمیل تست در صف ارسال قرار گرفت"})
 }
 
 func (h *AdminHandler) StopImpersonate(c echo.Context) error {
