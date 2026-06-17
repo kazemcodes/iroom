@@ -42,8 +42,11 @@ func (h *PollHandler) Create(c echo.Context) error {
 		return response.BadRequest(c, "شناسه جلسه نامعتبر")
 	}
 
-	userID := c.Get("user_id").(int64)
-	userRole := c.Get("role").(string)
+	userID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
+	userRole := getUserRole(c)
 
 	// Get class to check teacher (also verifies session exists)
 	class, err := h.sessionRepo.GetClassBySessionID(sessionID)
@@ -112,7 +115,10 @@ func (h *PollHandler) Vote(c echo.Context) error {
 		return response.BadRequest(c, "شناسه نظرسنجی نامعتبر")
 	}
 
-	userID := c.Get("user_id").(int64)
+	userID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
 
 	// Get poll to verify it exists and is active
 	poll, err := h.pollRepo.GetByID(pollID)
@@ -187,8 +193,11 @@ func (h *PollHandler) Close(c echo.Context) error {
 		return response.BadRequest(c, "شناسه نظرسنجی نامعتبر")
 	}
 
-	userID := c.Get("user_id").(int64)
-	userRole := c.Get("role").(string)
+	userID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
+	userRole := getUserRole(c)
 
 	// Get poll to verify it exists
 	poll, err := h.pollRepo.GetByID(pollID)

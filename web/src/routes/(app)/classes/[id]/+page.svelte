@@ -570,9 +570,6 @@
 								{#if s.status === 'live'}
 									<button onclick={() => classroomWindow.open(String(s.id), s.title)} class="px-3 py-1.5 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700 transition-colors">پیوستن</button>
 								{/if}
-								{#if s.status === 'live'}
-									<a href="/classroom/{s.id}" class="px-3 py-1.5 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700 transition-colors">پیوستن</a>
-								{/if}
 							</div>
 						</div>
 					{/each}

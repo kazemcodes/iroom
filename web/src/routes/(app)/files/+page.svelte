@@ -391,6 +391,12 @@
 							<td class="px-5 py-3.5 text-sm" style="color: var(--sky-text-secondary);">{formatSize(file.filesize)}</td>
 							<td class="px-5 py-3.5 text-sm" style="color: var(--sky-text-secondary);">{toPersianDateTime(file.created_at)}</td>
 							<td class="px-5 py-3.5">
+								<a href="{api.getBaseUrl()}/files/{file.id}/download" 
+									class="p-2 rounded-lg transition-colors inline-flex"
+									style="color: var(--sky-text-secondary);"
+									title="دانلود" download>
+									<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+								</a>
 								<button
 									onclick={() => confirmDelete(file)}
 									class="p-2 rounded-lg transition-colors"
@@ -477,7 +483,7 @@
 <ConfirmModal
 	show={showDeleteModal}
 	title="حذف فایل"
-	message="آیا از حذف فایل {deleteTarget?.filename} اطمیدارید؟ این عمل قابل بازگشت نیست."
+	message="آیا از حذف فایل {deleteTarget?.filename} اطمینان دارید؟ این عمل قابل بازگشت نیست."
 	onConfirm={deleteFile}
 	onCancel={cancelDelete}
 />

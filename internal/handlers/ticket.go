@@ -32,7 +32,10 @@ func (h *TicketHandler) Create(c echo.Context) error {
 		return response.BadRequest(c, "عنوان تیکت الزامی است")
 	}
 
-	userID := c.Get("user_id").(int64)
+	userID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
 
 	category := req.Category
 	if category == "" {
@@ -76,7 +79,10 @@ func (h *TicketHandler) Create(c echo.Context) error {
 }
 
 func (h *TicketHandler) ListMy(c echo.Context) error {
-	userID := c.Get("user_id").(int64)
+	userID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
 
 	page, _ := strconv.Atoi(c.QueryParam("page"))
 	if page < 1 {
@@ -118,8 +124,11 @@ func (h *TicketHandler) GetByID(c echo.Context) error {
 		return response.NotFound(c, "تیکت یافت نشد")
 	}
 
-	userID := c.Get("user_id").(int64)
-	role, _ := c.Get("role").(string)
+	userID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
+	role := getUserRole(c)
 	if ticket.UserID != userID && role != "admin" {
 		return response.Forbidden(c, "دسترسی غیرمجاز")
 	}
@@ -149,8 +158,11 @@ func (h *TicketHandler) Reply(c echo.Context) error {
 		return response.NotFound(c, "تیکت یافت نشد")
 	}
 
-	userID := c.Get("user_id").(int64)
-	role, _ := c.Get("role").(string)
+	userID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
+	role := getUserRole(c)
 	if ticket.UserID != userID && role != "admin" {
 		return response.Forbidden(c, "دسترسی غیرمجاز")
 	}
@@ -204,8 +216,11 @@ func (h *TicketHandler) Close(c echo.Context) error {
 		return response.NotFound(c, "تیکت یافت نشد")
 	}
 
-	userID := c.Get("user_id").(int64)
-	role, _ := c.Get("role").(string)
+	userID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
+	role := getUserRole(c)
 	if ticket.UserID != userID && role != "admin" {
 		return response.Forbidden(c, "دسترسی غیرمجاز")
 	}
@@ -235,6 +250,9 @@ func (h *AdminTicketHandler) ListAll(c echo.Context) error {
 	perPage, _ := strconv.Atoi(c.QueryParam("per_page"))
 	if perPage < 1 {
 		perPage = 20
+	}
+	if perPage > 100 {
+		perPage = 100
 	}
 	search := c.QueryParam("search")
 
@@ -288,7 +306,10 @@ func (h *SessionLogHandler) LogJoin(c echo.Context) error {
 		return response.BadRequest(c, "شناسه نامعتبر")
 	}
 
-	userID := c.Get("user_id").(int64)
+	userID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
 
 	log := &models.SessionLog{
 		SessionID: sessionID,
@@ -310,7 +331,10 @@ func (h *SessionLogHandler) LogLeave(c echo.Context) error {
 		return response.BadRequest(c, "شناسه نامعتبر")
 	}
 
-	userID := c.Get("user_id").(int64)
+	userID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
 
 	log, err := h.sessionLogRepo.GetActiveLog(sessionID, userID)
 	if err != nil {

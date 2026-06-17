@@ -43,6 +43,10 @@ func (h *ExternalHandler) CreateUser(c echo.Context) error {
 		return response.BadRequest(c, "ایمیل، رمز عبور و نام الزامی هستند")
 	}
 
+	if len(req.Password) < 6 {
+		return response.BadRequest(c, "رمز عبور باید حداقل ۶ کاراکتر باشد")
+	}
+
 	if req.Role == "" {
 		req.Role = "student"
 	}
@@ -84,7 +88,7 @@ func (h *ExternalHandler) CreateClass(c echo.Context) error {
 	}
 
 	if req.TeacherID == 0 {
-		req.TeacherID = 1
+		return response.BadRequest(c, "شناسه مدرس الزامی است")
 	}
 	if req.MaxStudents <= 0 {
 		req.MaxStudents = 30
@@ -118,6 +122,10 @@ func (h *ExternalHandler) CreateSession(c echo.Context) error {
 
 	if req.ClassID == 0 || req.Title == "" {
 		return response.BadRequest(c, "شناسه کلاس و عنوان الزامی هستند")
+	}
+
+	if _, err := h.classRepo.GetByID(req.ClassID); err != nil {
+		return response.NotFound(c, "کلاس یافت نشد")
 	}
 
 	scheduledAt, err := time.Parse(time.RFC3339, req.ScheduledAt)

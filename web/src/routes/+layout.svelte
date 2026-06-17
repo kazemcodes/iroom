@@ -157,6 +157,11 @@
 	async function handleMarkRead(id: number) {
 		await notifications.markRead(id);
 	}
+	function confirmLogout() {
+		if (confirm('آیا از خروج از حساب کاربری اطمینان دارید؟')) {
+			auth.logout();
+		}
+	}
 </script>
 
 <svelte:document onclick={handleClickOutside} />
@@ -263,7 +268,7 @@
 					</div>
 				{/if}
 			<button
-				onclick={() => auth.logout()}
+				onclick={confirmLogout}
 				class="w-full flex items-center justify-center gap-2 px-3 py-2.5 text-sm rounded-xl transition-all duration-200 font-medium hover:bg-red-500/10 logout-btn"
 				style="color: var(--sky-text-secondary);"
 			>
@@ -299,8 +304,8 @@
 			<div class="flex items-center gap-4">
 				<!-- Notification Bell -->
 				<div class="relative">
-<button class="notification-bell p-2 rounded-lg transition-colors relative"
-					style="color: var(--sky-text-secondary);"
+					<button class="notification-bell p-2 rounded-lg transition-colors relative"
+						style="color: var(--sky-text-secondary);"
 						onclick={() => showNotifications = !showNotifications}>
 						<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
 							<path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
@@ -312,65 +317,6 @@
 							</span>
 						{/if}
 					</button>
-					
-					<!-- Notification Dropdown -->
-					{#if showNotifications}
-						<div class="notification-dropdown absolute left-0 mt-2 w-80 rounded-xl shadow-2xl overflow-hidden"
-							style="background: var(--sky-bg-panel); border: 1px solid var(--sky-border);">
-							<div class="px-4 py-3 flex items-center justify-between" style="border-bottom: 1px solid var(--sky-border);">
-								<h3 class="font-bold" style="color: var(--sky-text-primary);">اعلان‌ها</h3>
-								{#if $unreadCount > 0}
-									<button class="text-xs font-medium hover:underline cursor-pointer" style="color: var(--sky-accent-blue);" onclick={handleMarkAllRead}>
-										علامت‌گذاری همه به عنوان خوانده شده
-									</button>
-								{/if}
-							</div>
-							<div class="max-h-80 overflow-y-auto">
-								{#if $notifications.length === 0}
-									<div class="px-4 py-8 text-center">
-										<svg class="w-10 h-10 mx-auto mb-2 opacity-30" style="color: var(--sky-text-secondary);" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-											<path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
-										</svg>
-										<p class="text-sm" style="color: var(--sky-text-secondary);">اعلانی وجود ندارد</p>
-									</div>
-								{:else}
-									{#each $notifications as notification (notification.id)}
-										{@const icon = notifIcon(notification.type)}
-										<div class="px-4 py-3 hover:bg-[var(--sky-bg-input)] transition-colors cursor-pointer {notification.is_read ? 'opacity-60' : ''}"
-											style="border-bottom: 1px solid var(--sky-border);"
-											onclick={() => handleMarkRead(notification.id)}>
-											<div class="flex items-start gap-3">
-												<div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
-													style="background: {icon.bg};">
-													<svg class="w-4 h-4" style="color: {icon.color};" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-														<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d={icon.icon} />
-													</svg>
-												</div>
-												<div class="flex-1 min-w-0">
-													<p class="text-sm font-medium" style="color: var(--sky-text-primary);">{notification.title}</p>
-													{#if notification.message}
-														<p class="text-xs mt-0.5 truncate" style="color: var(--sky-text-secondary);">{notification.message}</p>
-													{/if}
-													<p class="text-xs mt-1" style="color: var(--sky-text-secondary);">{timeAgo(notification.created_at)}</p>
-												</div>
-												{#if !notification.is_read}
-													<div class="w-2 h-2 rounded-full shrink-0 mt-1.5" style="background: var(--sky-accent-blue);"></div>
-												{/if}
-											</div>
-										</div>
-									{/each}
-								{/if}
-							</div>
-							{#if $notifications.length > 0}
-								<div class="px-4 py-3 text-center" style="border-top: 1px solid var(--sky-border);">
-									<button class="text-sm font-medium hover:underline cursor-pointer" style="color: var(--sky-accent-blue);"
-										onclick={() => { showNotifications = false; }}>
-										مشاهده همه اعلان‌ها
-									</button>
-								</div>
-							{/if}
-						</div>
-					{/if}
 				</div>
 			</div>
 		</header>
@@ -399,6 +345,65 @@
 				{/if}
 			</button>
 		</header>
+
+		<!-- Shared Notification Dropdown (works for both mobile and desktop) -->
+		{#if showNotifications}
+			<div class="fixed top-14 right-4 z-50 w-80 rounded-xl shadow-2xl overflow-hidden lg:right-6"
+				style="background: var(--sky-bg-panel); border: 1px solid var(--sky-border);">
+				<div class="px-4 py-3 flex items-center justify-between" style="border-bottom: 1px solid var(--sky-border);">
+					<h3 class="font-bold" style="color: var(--sky-text-primary);">اعلان‌ها</h3>
+					{#if $unreadCount > 0}
+						<button class="text-xs font-medium hover:underline cursor-pointer" style="color: var(--sky-accent-blue);" onclick={handleMarkAllRead}>
+							علامت‌گذاری همه به عنوان خوانده شده
+						</button>
+					{/if}
+				</div>
+				<div class="max-h-80 overflow-y-auto">
+					{#if $notifications.length === 0}
+						<div class="px-4 py-8 text-center">
+							<svg class="w-10 h-10 mx-auto mb-2 opacity-30" style="color: var(--sky-text-secondary);" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+							</svg>
+							<p class="text-sm" style="color: var(--sky-text-secondary);">اعلانی وجود ندارد</p>
+						</div>
+					{:else}
+						{#each $notifications as notification (notification.id)}
+							{@const icon = notifIcon(notification.type)}
+							<div class="px-4 py-3 transition-colors cursor-pointer {notification.is_read ? 'opacity-60' : ''}"
+								style="border-bottom: 1px solid var(--sky-border);"
+								onclick={() => handleMarkRead(notification.id)}>
+								<div class="flex items-start gap-3">
+									<div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
+										style="background: {icon.bg};">
+										<svg class="w-4 h-4" style="color: {icon.color};" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d={icon.icon} />
+										</svg>
+									</div>
+									<div class="flex-1 min-w-0">
+										<p class="text-sm font-medium" style="color: var(--sky-text-primary);">{notification.title}</p>
+										{#if notification.message}
+											<p class="text-xs mt-0.5 truncate" style="color: var(--sky-text-secondary);">{notification.message}</p>
+										{/if}
+										<p class="text-xs mt-1" style="color: var(--sky-text-secondary);">{timeAgo(notification.created_at)}</p>
+									</div>
+									{#if !notification.is_read}
+										<div class="w-2 h-2 rounded-full shrink-0 mt-1.5" style="background: var(--sky-accent-blue);"></div>
+									{/if}
+								</div>
+							</div>
+						{/each}
+					{/if}
+				</div>
+				{#if $notifications.length > 0}
+					<div class="px-4 py-3 text-center" style="border-top: 1px solid var(--sky-border);">
+						<button class="text-sm font-medium hover:underline cursor-pointer" style="color: var(--sky-accent-blue);"
+							onclick={() => { showNotifications = false; }}>
+							مشاهده همه اعلان‌ها
+						</button>
+					</div>
+				{/if}
+			</div>
+		{/if}
 
 		<main class="p-4 lg:p-8 max-w-7xl mx-auto" style="color: var(--sky-text-primary);">
 			{@render children()}

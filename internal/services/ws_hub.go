@@ -31,6 +31,7 @@ type Client struct {
 	UserID int64
 	Email  string
 	Role   string
+	RoomID string
 }
 
 // BroadcastMessage represents a message to be broadcast to clients
@@ -179,6 +180,9 @@ func (h *Hub) BroadcastToRoom(roomID string, msgType string, payload interface{}
 			continue
 		}
 		for client := range clients {
+			if client.RoomID != "" && client.RoomID != roomID {
+				continue
+			}
 			select {
 			case client.Send <- data:
 			default:

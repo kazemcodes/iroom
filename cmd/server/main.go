@@ -163,11 +163,13 @@ func main() {
 	api.GET("/sessions/:id/messages", messageHandler.List)
 	api.POST("/sessions/:id/messages", messageHandler.Send)
 
-	// Chat WebSocket
-	e.GET("/ws/sessions/:id", chatHandler.HandleWS)
+	// Chat WebSocket (rate limited)
+	wsGroup := e.Group("/ws")
+	wsGroup.Use(middleware.RateLimit(30, time.Minute))
+	wsGroup.GET("/sessions/:id", chatHandler.HandleWS)
 
-	// Notifications/Presence WebSocket
-	e.GET("/ws", wsHub.HandleWS(cfg.JWT.Secret))
+	// Notifications/Presence WebSocket (rate limited)
+	wsGroup.GET("", wsHub.HandleWS(cfg.JWT.Secret))
 
 	// File upload
 	api.POST("/sessions/:id/files", fileHandler.Upload)
@@ -201,8 +203,10 @@ func main() {
 	// LiveKit webhook
 	e.POST("/api/v1/livekit/webhook", livekitHandler.Webhook)
 
-	// External webhook receiver
-	e.POST("/api/v1/webhooks", externalHandler.HandleWebhook)
+	// External webhook receiver (API key auth required)
+	webhookExt := e.Group("/api/v1/webhooks")
+	webhookExt.Use(middleware.APIKeyAuth(cfg.External.APIKey))
+	webhookExt.POST("", externalHandler.HandleWebhook)
 
 	// Admin
 	admin := api.Group("/admin")

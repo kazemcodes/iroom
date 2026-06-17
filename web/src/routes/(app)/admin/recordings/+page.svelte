@@ -111,11 +111,11 @@
 						<button disabled={page <= 1} onclick={() => { page--; loadRecordings(); }} class="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50">قبلی</button>
 						<span class="px-3 py-1">صفحه {page} از {Math.ceil(total / perPage)}</span>
 						<button disabled={page >= Math.ceil(total / perPage)} onclick={() => { page++; loadRecordings(); }} class="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50">بعدی</button>
-	</div>
-</div>
-
-<ConfirmModal bind:show={showDeleteConfirm} title="حذف ضبط" message="آیا از حذف این ضبط اطمینان دارید؟" onConfirm={() => deleteRecording(deleteTargetId)} onCancel={() => {}} />
+					</div>
+				</div>
 			{/if}
 		</div>
+
+<ConfirmModal bind:show={showDeleteConfirm} title="حذف ضبط" message="آیا از حذف این ضبط اطمینان دارید؟" onConfirm={() => deleteRecording(deleteTargetId)} onCancel={() => {}} />
 	{/if}
 </div>

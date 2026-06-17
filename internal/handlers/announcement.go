@@ -41,8 +41,11 @@ func (h *AnnouncementHandler) Create(c echo.Context) error {
 		return response.BadRequest(c, "شناسه کلاس نامعتبر")
 	}
 
-	userID := c.Get("user_id").(int64)
-	userRole := c.Get("role").(string)
+	userID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
+	userRole := getUserRole(c)
 
 	// Check if user is teacher of this class or admin
 	class, err := h.classRepo.GetByID(classID)
@@ -90,6 +93,22 @@ func (h *AnnouncementHandler) List(c echo.Context) error {
 		return response.BadRequest(c, "شناسه کلاس نامعتبر")
 	}
 
+	userID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
+	role := getUserRole(c)
+
+	if role != "admin" {
+		class, err := h.classRepo.GetByID(classID)
+		if err != nil {
+			return response.NotFound(c, "کلاس یافت نشد")
+		}
+		if class.TeacherID != userID && !h.classRepo.IsEnrolled(class.ID, userID) {
+			return response.Forbidden(c, "دسترسی غیرمجاز")
+		}
+	}
+
 	page, _ := strconv.Atoi(c.QueryParam("page"))
 	if page < 1 {
 		page = 1
@@ -97,6 +116,9 @@ func (h *AnnouncementHandler) List(c echo.Context) error {
 	perPage, _ := strconv.Atoi(c.QueryParam("per_page"))
 	if perPage < 1 {
 		perPage = 20
+	}
+	if perPage > 100 {
+		perPage = 100
 	}
 
 	announcements, total, err := h.announcementRepo.ListByClass(classID, page, perPage)
@@ -122,8 +144,11 @@ func (h *AnnouncementHandler) Update(c echo.Context) error {
 		return response.BadRequest(c, "شناسه نامعتبر")
 	}
 
-	userID := c.Get("user_id").(int64)
-	userRole := c.Get("role").(string)
+	userID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
+	userRole := getUserRole(c)
 
 	announcement, err := h.announcementRepo.GetByID(id)
 	if err != nil {
@@ -165,8 +190,11 @@ func (h *AnnouncementHandler) Delete(c echo.Context) error {
 		return response.BadRequest(c, "شناسه نامعتبر")
 	}
 
-	userID := c.Get("user_id").(int64)
-	userRole := c.Get("role").(string)
+	userID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
+	userRole := getUserRole(c)
 
 	announcement, err := h.announcementRepo.GetByID(id)
 	if err != nil {
@@ -196,8 +224,11 @@ func (h *AnnouncementHandler) Pin(c echo.Context) error {
 		return response.BadRequest(c, "شناسه نامعتبر")
 	}
 
-	userID := c.Get("user_id").(int64)
-	userRole := c.Get("role").(string)
+	userID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
+	userRole := getUserRole(c)
 
 	announcement, err := h.announcementRepo.GetByID(id)
 	if err != nil {

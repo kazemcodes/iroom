@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"sync"
 
 	"github.com/gorilla/websocket"
@@ -60,11 +59,17 @@ func (h *ChatHub) Remove(sessionID int64, conn *websocket.Conn) {
 }
 
 func (h *ChatHub) Broadcast(sessionID int64, msg interface{}) {
-	h.mu.RLock()
-	defer h.mu.RUnlock()
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	data, _ := json.Marshal(msg)
 	for conn := range h.clients[sessionID] {
-		data, _ := json.Marshal(msg)
-		conn.WriteMessage(websocket.TextMessage, data)
+		if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
+			conn.Close()
+			delete(h.clients[sessionID], conn)
+		}
+	}
+	if len(h.clients[sessionID]) == 0 {
+		delete(h.clients, sessionID)
 	}
 }
 
@@ -99,6 +104,8 @@ func (h *ChatHandler) HandleWS(c echo.Context) error {
 	}
 	defer conn.Close()
 
+	conn.SetReadLimit(10240)
+
 	chatHub.Add(sessionID, conn)
 	defer chatHub.Remove(sessionID, conn)
 
@@ -117,6 +124,9 @@ func (h *ChatHandler) HandleWS(c echo.Context) error {
 		}
 
 		if msg.Type == "message" && msg.Content != "" {
+			if len(msg.Content) > 10000 {
+				continue
+			}
 			chatMsg := &models.Message{
 				SessionID: sessionID,
 				UserID:    claims.UserID,
@@ -155,8 +165,11 @@ func (h *FileHandler) Upload(c echo.Context) error {
 		return response.BadRequest(c, "شناسه نامعتبر")
 	}
 
-	userID := c.Get("user_id").(int64)
-	role, _ := c.Get("role").(string)
+	userID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
+	role := getUserRole(c)
 
 	if role != "admin" {
 		session, err := h.sessionRepo.GetByID(sessionID)
@@ -222,10 +235,9 @@ func (h *FileHandler) Upload(c echo.Context) error {
 		return response.InternalError(c, "خطا در کپی فایل")
 	}
 
-	fileUserID := c.Get("user_id").(int64)
 	fileModel := &models.File{
 		SessionID:  sessionID,
-		UploadedBy: fileUserID,
+		UploadedBy: userID,
 		Filename:   file.Filename,
 		Filepath:   dstPath,
 		Filesize:   written,
@@ -250,8 +262,11 @@ func (h *FileHandler) Delete(c echo.Context) error {
 	}
 
 	// Check ownership or admin role
-	userID := c.Get("user_id").(int64)
-	role, _ := c.Get("role").(string)
+	userID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
+	role := getUserRole(c)
 	if file.UploadedBy != userID && role != "admin" {
 		return response.Forbidden(c, "شما اجازه حذف این فایل را ندارید")
 	}
@@ -280,8 +295,11 @@ func (h *FileHandler) Download(c echo.Context) error {
 		return response.NotFound(c, "فایل یافت نشد")
 	}
 
-	userID := c.Get("user_id").(int64)
-	role, _ := c.Get("role").(string)
+	userID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
+	role := getUserRole(c)
 
 	if file.UploadedBy != userID && role != "admin" {
 		session, err := h.sessionRepo.GetByID(file.SessionID)

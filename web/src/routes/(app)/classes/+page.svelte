@@ -66,6 +66,7 @@
 			return;
 		}
 		classes = [res.data!, ...classes];
+		totalClasses++;
 		showCreate = false;
 		formName = '';
 		formDesc = '';

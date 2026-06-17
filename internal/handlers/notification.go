@@ -18,7 +18,10 @@ func NewNotificationHandler(notificationRepo *repository.NotificationRepo) *Noti
 }
 
 func (h *NotificationHandler) List(c echo.Context) error {
-	userID := c.Get("user_id").(int64)
+	userID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
 
 	page, _ := strconv.Atoi(c.QueryParam("page"))
 	if page < 1 {
@@ -54,7 +57,10 @@ func (h *NotificationHandler) List(c echo.Context) error {
 }
 
 func (h *NotificationHandler) UnreadCount(c echo.Context) error {
-	userID := c.Get("user_id").(int64)
+	userID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
 
 	count, err := h.notificationRepo.CountUnread(userID)
 	if err != nil {
@@ -70,7 +76,10 @@ func (h *NotificationHandler) MarkRead(c echo.Context) error {
 		return response.BadRequest(c, "شناسه نامعتبر")
 	}
 
-	userID := c.Get("user_id").(int64)
+	userID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
 
 	if err := h.notificationRepo.MarkRead(id, userID); err != nil {
 		return response.InternalError(c, "خطا در بروزرسانی اعلان")
@@ -80,7 +89,10 @@ func (h *NotificationHandler) MarkRead(c echo.Context) error {
 }
 
 func (h *NotificationHandler) MarkAllRead(c echo.Context) error {
-	userID := c.Get("user_id").(int64)
+	userID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
 
 	if err := h.notificationRepo.MarkAllRead(userID); err != nil {
 		return response.InternalError(c, "خطا در بروزرسانی اعلان‌ها")

@@ -29,8 +29,11 @@ func (h *RecordingHandler) Upload(c echo.Context) error {
 		return response.BadRequest(c, "شناسه نامعتبر")
 	}
 
-	userID := c.Get("user_id").(int64)
-	role, _ := c.Get("role").(string)
+	userID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
+	role := getUserRole(c)
 
 	if role != "admin" {
 		session, err := h.sessionRepo.GetByID(sessionID)
@@ -115,8 +118,11 @@ func (h *RecordingHandler) Download(c echo.Context) error {
 		return response.NotFound(c, "ضبط یافت نشد")
 	}
 
-	userID := c.Get("user_id").(int64)
-	role, _ := c.Get("role").(string)
+	userID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
+	role := getUserRole(c)
 
 	if rec.UploadedBy != userID && role != "admin" {
 		session, err := h.sessionRepo.GetByID(rec.SessionID)

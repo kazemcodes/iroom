@@ -235,7 +235,10 @@ func (h *AuthHandler) ResetPassword(c echo.Context) error {
 }
 
 func (h *AuthHandler) Me(c echo.Context) error {
-	userID := c.Get("user_id").(int64)
+	userID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
 	user, err := h.userRepo.GetByID(userID)
 	if err != nil {
 		return response.NotFound(c, "کاربر یافت نشد")
@@ -244,7 +247,10 @@ func (h *AuthHandler) Me(c echo.Context) error {
 }
 
 func (h *AuthHandler) ChangePassword(c echo.Context) error {
-	userID := c.Get("user_id").(int64)
+	userID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
 	var req struct {
 		CurrentPassword string `json:"current_password"`
 		NewPassword     string `json:"new_password"`
@@ -276,7 +282,10 @@ func (h *AuthHandler) ChangePassword(c echo.Context) error {
 }
 
 func (h *AuthHandler) UpdateProfile(c echo.Context) error {
-	userID := c.Get("user_id").(int64)
+	userID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
 	user, err := h.userRepo.GetByID(userID)
 	if err != nil {
 		return response.NotFound(c, "کاربر یافت نشد")
@@ -303,7 +312,10 @@ func (h *AuthHandler) UpdateProfile(c echo.Context) error {
 }
 
 func (h *AuthHandler) AvatarUpload(c echo.Context) error {
-	userID := c.Get("user_id").(int64)
+	userID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
 
 	file, err := c.FormFile("avatar")
 	if err != nil {
@@ -372,7 +384,10 @@ func (h *AuthHandler) AvatarUpload(c echo.Context) error {
 
 // 2FA Setup - Generate TOTP secret and QR code
 func (h *AuthHandler) TOTPSetup(c echo.Context) error {
-	userID := c.Get("user_id").(int64)
+	userID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
 	user, err := h.userRepo.GetByID(userID)
 	if err != nil {
 		return response.NotFound(c, "کاربر یافت نشد")
@@ -403,7 +418,10 @@ func (h *AuthHandler) TOTPSetup(c echo.Context) error {
 
 // 2FA Verify - Verify TOTP code and enable 2FA
 func (h *AuthHandler) TOTPVerify(c echo.Context) error {
-	userID := c.Get("user_id").(int64)
+	userID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
 	user, err := h.userRepo.GetByID(userID)
 	if err != nil {
 		return response.NotFound(c, "کاربر یافت نشد")
@@ -456,7 +474,10 @@ func (h *AuthHandler) TOTPVerify(c echo.Context) error {
 
 // 2FA Disable - Disable 2FA (requires password)
 func (h *AuthHandler) TOTPDisable(c echo.Context) error {
-	userID := c.Get("user_id").(int64)
+	userID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
 	user, err := h.userRepo.GetByID(userID)
 	if err != nil {
 		return response.NotFound(c, "کاربر یافت نشد")
@@ -496,7 +517,10 @@ func (h *AuthHandler) TOTPDisable(c echo.Context) error {
 
 // 2FA Backup - Verify backup code
 func (h *AuthHandler) TOTPBackup(c echo.Context) error {
-	userID := c.Get("user_id").(int64)
+	userID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
 	user, err := h.userRepo.GetByID(userID)
 	if err != nil {
 		return response.NotFound(c, "کاربر یافت نشد")
@@ -621,10 +645,22 @@ func NewAdminHandler(userRepo *repository.UserRepo, classRepo *repository.ClassR
 }
 
 func (h *AdminHandler) DashboardStats(c echo.Context) error {
-	userCount, _ := h.userRepo.Count()
-	classCount, _ := h.classRepo.Count()
-	sessionCount, _ := h.sessionRepo.Count()
-	messageCount, _ := h.messageRepo.Count()
+	userCount, err := h.userRepo.Count()
+	if err != nil {
+		return response.InternalError(c, "خطا در دریافت آمار کاربران")
+	}
+	classCount, err := h.classRepo.Count()
+	if err != nil {
+		return response.InternalError(c, "خطا در دریافت آمار کلاس‌ها")
+	}
+	sessionCount, err := h.sessionRepo.Count()
+	if err != nil {
+		return response.InternalError(c, "خطا در دریافت آمار جلسات")
+	}
+	messageCount, err := h.messageRepo.Count()
+	if err != nil {
+		return response.InternalError(c, "خطا در دریافت آمار پیام‌ها")
+	}
 
 	return response.Success(c, map[string]interface{}{
 		"users":    userCount,
@@ -666,6 +702,13 @@ func (h *AdminHandler) CreateUser(c echo.Context) error {
 	var req models.RegisterRequest
 	if err := c.Bind(&req); err != nil {
 		return response.BadRequest(c, "داده‌های نامعتبر")
+	}
+
+	if req.Email == "" || req.Password == "" || req.DisplayName == "" {
+		return response.BadRequest(c, "ایمیل، رمز عبور و نام الزامی هستند")
+	}
+	if len(req.Password) < 6 {
+		return response.BadRequest(c, "رمز عبور باید حداقل ۶ کاراکتر باشد")
 	}
 
 	var roleReq struct {
@@ -797,7 +840,10 @@ func (h *AdminHandler) CreateClass(c echo.Context) error {
 		return response.BadRequest(c, "نام کلاس الزامی است")
 	}
 
-	adminID := c.Get("user_id").(int64)
+	adminID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
 
 	color := req.Color
 	if color == "" {
@@ -1147,8 +1193,11 @@ func (h *ClassHandler) GetByID(c echo.Context) error {
 }
 
 func (h *ClassHandler) List(c echo.Context) error {
-	userID := c.Get("user_id").(int64)
-	role, _ := c.Get("role").(string)
+	userID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
+	role := getUserRole(c)
 
 	var classes []models.Class
 	var err error
@@ -1183,7 +1232,10 @@ func (h *ClassHandler) Create(c echo.Context) error {
 		return response.BadRequest(c, "نام کلاس الزامی است")
 	}
 
-	userID := c.Get("user_id").(int64)
+	userID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
 	color := req.Color
 	if color == "" {
 		color = "#3B82F6"
@@ -1253,8 +1305,11 @@ func (h *ClassHandler) Update(c echo.Context) error {
 		return response.NotFound(c, "کلاس یافت نشد")
 	}
 
-	userID := c.Get("user_id").(int64)
-	role, _ := c.Get("role").(string)
+	userID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
+	role := getUserRole(c)
 	if class.TeacherID != userID && role != "admin" {
 		return response.Forbidden(c, "شما اجازه ویرایش این کلاس را ندارید")
 	}
@@ -1295,8 +1350,11 @@ func (h *ClassHandler) Delete(c echo.Context) error {
 		return response.NotFound(c, "کلاس یافت نشد")
 	}
 
-	userID := c.Get("user_id").(int64)
-	role, _ := c.Get("role").(string)
+	userID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
+	role := getUserRole(c)
 	if class.TeacherID != userID && role != "admin" {
 		return response.Forbidden(c, "شما اجازه حذف این کلاس را ندارید")
 	}
@@ -1321,7 +1379,7 @@ func NewSessionHandler(sessionRepo *repository.SessionRepo, classRepo *repositor
 
 func (h *SessionHandler) List(c echo.Context) error {
 	classID := c.QueryParam("class_id")
-	role, _ := c.Get("role").(string)
+	role := getUserRole(c)
 
 	if classID != "" {
 		id, err := strconv.ParseInt(classID, 10, 64)
@@ -1346,7 +1404,10 @@ func (h *SessionHandler) List(c echo.Context) error {
 		return response.Success(c, sessions)
 	}
 
-	userID := c.Get("user_id").(int64)
+	userID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
 	switch role {
 	case "teacher":
 		classes, _ := h.classRepo.ListByTeacher(userID)
@@ -1382,8 +1443,11 @@ func (h *SessionHandler) Create(c echo.Context) error {
 		return response.BadRequest(c, "عنوان جلسه الزامی است")
 	}
 
-	userID := c.Get("user_id").(int64)
-	role, _ := c.Get("role").(string)
+	userID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
+	role := getUserRole(c)
 
 	if role != "admin" {
 		class, err := h.classRepo.GetByID(req.ClassID)
@@ -1426,8 +1490,11 @@ func (h *SessionHandler) Start(c echo.Context) error {
 		return response.BadRequest(c, "شناسه نامعتبر")
 	}
 
-	userID := c.Get("user_id").(int64)
-	role, _ := c.Get("role").(string)
+	userID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
+	role := getUserRole(c)
 
 	session, err := h.sessionRepo.GetByID(id)
 	if err != nil {
@@ -1457,8 +1524,11 @@ func (h *SessionHandler) End(c echo.Context) error {
 		return response.BadRequest(c, "شناسه نامعتبر")
 	}
 
-	userID := c.Get("user_id").(int64)
-	role, _ := c.Get("role").(string)
+	userID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
+	role := getUserRole(c)
 
 	session, err := h.sessionRepo.GetByID(id)
 	if err != nil {
@@ -1499,8 +1569,11 @@ func (h *SessionHandler) Delete(c echo.Context) error {
 		return response.BadRequest(c, "شناسه نامعتبر")
 	}
 
-	userID := c.Get("user_id").(int64)
-	role, _ := c.Get("role").(string)
+	userID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
+	role := getUserRole(c)
 
 	session, err := h.sessionRepo.GetByID(id)
 	if err != nil {
@@ -1567,7 +1640,10 @@ func (h *MessageHandler) Send(c echo.Context) error {
 		return response.BadRequest(c, "محتوا الزامی است")
 	}
 
-	userID := c.Get("user_id").(int64)
+	userID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
 	msg := &models.Message{
 		SessionID: sessionID,
 		UserID:    userID,
@@ -1662,8 +1738,11 @@ func (h *ClassHandler) RegenerateCode(c echo.Context) error {
 		return response.BadRequest(c, "شناسه نامعتبر")
 	}
 
-	userID := c.Get("user_id").(int64)
-	userRole := c.Get("role").(string)
+	userID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
+	userRole := getUserRole(c)
 
 	class, err := h.classRepo.GetByID(classID)
 	if err != nil {
@@ -1706,7 +1785,10 @@ func (h *ClassHandler) JoinByCode(c echo.Context) error {
 		return response.BadRequest(c, "این کلاس بایگانی شده است")
 	}
 
-	userID := c.Get("user_id").(int64)
+	userID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
 
 	if h.classRepo.IsEnrolled(class.ID, userID) {
 		return response.BadRequest(c, "شما قبلاً در این کلاس ثبت‌نام کرده‌اید")
@@ -1864,7 +1946,10 @@ func (h *AdminHandler) ImpersonateUser(c echo.Context) error {
 		return response.BadRequest(c, "شناسه نامعتبر")
 	}
 
-	adminID := c.Get("user_id").(int64)
+	adminID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
 
 	targetUser, err := h.userRepo.GetByID(targetID)
 	if err != nil {
@@ -1945,7 +2030,10 @@ func (h *AdminHandler) TestEmail(c echo.Context) error {
 }
 
 func (h *AdminHandler) StopImpersonate(c echo.Context) error {
-	adminID := c.Get("user_id").(int64)
+	adminID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
 
 	admin, err := h.userRepo.GetByID(adminID)
 	if err != nil {

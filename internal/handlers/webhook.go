@@ -60,7 +60,10 @@ func (h *WebhookHandler) Create(c echo.Context) error {
 	}
 	secret := fmt.Sprintf("%x", secretBytes)
 
-	userID := c.Get("user_id").(int64)
+	userID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
 
 	webhook := &models.Webhook{
 		UserID:   userID,
@@ -84,7 +87,10 @@ func (h *WebhookHandler) Create(c echo.Context) error {
 }
 
 func (h *WebhookHandler) List(c echo.Context) error {
-	userID := c.Get("user_id").(int64)
+	userID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
 
 	webhooks, err := h.webhookRepo.ListByUserID(userID)
 	if err != nil {
@@ -109,9 +115,12 @@ func (h *WebhookHandler) Update(c echo.Context) error {
 		return response.NotFound(c, "وب‌هوک یافت نشد")
 	}
 
-	userID := c.Get("user_id").(int64)
+	userID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
 	if webhook.UserID != userID {
-		role, _ := c.Get("role").(string)
+		role := getUserRole(c)
 		if role != "admin" {
 			return response.Forbidden(c, "دسترسی غیرمجاز")
 		}
@@ -169,9 +178,12 @@ func (h *WebhookHandler) Delete(c echo.Context) error {
 		return response.NotFound(c, "وب‌هوک یافت نشد")
 	}
 
-	userID := c.Get("user_id").(int64)
+	userID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
 	if webhook.UserID != userID {
-		role, _ := c.Get("role").(string)
+		role := getUserRole(c)
 		if role != "admin" {
 			return response.Forbidden(c, "دسترسی غیرمجاز")
 		}
@@ -195,9 +207,12 @@ func (h *WebhookHandler) ListDeliveries(c echo.Context) error {
 		return response.NotFound(c, "وب‌هوک یافت نشد")
 	}
 
-	userID := c.Get("user_id").(int64)
+	userID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
 	if webhook.UserID != userID {
-		role, _ := c.Get("role").(string)
+		role := getUserRole(c)
 		if role != "admin" {
 			return response.Forbidden(c, "دسترسی غیرمجاز")
 		}
@@ -210,6 +225,9 @@ func (h *WebhookHandler) ListDeliveries(c echo.Context) error {
 	perPage, _ := strconv.Atoi(c.QueryParam("per_page"))
 	if perPage < 1 {
 		perPage = 20
+	}
+	if perPage > 100 {
+		perPage = 100
 	}
 
 	deliveries, total, err := h.deliveryRepo.ListByWebhookID(id, page, perPage)
@@ -241,9 +259,12 @@ func (h *WebhookHandler) Test(c echo.Context) error {
 		return response.NotFound(c, "وب‌هوک یافت نشد")
 	}
 
-	userID := c.Get("user_id").(int64)
+	userID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
 	if webhook.UserID != userID {
-		role, _ := c.Get("role").(string)
+		role := getUserRole(c)
 		if role != "admin" {
 			return response.Forbidden(c, "دسترسی غیرمجاز")
 		}

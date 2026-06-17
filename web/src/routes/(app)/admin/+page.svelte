@@ -2,7 +2,7 @@
 	// @ts-nocheck
 	import { api } from '$lib/api';
 	import { onMount } from 'svelte';
-	import type { User, Class, Session, DashboardStats } from '$lib/types';
+	import type { User, Class, Session, DashboardStats, ActivityLog } from '$lib/types';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 
 	import { goto } from '$app/navigation';

@@ -167,7 +167,7 @@
 		</div>
 	{/if}
 
-	{#if totalPages > 0}
+	{#if totalPages > 1}
 		<div class="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm" style="color: var(--sky-text-secondary);">
 			<div class="flex items-center gap-3">
 				<span>{toPersianNum(totalSessions)} جلسه</span>

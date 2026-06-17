@@ -36,8 +36,11 @@ func (h *LiveKitHandler) GetJoinToken(c echo.Context) error {
 		return response.BadRequest(c, "جلسه در حال برگزاری نیست")
 	}
 
-	userID := c.Get("user_id").(int64)
-	role := c.Get("role").(string)
+	userID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
+	role := getUserRole(c)
 	displayName := "کاربر"
 	if name, ok := c.Get("display_name").(string); ok && name != "" {
 		displayName = name
