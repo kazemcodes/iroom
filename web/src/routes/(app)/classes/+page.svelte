@@ -24,6 +24,12 @@
 	let formLoading = $state(false);
 	let formError = $state('');
 
+	// Join by Code
+	let showJoinByCode = $state(false);
+	let joinCode = $state('');
+	let joinLoading = $state(false);
+	let joinError = $state('');
+
 	const colors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#06B6D4'];
 
 	const totalPages = $derived(Math.ceil(totalClasses / perPage));
@@ -73,6 +79,33 @@
 		formLoading = false;
 	}
 
+	async function joinByCode() {
+		if (!joinCode.trim()) {
+			joinError = 'لطفاً کد دعوت را وارد کنید';
+			return;
+		}
+
+		joinLoading = true;
+		joinError = '';
+
+		const res = await api.post<{ class_id: number }>(`/classes/join/${joinCode.trim()}`);
+
+		if (!res.success) {
+			joinError = res.error || 'خطا در پیوستن به کلاس';
+			joinLoading = false;
+			return;
+		}
+
+		// Navigate to the class detail page
+		if (res.data?.class_id) {
+			window.location.href = `/classes/${res.data.class_id}`;
+		}
+
+		showJoinByCode = false;
+		joinCode = '';
+		joinLoading = false;
+	}
+
 	function handleSearch() {
 		currentPage = 1;
 		loadClasses();
@@ -85,17 +118,28 @@
 			<h1 class="text-2xl font-bold text-gray-900">کلاس‌ها</h1>
 			<p class="text-gray-500 mt-1">{toPersianNum(totalClasses)} کلاس</p>
 		</div>
-		{#if $isAdmin || $isTeacher}
+		<div class="flex items-center gap-3">
 			<button
-				onclick={() => showCreate = true}
-				class="px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium text-sm hover:bg-blue-700 transition-colors flex items-center gap-2"
+				onclick={() => showJoinByCode = true}
+				class="px-4 py-2.5 bg-green-600 text-white rounded-lg font-medium text-sm hover:bg-green-700 transition-colors flex items-center gap-2"
 			>
 				<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
 				</svg>
-				ایجاد کلاس
+				پیوستن با کد
 			</button>
-		{/if}
+			{#if $isAdmin || $isTeacher}
+				<button
+					onclick={() => showCreate = true}
+					class="px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium text-sm hover:bg-blue-700 transition-colors flex items-center gap-2"
+				>
+					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+					</svg>
+					ایجاد کلاس
+				</button>
+			{/if}
+		</div>
 	</div>
 
 	<!-- Search -->
@@ -239,6 +283,45 @@
 					class="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
 				>
 					{formLoading ? 'در حال ایجاد...' : 'ایجاد کلاس'}
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- Join by Code Modal -->
+{#if showJoinByCode}
+	<div class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onclick={() => showJoinByCode = false}>
+		<div class="bg-white rounded-2xl w-full max-w-md shadow-xl" onclick={(e) => e.stopPropagation()}>
+			<div class="px-6 py-4 border-b">
+				<h2 class="font-bold text-lg">پیوستن به کلاس</h2>
+			</div>
+			<div class="px-6 py-4 space-y-4">
+				{#if joinError}
+					<div class="p-3 bg-red-50 text-red-600 rounded-lg text-sm">{joinError}</div>
+				{/if}
+
+				<div>
+					<label class="block text-sm font-medium text-gray-700 mb-1">کد دعوت</label>
+					<input
+						type="text"
+						bind:value={joinCode}
+						onkeydown={(e) => e.key === 'Enter' && joinByCode()}
+						class="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none text-lg text-center font-mono tracking-wider uppercase"
+						placeholder="کد دعوت را وارد کنید"
+						autofocus
+					/>
+					<p class="text-xs text-gray-500 mt-2">کد دعوت را از معلم دریافت کنید</p>
+				</div>
+			</div>
+			<div class="px-6 py-4 border-t flex justify-end gap-3">
+				<button onclick={() => { showJoinByCode = false; joinCode = ''; joinError = ''; }} class="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">انصراف</button>
+				<button
+					onclick={joinByCode}
+					disabled={joinLoading || !joinCode.trim()}
+					class="px-4 py-2 bg-green-600 text-white text-sm rounded-lg font-medium hover:bg-green-700 transition-colors disabled:opacity-50"
+				>
+					{joinLoading ? 'در حال پیوستن...' : 'پیوستن'}
 				</button>
 			</div>
 		</div>

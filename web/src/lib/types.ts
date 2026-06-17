@@ -135,3 +135,30 @@ export interface SessionLog {
 	ip_address: string;
 	user_display_name: string;
 }
+
+export interface Announcement {
+	id: number;
+	class_id: number | null;
+	author_id: number;
+	title: string;
+	content: string;
+	is_pinned: boolean;
+	is_system_wide: boolean;
+	created_at: string;
+	updated_at: string;
+	author_name?: string;
+	is_read?: boolean;
+}
+
+export interface RecurringSession {
+	id: number;
+	class_id: number;
+	title: string;
+	day_of_week: number; // 0=شنبه, 1=یکشنبه, ..., 6=جمعه
+	time: string; // HH:MM format
+	duration: number; // minutes
+	week_count: number;
+	sessions_generated: number;
+	created_at: string;
+	updated_at: string;
+}

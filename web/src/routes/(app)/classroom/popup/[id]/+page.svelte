@@ -37,6 +37,17 @@
 	let participantsOpen = $state(true);
 	let showSettings = $state(false);
 	let activeView = $state<'video' | 'whiteboard' | 'screenshare'>('video');
+	let pollsOpen = $state(false);
+	let showCreatePoll = $state(false);
+	let polls = $state<{id: number; question: string; options: string[]; is_active: boolean}[]>([]);
+	let pollResults = $state<Record<number, {votes: number[]; total_votes: number}>>({});
+	let votedPolls = $state<Record<number, number>>({});
+	let loadingPolls = $state(false);
+
+	// Create poll form state
+	let pollQuestion = $state('');
+	let pollOptions = $state<string[]>(['', '']);
+	let creatingPoll = $state(false);
 
 	const sessionId = $derived(page.params.id);
 	const isTeacherOrAdmin = $derived($auth.user?.role === 'teacher' || $auth.user?.role === 'admin');
@@ -349,6 +360,80 @@
 		disconnect();
 		window.close();
 	}
+
+	// Poll functions
+	async function loadPolls() {
+		loadingPolls = true;
+		const res = await api.get<typeof polls>(`/sessions/${sessionId}/polls`);
+		if (res.success && res.data) {
+			polls = res.data;
+			// Load results for each poll
+			for (const poll of polls) {
+				if (!pollResults[poll.id]) {
+					const resultRes = await api.get<{votes: number[]; total_votes: number}>(`/polls/${poll.id}/results`);
+					if (resultRes.success && resultRes.data) {
+						pollResults[poll.id] = resultRes.data;
+					}
+				}
+			}
+		}
+		loadingPolls = false;
+	}
+
+	async function vote(pollId: number, optionIndex: number) {
+		const res = await api.post(`/polls/${pollId}/vote`, { option_index: optionIndex });
+		if (res.success) {
+			votedPolls[pollId] = optionIndex;
+			// Reload results
+			const resultRes = await api.get<{votes: number[]; total_votes: number}>(`/polls/${pollId}/results`);
+			if (resultRes.success && resultRes.data) {
+				pollResults[pollId] = resultRes.data;
+			}
+		}
+	}
+
+	async function closePoll(pollId: number) {
+		if (!confirm('آیا مطمئن هستید که می‌خواهید این نظرسنجی را ببندید؟')) return;
+		const res = await api.post(`/polls/${pollId}/close`, {});
+		if (res.success) {
+			await loadPolls();
+		}
+	}
+
+	function addPollOption() {
+		pollOptions = [...pollOptions, ''];
+	}
+
+	function removePollOption(index: number) {
+		if (pollOptions.length <= 2) return;
+		pollOptions = pollOptions.filter((_, i) => i !== index);
+	}
+
+	async function createPoll() {
+		if (!pollQuestion.trim()) return;
+		const validOptions = pollOptions.filter(o => o.trim());
+		if (validOptions.length < 2) return;
+
+		creatingPoll = true;
+		const res = await api.post(`/sessions/${sessionId}/polls`, {
+			question: pollQuestion.trim(),
+			options: validOptions
+		});
+		if (res.success) {
+			showCreatePoll = false;
+			pollQuestion = '';
+			pollOptions = ['', ''];
+			await loadPolls();
+		}
+		creatingPoll = false;
+	}
+
+	function togglePollsPanel() {
+		pollsOpen = !pollsOpen;
+		if (pollsOpen && polls.length === 0) {
+			loadPolls();
+		}
+	}
 </script>
 
 <div class="h-screen flex flex-col text-white" style="background-color: #1a1a2e;">
@@ -498,6 +583,11 @@
 				<span class="text-lg">⚙️</span>
 			</button>
 
+			<!-- Polls button -->
+			<button onclick={togglePollsPanel} class="w-10 h-10 rounded-full flex items-center justify-center transition-colors {pollsOpen ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-700 hover:bg-gray-600'}" title="نظرسنجی‌ها">
+				<span class="text-lg">📊</span>
+			</button>
+
 			<div class="w-px h-6 mx-1" style="background-color: #2a2a4a;"></div>
 
 			<button onclick={leaveRoom} class="px-4 py-2 bg-red-600 text-white rounded-full text-xs font-medium hover:bg-red-700 transition-colors flex items-center gap-1.5">
@@ -507,6 +597,199 @@
 		</div>
 
 		<SettingsPopup bind:show={showSettings} />
+
+		<!-- Polls Panel Overlay -->
+		{#if pollsOpen}
+			<div class="absolute inset-0 z-40 flex items-center justify-center" style="background-color: rgba(0,0,0,0.5);" onclick={(e) => { if (e.target === e.currentTarget) pollsOpen = false; }}>
+				<div class="w-[480px] max-h-[80vh] rounded-2xl shadow-2xl flex flex-col" style="background-color: #1e1e3a; border: 1px solid #2a2a4a;">
+					<!-- Header -->
+					<div class="flex items-center justify-between px-5 py-4 border-b" style="border-color: #2a2a4a;">
+						<h2 class="text-lg font-bold text-white flex items-center gap-2">
+							<span>📊</span> نظرسنجی‌ها
+						</h2>
+						<button onclick={() => pollsOpen = false} class="text-gray-400 hover:text-white p-1">
+							<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+						</button>
+					</div>
+
+					<!-- Content -->
+					<div class="flex-1 overflow-y-auto p-4 space-y-4">
+						{#if loadingPolls}
+							<div class="flex items-center justify-center py-8">
+								<div class="animate-spin h-6 w-6 border-3 border-blue-500 border-t-transparent rounded-full"></div>
+							</div>
+						{:else if polls.length === 0}
+							<div class="text-center py-8">
+								<p class="text-gray-400 text-sm">هنوز نظرسنجی‌ای ایجاد نشده است</p>
+							</div>
+						{:else}
+							{#each polls as poll (poll.id)}
+								<div class="rounded-xl p-4" style="background-color: #252545; border: 1px solid #3a3a5a;">
+									<div class="flex items-start justify-between mb-3">
+										<h3 class="text-sm font-medium text-white flex-1">{poll.question}</h3>
+										<div class="flex items-center gap-2">
+											{#if poll.is_active}
+												<span class="text-[10px] px-2 py-0.5 rounded-full bg-green-600/20 text-green-400">فعال</span>
+											{:else}
+												<span class="text-[10px] px-2 py-0.5 rounded-full bg-gray-600/20 text-gray-400">بسته شده</span>
+											{/if}
+											{#if isTeacherOrAdmin && poll.is_active}
+												<button onclick={() => closePoll(poll.id)} class="text-[10px] px-2 py-0.5 rounded hover:bg-red-600/20 text-gray-400 hover:text-red-400" title="بستن نظرسنجی">بستن</button>
+											{/if}
+										</div>
+									</div>
+
+									<!-- Voting UI or Results -->
+									{#if votedPolls[poll.id] !== undefined || !poll.is_active}
+										<!-- Show results -->
+										{#if pollResults[poll.id]}
+											<div class="space-y-2">
+												{#each poll.options as option, i}
+													<div class="relative">
+														<div class="flex items-center justify-between text-xs mb-1">
+															<span class="text-gray-300">{option}</span>
+															<span class="text-gray-400">
+																{toPersianNum(pollResults[poll.id].votes[i] || 0)} رأی
+																({toPersianNum(pollResults[poll.id].total_votes > 0 ? Math.round(((pollResults[poll.id].votes[i] || 0) / pollResults[poll.id].total_votes) * 100) : 0)}%)
+															</span>
+														</div>
+														<div class="h-2 rounded-full bg-gray-700 overflow-hidden">
+															<div
+																class="h-full rounded-full transition-all duration-500 {votedPolls[poll.id] === i ? 'bg-blue-500' : 'bg-blue-600'}"
+																style="width: {pollResults[poll.id].total_votes > 0 ? ((pollResults[poll.id].votes[i] || 0) / pollResults[poll.id].total_votes) * 100 : 0}%"
+															></div>
+														</div>
+													</div>
+												{/each}
+												<p class="text-[10px] text-gray-500 mt-2">مجموع آرا: {toPersianNum(pollResults[poll.id].total_votes)}</p>
+											</div>
+										{:else}
+											<div class="flex items-center justify-center py-4">
+												<div class="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+											</div>
+										{/if}
+									{:else}
+										<!-- Show voting options -->
+										<div class="space-y-2">
+											{#each poll.options as option, i}
+												<label class="flex items-center gap-3 p-2 rounded-lg cursor-pointer hover:bg-white/5 transition-colors">
+													<input type="radio" name="poll-{poll.id}" value={i} class="w-4 h-4 text-blue-600 focus:ring-blue-500" style="accent-color: #3b82f6;" />
+													<span class="text-sm text-gray-200">{option}</span>
+												</label>
+											{/each}
+											<button
+												onclick={() => {
+													const selected = document.querySelector(`input[name="poll-${poll.id}"]:checked`) as HTMLInputElement;
+													if (selected) vote(poll.id, parseInt(selected.value));
+												}}
+												class="w-full mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+											>
+												ثبت رأی
+											</button>
+										</div>
+									{/if}
+								</div>
+							{/each}
+						{/if}
+					</div>
+
+					<!-- Footer with Create Poll button -->
+					{#if isTeacherOrAdmin}
+						<div class="px-4 py-3 border-t" style="border-color: #2a2a4a;">
+							<button
+								onclick={() => showCreatePoll = true}
+								class="w-full px-4 py-2.5 bg-green-600 text-white rounded-xl text-sm font-medium hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
+							>
+								<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+								ایجاد نظرسنجی جدید
+							</button>
+						</div>
+					{/if}
+				</div>
+			</div>
+		{/if}
+
+		<!-- Create Poll Modal -->
+		{#if showCreatePoll}
+			<div class="absolute inset-0 z-50 flex items-center justify-center" style="background-color: rgba(0,0,0,0.6);" onclick={(e) => { if (e.target === e.currentTarget) showCreatePoll = false; }}>
+				<div class="w-[440px] rounded-2xl shadow-2xl" style="background-color: #1e1e3a; border: 1px solid #2a2a4a;">
+					<!-- Header -->
+					<div class="flex items-center justify-between px-5 py-4 border-b" style="border-color: #2a2a4a;">
+						<h2 class="text-lg font-bold text-white">ایجاد نظرسنجی جدید</h2>
+						<button onclick={() => showCreatePoll = false} class="text-gray-400 hover:text-white p-1">
+							<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+						</button>
+					</div>
+
+					<!-- Form -->
+					<div class="p-5 space-y-4">
+						<div>
+							<label class="block text-sm text-gray-300 mb-2">سوال</label>
+							<input
+								type="text"
+								bind:value={pollQuestion}
+								class="w-full px-4 py-2.5 rounded-xl text-sm text-white focus:ring-2 focus:ring-blue-500 outline-none"
+								style="background-color: #252545; border: 1px solid #3a3a5a;"
+								placeholder="سوال نظرسنجی را وارد کنید..."
+							/>
+						</div>
+
+						<div>
+							<label class="block text-sm text-gray-300 mb-2">گزینه‌ها</label>
+							<div class="space-y-2">
+								{#each pollOptions as option, i}
+									<div class="flex items-center gap-2">
+										<input
+											type="text"
+											bind:value={pollOptions[i]}
+											class="flex-1 px-4 py-2 rounded-lg text-sm text-white focus:ring-2 focus:ring-blue-500 outline-none"
+											style="background-color: #252545; border: 1px solid #3a3a5a;"
+											placeholder="گزینه {toPersianNum(i + 1)}"
+										/>
+										{#if pollOptions.length > 2}
+											<button
+												onclick={() => removePollOption(i)}
+												class="p-2 text-gray-400 hover:text-red-400 hover:bg-red-600/10 rounded-lg transition-colors"
+												title="حذف گزینه"
+											>
+												<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+											</button>
+										{/if}
+									</div>
+								{/each}
+							</div>
+							<button
+								onclick={addPollOption}
+								class="mt-3 w-full px-4 py-2 border-2 border-dashed border-gray-600 text-gray-400 rounded-xl text-sm hover:border-blue-500 hover:text-blue-400 transition-colors flex items-center justify-center gap-2"
+							>
+								<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+								افزودن گزینه
+							</button>
+						</div>
+					</div>
+
+					<!-- Footer -->
+					<div class="px-5 py-4 border-t flex gap-3" style="border-color: #2a2a4a;">
+						<button
+							onclick={() => showCreatePoll = false}
+							class="flex-1 px-4 py-2.5 bg-gray-700 text-white rounded-xl text-sm font-medium hover:bg-gray-600 transition-colors"
+						>
+							انصراف
+						</button>
+						<button
+							onclick={createPoll}
+							disabled={creatingPoll || !pollQuestion.trim() || pollOptions.filter(o => o.trim()).length < 2}
+							class="flex-1 px-4 py-2.5 bg-green-600 text-white rounded-xl text-sm font-medium hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+						>
+							{#if creatingPoll}
+								<div class="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
+							{/if}
+							ایجاد نظرسنجی
+						</button>
+					</div>
+				</div>
+			</div>
+		{/if}
 	{:else}
 		<div class="flex-1 flex items-center justify-center"><p class="text-gray-400">جلسه یافت نشد</p></div>
 	{/if}

@@ -33,8 +33,8 @@ func (r *UserRepo) Create(u *models.User) error {
 func (r *UserRepo) GetByID(id int64) (*models.User, error) {
 	u := &models.User{}
 	err := r.db.QueryRow(
-		`SELECT id, email, password_hash, display_name, role, phone, is_active, created_at, updated_at FROM users WHERE id = ?`, id,
-	).Scan(&u.ID, &u.Email, &u.PasswordHash, &u.DisplayName, &u.Role, &u.Phone, &u.IsActive, &u.CreatedAt, &u.UpdatedAt)
+		`SELECT id, email, password_hash, display_name, role, phone, is_active, totp_secret, totp_enabled, totp_backup_codes, created_at, updated_at FROM users WHERE id = ?`, id,
+	).Scan(&u.ID, &u.Email, &u.PasswordHash, &u.DisplayName, &u.Role, &u.Phone, &u.IsActive, &u.TOTPSecret, &u.TOTPEnabled, &u.TOTPBackupCodes, &u.CreatedAt, &u.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -44,8 +44,8 @@ func (r *UserRepo) GetByID(id int64) (*models.User, error) {
 func (r *UserRepo) GetByEmail(email string) (*models.User, error) {
 	u := &models.User{}
 	err := r.db.QueryRow(
-		`SELECT id, email, password_hash, display_name, role, phone, is_active, created_at, updated_at FROM users WHERE email = ?`, email,
-	).Scan(&u.ID, &u.Email, &u.PasswordHash, &u.DisplayName, &u.Role, &u.Phone, &u.IsActive, &u.CreatedAt, &u.UpdatedAt)
+		`SELECT id, email, password_hash, display_name, role, phone, is_active, totp_secret, totp_enabled, totp_backup_codes, created_at, updated_at FROM users WHERE email = ?`, email,
+	).Scan(&u.ID, &u.Email, &u.PasswordHash, &u.DisplayName, &u.Role, &u.Phone, &u.IsActive, &u.TOTPSecret, &u.TOTPEnabled, &u.TOTPBackupCodes, &u.CreatedAt, &u.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +68,7 @@ func (r *UserRepo) List(page, perPage int, search string) ([]models.User, int64,
 	}
 
 	offset := (page - 1) * perPage
-	query = `SELECT id, email, password_hash, display_name, role, phone, is_active, created_at, updated_at FROM users WHERE 1=1`
+	query = `SELECT id, email, password_hash, display_name, role, phone, is_active, totp_secret, totp_enabled, totp_backup_codes, created_at, updated_at FROM users WHERE 1=1`
 	if search != "" {
 		query += ` AND (email LIKE ? OR display_name LIKE ? OR phone LIKE ?)`
 	}
@@ -84,7 +84,7 @@ func (r *UserRepo) List(page, perPage int, search string) ([]models.User, int64,
 	var users []models.User
 	for rows.Next() {
 		var u models.User
-		if err := rows.Scan(&u.ID, &u.Email, &u.PasswordHash, &u.DisplayName, &u.Role, &u.Phone, &u.IsActive, &u.CreatedAt, &u.UpdatedAt); err != nil {
+		if err := rows.Scan(&u.ID, &u.Email, &u.PasswordHash, &u.DisplayName, &u.Role, &u.Phone, &u.IsActive, &u.TOTPSecret, &u.TOTPEnabled, &u.TOTPBackupCodes, &u.CreatedAt, &u.UpdatedAt); err != nil {
 			return nil, 0, err
 		}
 		users = append(users, u)
@@ -120,4 +120,38 @@ func (r *UserRepo) Count() (int64, error) {
 	var count int64
 	err := r.db.QueryRow(`SELECT COUNT(*) FROM users`).Scan(&count)
 	return count, err
+}
+
+// TOTP-related methods
+
+func (r *UserRepo) UpdateTOTPSecret(id int64, secret string) error {
+	_, err := r.db.Exec(
+		`UPDATE users SET totp_secret = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+		secret, id,
+	)
+	return err
+}
+
+func (r *UserRepo) EnableTOTP(id int64, backupCodes string) error {
+	_, err := r.db.Exec(
+		`UPDATE users SET totp_enabled = TRUE, totp_backup_codes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+		backupCodes, id,
+	)
+	return err
+}
+
+func (r *UserRepo) DisableTOTP(id int64) error {
+	_, err := r.db.Exec(
+		`UPDATE users SET totp_secret = NULL, totp_enabled = FALSE, totp_backup_codes = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+		id,
+	)
+	return err
+}
+
+func (r *UserRepo) UpdateTOTPBackupCodes(id int64, backupCodes string) error {
+	_, err := r.db.Exec(
+		`UPDATE users SET totp_backup_codes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+		backupCodes, id,
+	)
+	return err
 }

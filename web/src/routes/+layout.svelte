@@ -2,9 +2,11 @@
 	import '../app.css';
 	import { auth, isAdmin } from '$lib/stores';
 	import { page } from '$app/state';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { api } from '$lib/api';
 	import { toPersianNum } from '$lib/utils/persian';
+	import { notifications, unreadCount } from '$lib/stores/notifications';
+	import type { Notification } from '$lib/stores/notifications';
 
 	let { children } = $props();
 	let currentPath = $derived(page.url.pathname);
@@ -12,7 +14,36 @@
 	let sidebarCollapsed = $state(false);
 	let counts = $state({ classes: 0, sessions: 0 });
 	let showNotifications = $state(false);
-	let unreadCount = $state(3); // Placeholder - would come from API
+
+	let ws = $state<WebSocket | null>(null);
+	let reconnectTimeout: ReturnType<typeof setTimeout>;
+
+	function connectWebSocket() {
+		if (!browser) return;
+		const token = localStorage.getItem('access_token');
+		if (!token) return;
+
+		const wsBase = api.getWsUrl();
+		ws = new WebSocket(`${wsBase}/api/v1/ws?token=${token}`);
+
+		ws.onmessage = (event) => {
+			try {
+				const msg = JSON.parse(event.data);
+				if (msg.type === 'notification' && msg.data) {
+					notifications.add(msg.data as Notification);
+				}
+			} catch {}
+		};
+
+		ws.onclose = () => {
+			// Reconnect after 5 seconds
+			reconnectTimeout = setTimeout(connectWebSocket, 5000);
+		};
+
+		ws.onerror = () => {
+			ws?.close();
+		};
+	}
 
 	onMount(async () => {
 		try {
@@ -23,6 +54,15 @@
 			if (c.success && c.data) counts.classes = Array.isArray(c.data) ? c.data.length : (c.data?.total || 0);
 			if (s.success && s.data) counts.sessions = Array.isArray(s.data) ? s.data.length : (s.data?.total || 0);
 		} catch {}
+
+		// Load notifications and connect WebSocket
+		await notifications.load();
+		connectWebSocket();
+	});
+
+	onDestroy(() => {
+		if (reconnectTimeout) clearTimeout(reconnectTimeout);
+		if (ws) ws.close();
 	});
 
 	const isOnAdmin = $derived(currentPath.startsWith('/admin'));
@@ -71,12 +111,51 @@
 		student: 'bg-teal-500/20 text-teal-400'
 	};
 
+	function timeAgo(dateStr: string): string {
+		const now = new Date();
+		const date = new Date(dateStr);
+		const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+		if (seconds < 60) return 'لحظاتی پیش';
+		const minutes = Math.floor(seconds / 60);
+		if (minutes < 60) return `${toPersianNum(minutes)} دقیقه پیش`;
+		const hours = Math.floor(minutes / 60);
+		if (hours < 24) return `${toPersianNum(hours)} ساعت پیش`;
+		const days = Math.floor(hours / 24);
+		return `${toPersianNum(days)} روز پیش`;
+	}
+
+	function notifIcon(type: string): { icon: string; color: string; bg: string } {
+		switch (type) {
+			case 'session_created':
+			case 'session_started':
+				return { icon: 'M12 6v6m0 0v6m0-6h6m-6 0H6', color: 'var(--sky-accent-blue)', bg: 'rgba(67, 97, 238, 0.2)' };
+			case 'ticket_replied':
+			case 'ticket_closed':
+				return { icon: 'M5 13l4 4L19 7', color: 'var(--sky-accent-green)', bg: 'rgba(0, 210, 106, 0.2)' };
+			case 'warning':
+			case 'storage_full':
+				return { icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z', color: 'var(--sky-accent-red)', bg: 'rgba(233, 69, 96, 0.2)' };
+			case 'class_invite':
+				return { icon: 'M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z', color: 'var(--sky-accent-violet, #7c3aed)', bg: 'rgba(124, 58, 237, 0.2)' };
+			default:
+				return { icon: 'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9', color: 'var(--sky-accent-blue)', bg: 'rgba(67, 97, 238, 0.2)' };
+		}
+	}
+
 	// Close notifications when clicking outside
 	function handleClickOutside(event: MouseEvent) {
 		const target = event.target as HTMLElement;
 		if (!target.closest('.notification-dropdown') && !target.closest('.notification-bell')) {
 			showNotifications = false;
 		}
+	}
+
+	async function handleMarkAllRead() {
+		await notifications.markAllRead();
+	}
+
+	async function handleMarkRead(id: number) {
+		await notifications.markRead(id);
 	}
 </script>
 
@@ -226,10 +305,10 @@
 						<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
 							<path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
 						</svg>
-						{#if unreadCount > 0}
+						{#if $unreadCount > 0}
 							<span class="absolute -top-1 -right-1 w-5 h-5 flex items-center justify-center text-[10px] font-bold text-white rounded-full"
 								style="background: var(--sky-accent-red);">
-								{toPersianNum(unreadCount)}
+								{toPersianNum($unreadCount)}
 							</span>
 						{/if}
 					</button>
@@ -238,56 +317,58 @@
 					{#if showNotifications}
 						<div class="notification-dropdown absolute left-0 mt-2 w-80 rounded-xl shadow-2xl overflow-hidden"
 							style="background: var(--sky-bg-panel); border: 1px solid var(--sky-border);">
-							<div class="px-4 py-3" style="border-bottom: 1px solid var(--sky-border);">
+							<div class="px-4 py-3 flex items-center justify-between" style="border-bottom: 1px solid var(--sky-border);">
 								<h3 class="font-bold" style="color: var(--sky-text-primary);">اعلان‌ها</h3>
+								{#if $unreadCount > 0}
+									<button class="text-xs font-medium hover:underline cursor-pointer" style="color: var(--sky-accent-blue);" onclick={handleMarkAllRead}>
+										علامت‌گذاری همه به عنوان خوانده شده
+									</button>
+								{/if}
 							</div>
 							<div class="max-h-80 overflow-y-auto">
-								<!-- Placeholder notifications -->
-								<div class="px-4 py-3 hover:bg-[#0f3460] transition-colors cursor-pointer" style="border-bottom: 1px solid var(--sky-border);">
-									<div class="flex items-start gap-3">
-										<div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style="background: rgba(67, 97, 238, 0.2);">
-											<svg class="w-4 h-4" style="color: var(--sky-accent-blue);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-											</svg>
-										</div>
-										<div class="flex-1 min-w-0">
-											<p class="text-sm font-medium" style="color: var(--sky-text-primary);">جلسه جدید ایجاد شد</p>
-											<p class="text-xs mt-1" style="color: var(--sky-text-secondary);">۵ دقیقه پیش</p>
-										</div>
+								{#if $notifications.length === 0}
+									<div class="px-4 py-8 text-center">
+										<svg class="w-10 h-10 mx-auto mb-2 opacity-30" style="color: var(--sky-text-secondary);" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+											<path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+										</svg>
+										<p class="text-sm" style="color: var(--sky-text-secondary);">اعلانی وجود ندارد</p>
 									</div>
-								</div>
-								<div class="px-4 py-3 hover:bg-[#0f3460] transition-colors cursor-pointer" style="border-bottom: 1px solid var(--sky-border);">
-									<div class="flex items-start gap-3">
-										<div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style="background: rgba(0, 210, 106, 0.2);">
-											<svg class="w-4 h-4" style="color: var(--sky-accent-green);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-											</svg>
+								{:else}
+									{#each $notifications as notification (notification.id)}
+										{@const icon = notifIcon(notification.type)}
+										<div class="px-4 py-3 hover:bg-[#0f3460] transition-colors cursor-pointer {notification.is_read ? 'opacity-60' : ''}"
+											style="border-bottom: 1px solid var(--sky-border);"
+											onclick={() => handleMarkRead(notification.id)}>
+											<div class="flex items-start gap-3">
+												<div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
+													style="background: {icon.bg};">
+													<svg class="w-4 h-4" style="color: {icon.color};" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+														<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d={icon.icon} />
+													</svg>
+												</div>
+												<div class="flex-1 min-w-0">
+													<p class="text-sm font-medium" style="color: var(--sky-text-primary);">{notification.title}</p>
+													{#if notification.message}
+														<p class="text-xs mt-0.5 truncate" style="color: var(--sky-text-secondary);">{notification.message}</p>
+													{/if}
+													<p class="text-xs mt-1" style="color: var(--sky-text-secondary);">{timeAgo(notification.created_at)}</p>
+												</div>
+												{#if !notification.is_read}
+													<div class="w-2 h-2 rounded-full shrink-0 mt-1.5" style="background: var(--sky-accent-blue);"></div>
+												{/if}
+											</div>
 										</div>
-										<div class="flex-1 min-w-0">
-											<p class="text-sm font-medium" style="color: var(--sky-text-primary);">تیکت شما پاسخ داده شد</p>
-											<p class="text-xs mt-1" style="color: var(--sky-text-secondary);">۱ ساعت پیش</p>
-										</div>
-									</div>
-								</div>
-								<div class="px-4 py-3 hover:bg-[#0f3460] transition-colors cursor-pointer">
-									<div class="flex items-start gap-3">
-										<div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style="background: rgba(233, 69, 96, 0.2);">
-											<svg class="w-4 h-4" style="color: var(--sky-accent-red);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-											</svg>
-										</div>
-										<div class="flex-1 min-w-0">
-											<p class="text-sm font-medium" style="color: var(--sky-text-primary);">هشدار: فضای ذخیره‌سازی پر است</p>
-											<p class="text-xs mt-1" style="color: var(--sky-text-secondary);">۲ ساعت پیش</p>
-										</div>
-									</div>
-								</div>
+									{/each}
+								{/if}
 							</div>
-							<div class="px-4 py-3 text-center" style="border-top: 1px solid var(--sky-border);">
-								<a href="/notifications" class="text-sm font-medium hover:underline" style="color: var(--sky-accent-blue);">
-									مشاهده همه اعلان‌ها
-								</a>
-							</div>
+							{#if $notifications.length > 0}
+								<div class="px-4 py-3 text-center" style="border-top: 1px solid var(--sky-border);">
+									<button class="text-sm font-medium hover:underline cursor-pointer" style="color: var(--sky-accent-blue);"
+										onclick={() => { showNotifications = false; }}>
+										مشاهده همه اعلان‌ها
+									</button>
+								</div>
+							{/if}
 						</div>
 					{/if}
 				</div>
@@ -304,16 +385,16 @@
 			</button>
 			<h1 class="font-extrabold" style="color: var(--sky-text-primary);">آی‌روم</h1>
 			<!-- Mobile notification bell -->
-			<button class="p-2 rounded-lg transition-colors hover:bg-[#0f3460] relative"
+			<button class="notification-bell p-2 rounded-lg transition-colors hover:bg-[#0f3460] relative"
 				style="color: var(--sky-text-secondary);"
 				onclick={() => showNotifications = !showNotifications}>
 				<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
 					<path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
 				</svg>
-				{#if unreadCount > 0}
+				{#if $unreadCount > 0}
 					<span class="absolute -top-1 -right-1 w-4 h-4 flex items-center justify-center text-[9px] font-bold text-white rounded-full"
 						style="background: var(--sky-accent-red);">
-						{toPersianNum(unreadCount)}
+						{toPersianNum($unreadCount)}
 					</span>
 				{/if}
 			</button>

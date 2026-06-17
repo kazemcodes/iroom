@@ -49,14 +49,18 @@ func main() {
 	resetRepo := repository.NewPasswordResetRepo(db)
 	announcementRepo := repository.NewAnnouncementRepo(db)
 	pollRepo := repository.NewPollRepo(db)
+	webhookRepo := repository.NewWebhookRepo(db)
+	webhookDeliveryRepo := repository.NewWebhookDeliveryRepo(db)
 
 	// Services
 	livekitSvc := services.NewLiveKitService(cfg.LiveKit.APIKey, cfg.LiveKit.APISecret, cfg.LiveKit.URL)
 	wsHub := services.NewHub()
 	go wsHub.Run()
+	totpSvc := services.NewTOTPService("IRoom")
+	webhookDeliverySvc := services.NewWebhookDeliveryService(webhookRepo, webhookDeliveryRepo)
 
 	// Handlers
-	authHandler := handlers.NewAuthHandler(userRepo, logRepo, resetRepo, cfg.Upload.UploadDir, cfg.JWT.Secret, cfg.JWT.AccessExpiry, cfg.JWT.RefreshExpiry)
+	authHandler := handlers.NewAuthHandler(userRepo, logRepo, resetRepo, cfg.Upload.UploadDir, cfg.JWT.Secret, cfg.JWT.AccessExpiry, cfg.JWT.RefreshExpiry, totpSvc)
 	adminHandler := handlers.NewAdminHandler(userRepo, classRepo, sessionRepo, messageRepo, recordingRepo, logRepo, settingsRepo, ticketRepo, sessionLogRepo, cfg.JWT.Secret, cfg.JWT.AccessExpiry, cfg.JWT.RefreshExpiry)
 	classHandler := handlers.NewClassHandler(classRepo, sessionRepo)
 	sessionHandler := handlers.NewSessionHandler(sessionRepo, classRepo)
@@ -72,6 +76,7 @@ func main() {
 	notificationHandler := handlers.NewNotificationHandler(notificationRepo)
 	announcementHandler := handlers.NewAnnouncementHandler(announcementRepo, classRepo, logRepo)
 	pollHandler := handlers.NewPollHandler(pollRepo, sessionRepo, logRepo)
+	webhookHandler := handlers.NewWebhookHandler(webhookRepo, webhookDeliveryRepo, webhookDeliverySvc)
 
 	// Echo
 	e := echo.New()
@@ -106,6 +111,12 @@ func main() {
 	api.PUT("/auth/me", authHandler.UpdateProfile)
 	api.POST("/auth/change-password", authHandler.ChangePassword)
 	api.POST("/auth/avatar", authHandler.AvatarUpload)
+
+	// Two-Factor Authentication
+	api.POST("/auth/2fa/setup", authHandler.TOTPSetup)
+	api.POST("/auth/2fa/verify", authHandler.TOTPVerify)
+	api.POST("/auth/2fa/disable", authHandler.TOTPDisable)
+	api.POST("/auth/2fa/backup", authHandler.TOTPBackup)
 
 	// Classes
 	api.GET("/classes", classHandler.List)
@@ -199,6 +210,7 @@ func main() {
 	admin.GET("/dashboard/stats", adminHandler.DashboardStats)
 	admin.GET("/users", adminHandler.ListUsers)
 	admin.POST("/users", adminHandler.CreateUser)
+	admin.POST("/users/import", adminHandler.ImportUsers)
 	admin.PUT("/users/:id", adminHandler.UpdateUser)
 	admin.DELETE("/users/:id", adminHandler.DeactivateUser)
 	admin.POST("/users/:id/impersonate", adminHandler.ImpersonateUser)
@@ -216,6 +228,14 @@ func main() {
 	admin.GET("/tickets", adminTicketHandler.ListAll)
 	admin.PUT("/settings", adminHandler.UpdateSettings)
 	admin.GET("/settings", adminHandler.GetSettings)
+
+	// Webhooks (admin only)
+	admin.POST("/webhooks", webhookHandler.Create)
+	admin.GET("/webhooks", webhookHandler.List)
+	admin.PUT("/webhooks/:id", webhookHandler.Update)
+	admin.DELETE("/webhooks/:id", webhookHandler.Delete)
+	admin.GET("/webhooks/:id/deliveries", webhookHandler.ListDeliveries)
+	admin.POST("/webhooks/:id/test", webhookHandler.Test)
 
 	// External API (API key auth + rate limit)
 	ext := api.Group("/external")

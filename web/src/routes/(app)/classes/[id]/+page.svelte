@@ -4,7 +4,7 @@
 	import { api } from '$lib/api';
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
-	import type { Class, Session, User } from '$lib/types';
+	import type { Class, Session, User, Announcement, RecurringSession } from '$lib/types';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import JalaliDatePicker from '$lib/components/JalaliDatePicker.svelte';
 	import { classroomWindow } from '$lib/classroom/ClassroomWindow';
@@ -13,8 +13,9 @@
 	let classData = $state<Class | null>(null);
 	let sessions = $state<Session[]>([]);
 	let students = $state<User[]>([]);
+	let announcements = $state<Announcement[]>([]);
 	let loading = $state(true);
-	let activeTab = $state<'sessions' | 'students'>('sessions');
+	let activeTab = $state<'sessions' | 'students' | 'announcements'>('sessions');
 
 	// Enroll
 	let showEnroll = $state(false);
@@ -42,21 +43,66 @@
 	// Delete confirm
 	let showDeleteConfirm = $state(false);
 
+	// Announcements
+	let showCreateAnnouncement = $state(false);
+	let showEditAnnouncement = $state(false);
+	let editingAnnouncement = $state<Announcement | null>(null);
+	let announcementTitle = $state('');
+	let announcementContent = $state('');
+	let announcementPinned = $state(false);
+	let announcementLoading = $state(false);
+	let announcementError = $state('');
+	let showDeleteAnnouncementConfirm = $state(false);
+	let deletingAnnouncementId = $state<number | null>(null);
+
+	// Recurring sessions
+	let recurringSessions = $state<RecurringSession[]>([]);
+	let showCreateRecurring = $state(false);
+	let recurringTitle = $state('');
+	let recurringDayOfWeek = $state(0);
+	let recurringTime = $state('09:00');
+	let recurringDuration = $state(60);
+	let recurringWeekCount = $state(4);
+	let recurringLoading = $state(false);
+	let recurringError = $state('');
+	let showDeleteRecurringConfirm = $state(false);
+	let deletingRecurringId = $state<number | null>(null);
+
+	// Invite code
+	let inviteCode = $state('');
+	let joinLink = $state('');
+	let showRegenerateConfirm = $state(false);
+	let copySuccess = $state(false);
+
+	const persianDays = ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنج‌شنبه', 'جمعه'];
+
 	const classId = $derived(page.params.id);
 
 	onMount(() => loadData());
 
 	async function loadData() {
 		loading = true;
-		const [classRes, sessionsRes, studentsRes] = await Promise.all([
+		const [classRes, sessionsRes, studentsRes, announcementsRes, recurringRes] = await Promise.all([
 			api.get<Class>(`/classes/${classId}`),
 			api.get<Session[]>(`/sessions?class_id=${classId}`),
-			api.get<User[]>(`/classes/${classId}/students`)
+			api.get<User[]>(`/classes/${classId}/students`),
+			api.get<{ items: Announcement[] }>(`/classes/${classId}/announcements`),
+			api.get<RecurringSession[]>(`/sessions/recurring?class_id=${classId}`)
 		]);
 
-		if (classRes.success) classData = classRes.data!;
+		if (classRes.success) {
+			classData = classRes.data!;
+			inviteCode = classRes.data!.invite_code || '';
+			joinLink = `${window.location.origin}/join/${inviteCode}`;
+		}
 		if (sessionsRes.success && sessionsRes.data) sessions = Array.isArray(sessionsRes.data) ? sessionsRes.data : [];
 		if (studentsRes.success && studentsRes.data) students = Array.isArray(studentsRes.data) ? studentsRes.data : [];
+		if (announcementsRes.success && announcementsRes.data) {
+			announcements = Array.isArray(announcementsRes.data.items) ? announcementsRes.data.items : [];
+		}
+		if (recurringRes.success && recurringRes.data) {
+			recurringSessions = Array.isArray(recurringRes.data) ? recurringRes.data : [];
+		}
 		loading = false;
 	}
 
@@ -84,6 +130,70 @@
 		sessionTime = '';
 		sessionDuration = 60;
 		sessionLoading = false;
+	}
+
+	async function createRecurringSession() {
+		recurringLoading = true;
+		recurringError = '';
+		const res = await api.post<RecurringSession>('/sessions/recurring', {
+			class_id: parseInt(classId),
+			title: recurringTitle,
+			day_of_week: recurringDayOfWeek,
+			time: recurringTime,
+			duration: recurringDuration,
+			week_count: recurringWeekCount
+		});
+
+		if (!res.success) {
+			recurringError = res.error || 'خطا در ایجاد جلسه تکرارشونده';
+			recurringLoading = false;
+			return;
+		}
+
+		recurringSessions = [res.data!, ...recurringSessions];
+		showCreateRecurring = false;
+		recurringTitle = '';
+		recurringDayOfWeek = 0;
+		recurringTime = '09:00';
+		recurringDuration = 60;
+		recurringWeekCount = 4;
+		recurringLoading = false;
+	}
+
+	async function deleteRecurringSession() {
+		if (!deletingRecurringId) return;
+		const res = await api.delete(`/sessions/recurring/${deletingRecurringId}`);
+		if (res.success) {
+			recurringSessions = recurringSessions.filter(r => r.id !== deletingRecurringId);
+		}
+		showDeleteRecurringConfirm = false;
+		deletingRecurringId = null;
+	}
+
+	// Generate preview dates for recurring session
+	function generatePreviewDates() {
+		const dates: Date[] = [];
+		const today = new Date();
+		const currentDay = today.getDay(); // 0=Sunday, 1=Monday, ...
+		
+		// Convert Persian day (0=Saturday) to JS day (0=Sunday)
+		// Persian: 0=شنبه(Sat), 1=یکشنبه(Sun), ..., 6=جمعه(Fri)
+		// JS: 0=Sun, 1=Mon, ..., 6=Sat
+		const targetDay = recurringDayOfWeek === 0 ? 6 : recurringDayOfWeek - 1;
+		
+		let daysUntilTarget = targetDay - currentDay;
+		if (daysUntilTarget < 0) daysUntilTarget += 7;
+		
+		const firstDate = new Date(today);
+		firstDate.setDate(today.getDate() + daysUntilTarget);
+		
+		for (let i = 0; i < recurringWeekCount; i++) {
+			const date = new Date(firstDate);
+			date.setDate(firstDate.getDate() + i * 7);
+			dates.push(date);
+		}
+		
+		return dates;
 	}
 
 	async function startSession(id: number) {
@@ -123,6 +233,105 @@
 		const res = await api.delete(`/classes/${classId}`);
 		if (res.success) goto('/classes');
 	}
+
+	// Announcement functions
+	async function createAnnouncement() {
+		announcementLoading = true;
+		announcementError = '';
+		const res = await api.post<Announcement>(`/classes/${classId}/announcements`, {
+			title: announcementTitle,
+			content: announcementContent,
+			is_pinned: announcementPinned
+		});
+
+		if (!res.success) {
+			announcementError = res.error || 'خطا در ایجاد اعلان';
+			announcementLoading = false;
+			return;
+		}
+
+		announcements = [res.data!, ...announcements];
+		showCreateAnnouncement = false;
+		announcementTitle = '';
+		announcementContent = '';
+		announcementPinned = false;
+		announcementLoading = false;
+	}
+
+	async function updateAnnouncement() {
+		if (!editingAnnouncement) return;
+		announcementLoading = true;
+		announcementError = '';
+		const res = await api.put<Announcement>(`/announcements/${editingAnnouncement.id}`, {
+			title: announcementTitle,
+			content: announcementContent
+		});
+
+		if (!res.success) {
+			announcementError = res.error || 'خطا در ویرایش اعلان';
+			announcementLoading = false;
+			return;
+		}
+
+		announcements = announcements.map(a => a.id === editingAnnouncement.id ? { ...a, title: announcementTitle, content: announcementContent } : a);
+		showEditAnnouncement = false;
+		editingAnnouncement = null;
+		announcementTitle = '';
+		announcementContent = '';
+		announcementLoading = false;
+	}
+
+	async function deleteAnnouncement() {
+		if (!deletingAnnouncementId) return;
+		const res = await api.delete(`/announcements/${deletingAnnouncementId}`);
+		if (res.success) {
+			announcements = announcements.filter(a => a.id !== deletingAnnouncementId);
+		}
+		showDeleteAnnouncementConfirm = false;
+		deletingAnnouncementId = null;
+	}
+
+	async function togglePin(announcement: Announcement) {
+		const res = await api.post(`/announcements/${announcement.id}/pin`);
+		if (res.success) {
+			announcements = announcements.map(a => 
+				a.id === announcement.id ? { ...a, is_pinned: !a.is_pinned } : a
+			);
+		}
+	}
+
+	// Invite code functions
+	async function copyToClipboard(text: string) {
+		try {
+			await navigator.clipboard.writeText(text);
+			copySuccess = true;
+			setTimeout(() => copySuccess = false, 2000);
+		} catch (err) {
+			console.error('Failed to copy:', err);
+		}
+	}
+
+	async function regenerateCode() {
+		const res = await api.post<{ invite_code: string }>(`/classes/${classId}/regenerate-code`);
+		if (res.success && res.data) {
+			inviteCode = res.data.invite_code;
+			joinLink = `${window.location.origin}/join/${inviteCode}`;
+		}
+		showRegenerateConfirm = false;
+	}
+
+	function openEditAnnouncement(announcement: Announcement) {
+		editingAnnouncement = announcement;
+		announcementTitle = announcement.title;
+		announcementContent = announcement.content;
+		showEditAnnouncement = true;
+	}
+
+	const sortedAnnouncements = $derived([...announcements].sort((a, b) => {
+		if (a.is_pinned && !b.is_pinned) return -1;
+		if (!a.is_pinned && b.is_pinned) return 1;
+		return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+	}));
 
 	const statusLabels: Record<string, string> = { scheduled: 'برنامه‌ریزی شده', live: 'در حال برگزاری', ended: 'پایان یافته' };
 	const statusColors: Record<string, string> = { scheduled: 'bg-blue-100 text-blue-700', live: 'bg-green-100 text-green-700', ended: 'bg-gray-100 text-gray-500' };
@@ -164,6 +373,80 @@
 			</div>
 		</div>
 
+		<!-- Invite Code Section (Teacher/Admin only) -->
+		{#if ($isAdmin || $isTeacher) && inviteCode}
+			<div class="bg-white rounded-xl border p-5">
+				<h3 class="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+					<svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+					</svg>
+					کد دعوت
+				</h3>
+				<div class="space-y-4">
+					<!-- Invite Code -->
+					<div>
+						<label class="block text-sm text-gray-500 mb-1">کد دعوت</label>
+						<div class="flex items-center gap-2">
+							<code class="flex-1 px-4 py-2.5 bg-gray-50 border rounded-lg font-mono text-lg tracking-wider text-center select-all">{inviteCode}</code>
+							<button
+								onclick={() => copyToClipboard(inviteCode)}
+								class="px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 shrink-0"
+								title="کپی کد"
+							>
+								{#if copySuccess}
+									<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+									</svg>
+								{:else}
+									<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+									</svg>
+								{/if}
+								کپی
+							</button>
+						</div>
+					</div>
+
+					<!-- Join Link -->
+					<div>
+						<label class="block text-sm text-gray-500 mb-1">لینک پیوستن</label>
+						<div class="flex items-center gap-2">
+							<input
+								type="text"
+								readonly
+								value={joinLink}
+								class="flex-1 px-4 py-2.5 bg-gray-50 border rounded-lg text-sm text-gray-600 select-all"
+							/>
+							<button
+								onclick={() => copyToClipboard(joinLink)}
+								class="px-4 py-2.5 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-2 shrink-0"
+								title="کپی لینک"
+							>
+								<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+								</svg>
+								کپی لینک
+							</button>
+						</div>
+					</div>
+
+					<!-- Regenerate Button -->
+					<div class="pt-2 border-t">
+						<button
+							onclick={() => showRegenerateConfirm = true}
+							class="px-4 py-2 text-sm text-orange-600 hover:bg-orange-50 rounded-lg transition-colors flex items-center gap-2"
+						>
+							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+							</svg>
+							تولید مجدد کد
+						</button>
+						<p class="text-xs text-gray-400 mt-1">توجه: تولید مجدد کد، کد قبلی را غیرفعال می‌کند</p>
+					</div>
+				</div>
+			</div>
+		{/if}
+
 		<!-- Tabs -->
 		<div class="flex gap-1 bg-gray-100 p-1 rounded-lg w-fit">
 			<button
@@ -174,17 +457,68 @@
 				class="px-4 py-2 rounded-md text-sm font-medium transition-all {activeTab === 'students' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}"
 				onclick={() => activeTab = 'students'}
 			>دانش‌آموزان ({toPersianNum(students.length)})</button>
+			<button
+				class="px-4 py-2 rounded-md text-sm font-medium transition-all {activeTab === 'announcements' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}"
+				onclick={() => activeTab = 'announcements'}
+			>اعلان‌ها ({toPersianNum(announcements.length)})</button>
 		</div>
 
 		{#if activeTab === 'sessions'}
-			<div class="flex justify-end">
+			<div class="flex justify-end gap-2">
 				{#if $isAdmin || $isTeacher}
+					<button onclick={() => showCreateRecurring = true} class="px-4 py-2.5 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 transition-colors flex items-center gap-2">
+						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+						جلسه تکرارشونده
+					</button>
 					<button onclick={() => showCreateSession = true} class="px-4 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors flex items-center gap-2">
 						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
 						جلسه جدید
 					</button>
 				{/if}
 			</div>
+
+			<!-- Recurring Sessions Section -->
+			{#if recurringSessions.length > 0}
+				<div class="bg-white rounded-xl border p-4">
+					<h3 class="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+						<svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+						جلسات تکرارشونده
+					</h3>
+					<div class="space-y-3">
+						{#each recurringSessions as template (template.id)}
+							<div class="flex items-center justify-between p-3 bg-purple-50 rounded-lg border border-purple-100">
+								<div class="flex items-center gap-3">
+									<div class="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
+										<svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+									</div>
+									<div>
+										<p class="font-medium text-gray-900">{template.title}</p>
+										<p class="text-sm text-gray-500">
+											{persianDays[template.day_of_week]} ساعت {template.time} • {toPersianNum(template.duration)} دقیقه • {toPersianNum(template.week_count)} هفته
+										</p>
+									</div>
+								</div>
+								<div class="flex items-center gap-3">
+									<span class="text-xs px-2.5 py-1 rounded-full font-medium bg-purple-100 text-purple-700">
+										{toPersianNum(template.sessions_generated)} جلسه ایجاد شده
+									</span>
+									{#if $isAdmin || $isTeacher}
+										<button
+											onclick={() => { deletingRecurringId = template.id; showDeleteRecurringConfirm = true; }}
+											class="p-2 rounded-lg hover:bg-red-50 transition-colors"
+											title="حذف"
+										>
+											<svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+											</svg>
+										</button>
+									{/if}
+								</div>
+							</div>
+						{/each}
+					</div>
+				</div>
+			{/if}
 
 			{#if sessions.length === 0}
 				<div class="text-center py-12 bg-white rounded-xl border">
@@ -225,7 +559,7 @@
 					{/each}
 				</div>
 			{/if}
-		{:else}
+		{:else if activeTab === 'students'}
 			<!-- Students tab -->
 			<div class="flex justify-end">
 				{#if $isAdmin || $isTeacher}
@@ -250,6 +584,78 @@
 									<p class="font-medium text-gray-900 text-sm">{student.display_name}</p>
 									<p class="text-xs text-gray-500">{student.email}</p>
 								</div>
+							</div>
+						</div>
+					{/each}
+				</div>
+			{/if}
+		{:else}
+			<!-- Announcements tab -->
+			<div class="flex justify-end">
+				{#if $isAdmin || $isTeacher}
+					<button onclick={() => showCreateAnnouncement = true} class="px-4 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors flex items-center gap-2">
+						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+						اعلان جدید
+					</button>
+				{/if}
+			</div>
+
+			{#if announcements.length === 0}
+				<div class="text-center py-12 bg-white rounded-xl border">
+					<p class="text-gray-500">هنوز اعلانی ایجاد نشده</p>
+				</div>
+			{:else}
+				<div class="space-y-3">
+					{#each sortedAnnouncements as announcement}
+						<div class="bg-white rounded-xl border p-4 {announcement.is_pinned ? 'border-blue-200 bg-blue-50/30' : ''}">
+							<div class="flex items-start justify-between gap-4">
+								<div class="flex-1 min-w-0">
+									<div class="flex items-center gap-2 mb-2">
+										{#if announcement.is_pinned}
+											<span class="text-blue-600" title="پین شده">📌</span>
+										{/if}
+										<h3 class="font-semibold text-gray-900 truncate">{announcement.title}</h3>
+										{#if !announcement.is_read}
+											<span class="px-2 py-0.5 bg-red-100 text-red-600 text-xs rounded-full font-medium">جدید</span>
+										{/if}
+									</div>
+									<p class="text-gray-600 text-sm whitespace-pre-wrap mb-3">{announcement.content}</p>
+									<div class="flex items-center gap-4 text-xs text-gray-500">
+										<span>{announcement.author_name || 'مدیر'}</span>
+										<span>{toPersianDate(announcement.created_at)}</span>
+									</div>
+								</div>
+								{#if $isAdmin || $isTeacher}
+									<div class="flex items-center gap-1 shrink-0">
+										<button
+											onclick={() => togglePin(announcement)}
+											class="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+											title={announcement.is_pinned ? 'برداشتن پین' : 'پین کردน'}
+										>
+											<svg class="w-4 h-4 {announcement.is_pinned ? 'text-blue-600' : 'text-gray-400'}" fill="currentColor" viewBox="0 0 24 24">
+												<path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/>
+											</svg>
+										</button>
+										<button
+											onclick={() => openEditAnnouncement(announcement)}
+											class="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+											title="ویرایش"
+										>
+											<svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+											</svg>
+										</button>
+										<button
+											onclick={() => { deletingAnnouncementId = announcement.id; showDeleteAnnouncementConfirm = true; }}
+											class="p-2 rounded-lg hover:bg-red-50 transition-colors"
+											title="حذف"
+										>
+											<svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+											</svg>
+										</button>
+									</div>
+								{/if}
 							</div>
 						</div>
 					{/each}
@@ -289,6 +695,61 @@
 					<button onclick={() => showCreateSession = false} class="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">انصراف</button>
 					<button onclick={createSession} disabled={sessionLoading || !sessionTitle || !sessionDate || !sessionTime} class="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50">
 						{sessionLoading ? 'در حال ایجاد...' : 'ایجاد جلسه'}
+					</button>
+				</div>
+			</div>
+		</div>
+	{/if}
+
+	<!-- Create Recurring Session Modal -->
+	{#if showCreateRecurring}
+		<div class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onclick={() => showCreateRecurring = false}>
+			<div class="bg-white rounded-2xl w-full max-w-md shadow-xl" onclick={(e) => e.stopPropagation()}>
+				<div class="px-6 py-4 border-b"><h2 class="font-bold text-lg">جلسه تکرارشونده</h2></div>
+				<div class="px-6 py-4 space-y-4">
+					{#if recurringError}
+						<div class="p-3 bg-red-50 text-red-600 rounded-lg text-sm">{recurringError}</div>
+					{/if}
+					<div>
+						<label class="block text-sm font-medium text-gray-700 mb-1">عنوان</label>
+						<input type="text" bind:value={recurringTitle} class="w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none text-sm" placeholder="عنوان جلسه" required />
+					</div>
+					<div>
+						<label class="block text-sm font-medium text-gray-700 mb-1">روز هفته</label>
+						<select bind:value={recurringDayOfWeek} class="w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none text-sm">
+							{#each persianDays as day, i}
+								<option value={i}>{day}</option>
+							{/each}
+						</select>
+					</div>
+					<div class="grid grid-cols-2 gap-3">
+						<div>
+							<label class="block text-sm font-medium text-gray-700 mb-1">ساعت</label>
+							<input type="time" bind:value={recurringTime} class="w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none text-sm" required />
+						</div>
+						<div>
+							<label class="block text-sm font-medium text-gray-700 mb-1">مدت (دقیقه)</label>
+							<input type="number" bind:value={recurringDuration} class="w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none text-sm" min="15" max="480" />
+						</div>
+					</div>
+					<div>
+						<label class="block text-sm font-medium text-gray-700 mb-1">تعداد هفته‌ها</label>
+						<input type="number" bind:value={recurringWeekCount} class="w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none text-sm" min="1" max="52" />
+					</div>
+					<!-- Preview -->
+					<div class="bg-purple-50 rounded-lg p-3">
+						<p class="text-sm font-medium text-purple-700 mb-2">پیش‌نمایش تاریخ‌ها:</p>
+						<div class="space-y-1 max-h-32 overflow-y-auto">
+							{#each generatePreviewDates() as date, i}
+								<p class="text-sm text-purple-600">{toPersianDate(date)} ({persianDays[recurringDayOfWeek]})</p>
+							{/each}
+						</div>
+					</div>
+				</div>
+				<div class="px-6 py-4 border-t flex justify-end gap-3">
+					<button onclick={() => showCreateRecurring = false} class="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">انصراف</button>
+					<button onclick={createRecurringSession} disabled={recurringLoading || !recurringTitle} class="px-4 py-2 bg-purple-600 text-white text-sm rounded-lg font-medium hover:bg-purple-700 disabled:opacity-50">
+						{recurringLoading ? 'در حال ایجاد...' : 'ایجاد جلسه تکرارشونده'}
 					</button>
 				</div>
 			</div>
@@ -373,4 +834,67 @@
 	</div>
 {/if}
 
+	<!-- Create Announcement Modal -->
+	{#if showCreateAnnouncement}
+		<div class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onclick={() => showCreateAnnouncement = false}>
+			<div class="bg-white rounded-2xl w-full max-w-md shadow-xl" onclick={(e) => e.stopPropagation()}>
+				<div class="px-6 py-4 border-b"><h2 class="font-bold text-lg">اعلان جدید</h2></div>
+				<div class="px-6 py-4 space-y-4">
+					{#if announcementError}
+						<div class="p-3 bg-red-50 text-red-600 rounded-lg text-sm">{announcementError}</div>
+					{/if}
+					<div>
+						<label class="block text-sm font-medium text-gray-700 mb-1">عنوان</label>
+						<input type="text" bind:value={announcementTitle} class="w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm" placeholder="عنوان اعلان" required />
+					</div>
+					<div>
+						<label class="block text-sm font-medium text-gray-700 mb-1">محتوا</label>
+						<textarea bind:value={announcementContent} class="w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm resize-none" rows="4" placeholder="متن اعلان" required></textarea>
+					</div>
+					<label class="flex items-center gap-2 cursor-pointer">
+						<input type="checkbox" bind:checked={announcementPinned} class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500" />
+						<span class="text-sm text-gray-700">پین کردن اعلان</span>
+					</label>
+				</div>
+				<div class="px-6 py-4 border-t flex justify-end gap-3">
+					<button onclick={() => showCreateAnnouncement = false} class="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">انصراف</button>
+					<button onclick={createAnnouncement} disabled={announcementLoading || !announcementTitle || !announcementContent} class="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50">
+						{announcementLoading ? 'در حال ایجاد...' : 'ایجاد اعلان'}
+					</button>
+				</div>
+			</div>
+		</div>
+	{/if}
+
+	<!-- Edit Announcement Modal -->
+	{#if showEditAnnouncement}
+		<div class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onclick={() => showEditAnnouncement = false}>
+			<div class="bg-white rounded-2xl w-full max-w-md shadow-xl" onclick={(e) => e.stopPropagation()}>
+				<div class="px-6 py-4 border-b"><h2 class="font-bold text-lg">ویرایش اعلان</h2></div>
+				<div class="px-6 py-4 space-y-4">
+					{#if announcementError}
+						<div class="p-3 bg-red-50 text-red-600 rounded-lg text-sm">{announcementError}</div>
+					{/if}
+					<div>
+						<label class="block text-sm font-medium text-gray-700 mb-1">عنوان</label>
+						<input type="text" bind:value={announcementTitle} class="w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm" placeholder="عنوان اعلان" required />
+					</div>
+					<div>
+						<label class="block text-sm font-medium text-gray-700 mb-1">محتوا</label>
+						<textarea bind:value={announcementContent} class="w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm resize-none" rows="4" placeholder="متن اعلان" required></textarea>
+					</div>
+				</div>
+				<div class="px-6 py-4 border-t flex justify-end gap-3">
+					<button onclick={() => showEditAnnouncement = false} class="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">انصراف</button>
+					<button onclick={updateAnnouncement} disabled={announcementLoading || !announcementTitle || !announcementContent} class="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50">
+						{announcementLoading ? 'در حال ذخیره...' : 'ذخیره تغییرات'}
+					</button>
+				</div>
+			</div>
+		</div>
+	{/if}
+
 <ConfirmModal bind:show={showDeleteConfirm} title="حذف کلاس" message="آیا از حذف این کلاس اطمینان دارید؟" onConfirm={deleteClass} onCancel={() => {}} />
+<ConfirmModal bind:show={showDeleteAnnouncementConfirm} title="حذف اعلان" message="آیا از حذف این اعلان اطمینان دارید؟" onConfirm={deleteAnnouncement} onCancel={() => { deletingAnnouncementId = null; }} />
+<ConfirmModal bind:show={showDeleteRecurringConfirm} title="حذف جلسه تکرارشونده" message="آیا از حذف این الگوی جلسه تکرارشونده اطمینان دارید؟" onConfirm={deleteRecurringSession} onCancel={() => { deletingRecurringId = null; }} />
+<ConfirmModal bind:show={showRegenerateConfirm} title="تولید مجدد کد دعوت" message="آیا از تولید مجدد کد دعوت اطمینان دارید؟ کد قبلی دیگر قابل استفاده نخواهد بود." onConfirm={regenerateCode} onCancel={() => {}} />

@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"bytes"
 	"crypto/rand"
 	"database/sql"
+	"encoding/csv"
 	"fmt"
 	"image"
 	_ "image/jpeg"
@@ -10,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/iroom/iroom/internal/models"
@@ -17,6 +20,7 @@ import (
 	"github.com/iroom/iroom/internal/pkg/jwt"
 	"github.com/iroom/iroom/internal/pkg/response"
 	"github.com/iroom/iroom/internal/repository"
+	"github.com/iroom/iroom/internal/services"
 	"github.com/labstack/echo/v4"
 	"golang.org/x/image/draw"
 )
@@ -27,6 +31,7 @@ type AuthHandler struct {
 	resetRepo  *repository.PasswordResetRepo
 	uploadDir   string
 	jwtCfg      jwtConfig
+	totpSvc     *services.TOTPService
 }
 
 type jwtConfig struct {
@@ -35,12 +40,13 @@ type jwtConfig struct {
 	refreshExpiry int
 }
 
-func NewAuthHandler(userRepo *repository.UserRepo, logRepo *repository.ActivityLogRepo, resetRepo *repository.PasswordResetRepo, uploadDir string, secret string, accessExpiry, refreshExpiry int) *AuthHandler {
+func NewAuthHandler(userRepo *repository.UserRepo, logRepo *repository.ActivityLogRepo, resetRepo *repository.PasswordResetRepo, uploadDir string, secret string, accessExpiry, refreshExpiry int, totpSvc *services.TOTPService) *AuthHandler {
 	return &AuthHandler{
 		userRepo:   userRepo,
 		logRepo:    logRepo,
 		resetRepo:  resetRepo,
 		uploadDir:  uploadDir,
+		totpSvc:    totpSvc,
 		jwtCfg: jwtConfig{
 			secret:        secret,
 			accessExpiry:  accessExpiry,
@@ -363,7 +369,174 @@ func (h *AuthHandler) AvatarUpload(c echo.Context) error {
 	})
 }
 
+// 2FA Setup - Generate TOTP secret and QR code
+func (h *AuthHandler) TOTPSetup(c echo.Context) error {
+	userID := c.Get("user_id").(int64)
+	user, err := h.userRepo.GetByID(userID)
+	if err != nil {
+		return response.NotFound(c, "کاربر یافت نشد")
+	}
 
+	// Check if 2FA is already enabled
+	if user.TOTPEnabled {
+		return response.BadRequest(c, "احراز هویت دو مرحله‌ای قبلاً فعال شده است")
+	}
+
+	// Generate TOTP secret
+	secret, qrURL, err := h.totpSvc.GenerateSecret(user.Email)
+	if err != nil {
+		return response.InternalError(c, "خطا در تولید کد احراز هویت")
+	}
+
+	// Store the secret temporarily (not enabled yet)
+	if err := h.userRepo.UpdateTOTPSecret(userID, secret); err != nil {
+		return response.InternalError(c, "خطا در ذخیره کد احراز هویت")
+	}
+
+	return response.Success(c, map[string]interface{}{
+		"secret":    secret,
+		"qr_url":    qrURL,
+		"message":   "کد QR را با برنامه احراز هویت اسکن کنید و کد تأیید را وارد کنید",
+	})
+}
+
+// 2FA Verify - Verify TOTP code and enable 2FA
+func (h *AuthHandler) TOTPVerify(c echo.Context) error {
+	userID := c.Get("user_id").(int64)
+	user, err := h.userRepo.GetByID(userID)
+	if err != nil {
+		return response.NotFound(c, "کاربر یافت نشد")
+	}
+
+	if user.TOTPEnabled {
+		return response.BadRequest(c, "احراز هویت دو مرحله‌ای قبلاً فعال شده است")
+	}
+
+	var req struct {
+		Code string `json:"code"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return response.BadRequest(c, "داده‌های نامعتبر")
+	}
+
+	if req.Code == "" {
+		return response.BadRequest(c, "کد احراز هویت الزامی است")
+	}
+
+	// Verify the TOTP code
+	if !h.totpSvc.VerifyCode(user.TOTPSecret, req.Code) {
+		return response.BadRequest(c, "کد احراز هویت نامعتبر است")
+	}
+
+	// Generate backup codes
+	backupCodes, err := h.totpSvc.GenerateBackupCodes()
+	if err != nil {
+		return response.InternalError(c, "خطا در تولید کدهای پشتیبان")
+	}
+
+	// Encode backup codes
+	encodedCodes, err := h.totpSvc.EncodeBackupCodes(backupCodes)
+	if err != nil {
+		return response.InternalError(c, "خطا در رمزگذاری کدهای پشتیبان")
+	}
+
+	// Enable 2FA and store backup codes
+	if err := h.userRepo.EnableTOTP(userID, encodedCodes); err != nil {
+		return response.InternalError(c, "خطا در فعال‌سازی احراز هویت دو مرحله‌ای")
+	}
+
+	h.log(userID, "2fa_enabled", "user", userID, "TOTP enabled", c.RealIP())
+
+	return response.Success(c, map[string]interface{}{
+		"message":       "احراز هویت دو مرحله‌ای با موفقیت فعال شد",
+		"backup_codes":  backupCodes,
+	})
+}
+
+// 2FA Disable - Disable 2FA (requires password)
+func (h *AuthHandler) TOTPDisable(c echo.Context) error {
+	userID := c.Get("user_id").(int64)
+	user, err := h.userRepo.GetByID(userID)
+	if err != nil {
+		return response.NotFound(c, "کاربر یافت نشد")
+	}
+
+	if !user.TOTPEnabled {
+		return response.BadRequest(c, "احراز هویت دو مرحله‌ای فعال نیست")
+	}
+
+	var req struct {
+		Password string `json:"password"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return response.BadRequest(c, "داده‌های نامعتبر")
+	}
+
+	if req.Password == "" {
+		return response.BadRequest(c, "رمز عبور الزامی است")
+	}
+
+	// Verify password
+	if !hash.Check(req.Password, user.PasswordHash) {
+		return response.BadRequest(c, "رمز عبور اشتباه است")
+	}
+
+	// Disable 2FA
+	if err := h.userRepo.DisableTOTP(userID); err != nil {
+		return response.InternalError(c, "خطا در غیرفعال‌سازی احراز هویت دو مرحله‌ای")
+	}
+
+	h.log(userID, "2fa_disabled", "user", userID, "TOTP disabled", c.RealIP())
+
+	return response.Success(c, map[string]string{
+		"message": "احراز هویت دو مرحله‌ای با موفقیت غیرفعال شد",
+	})
+}
+
+// 2FA Backup - Verify backup code
+func (h *AuthHandler) TOTPBackup(c echo.Context) error {
+	userID := c.Get("user_id").(int64)
+	user, err := h.userRepo.GetByID(userID)
+	if err != nil {
+		return response.NotFound(c, "کاربر یافت نشد")
+	}
+
+	if !user.TOTPEnabled {
+		return response.BadRequest(c, "احراز هویت دو مرحله‌ای فعال نیست")
+	}
+
+	var req struct {
+		BackupCode string `json:"backup_code"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return response.BadRequest(c, "داده‌های نامعتبر")
+	}
+
+	if req.BackupCode == "" {
+		return response.BadRequest(c, "کد پشتیبان الزامی است")
+	}
+
+	// Verify and remove backup code
+	valid, updatedCodes, err := h.totpSvc.VerifyAndRemoveBackupCode(user.TOTPBackupCodes, req.BackupCode)
+	if err != nil {
+		return response.InternalError(c, "خطا در بررسی کد پشتیبان")
+	}
+
+	if !valid {
+		return response.BadRequest(c, "کد پشتیبان نامعتبر است")
+	}
+
+	// Update backup codes
+	if err := h.userRepo.UpdateTOTPBackupCodes(userID, updatedCodes); err != nil {
+		return response.InternalError(c, "خطا در بروزرسانی کدهای پشتیبان")
+	}
+
+	h.log(userID, "2fa_backup_used", "user", userID, "Backup code used", c.RealIP())
+
+	return response.Success(c, map[string]string{
+		"message": "کد پشتیبان با موفقیت استفاده شد",
+	})
+}
 
 func (h *AuthHandler) generateTokens(user *models.User) (map[string]interface{}, error) {
 	claims := jwt.Claims{
@@ -1414,6 +1587,146 @@ func (h *ClassHandler) JoinByCode(c echo.Context) error {
 
 	return response.Success(c, map[string]string{"message": "با موفقیت به کلاس پیوستید", "class_id": strconv.FormatInt(class.ID, 10)})
 }
+
+// Bulk user import (CSV)
+
+type importError struct {
+	Row   int    `json:"row"`
+	Error string `json:"error"`
+}
+
+func (h *AdminHandler) ImportUsers(c echo.Context) error {
+	// Get uploaded file
+	file, err := c.FormFile("file")
+	if err != nil {
+		return response.BadRequest(c, "فایل CSV الزامی است")
+	}
+
+	// Validate file extension
+	if !strings.HasSuffix(strings.ToLower(file.Filename), ".csv") {
+		return response.BadRequest(c, "فایل باید با فرمت CSV باشد")
+	}
+
+	// Open file
+	src, err := file.Open()
+	if err != nil {
+		return response.InternalError(c, "خطا در خواندن فایل")
+	}
+	defer src.Close()
+
+	// Parse CSV
+	reader := csv.NewReader(src)
+	reader.FieldsPerRecord = -1 // Allow variable fields
+	records, err := reader.ReadAll()
+	if err != nil {
+		return response.BadRequest(c, "خطا در پارس فایل CSV")
+	}
+
+	if len(records) == 0 {
+		return response.BadRequest(c, "فایل CSV خالی است")
+	}
+
+	// Skip header row, limit to 1000 rows
+	maxRows := 1000
+	dataRows := records[1:]
+	if len(dataRows) > maxRows {
+		dataRows = dataRows[:maxRows]
+	}
+
+	validRoles := map[string]bool{"student": true, "teacher": true, "admin": true}
+	var errors []importError
+	imported := 0
+
+	for i, row := range dataRows {
+		rowNum := i + 2 // +2 because: 1-based, and header is row 1
+
+		// Skip empty rows
+		if len(row) == 0 || (len(row) == 1 && strings.TrimSpace(row[0]) == "") {
+			continue
+		}
+
+		// Validate minimum columns
+		if len(row) < 5 {
+			errors = append(errors, importError{Row: rowNum, Error: "تعداد ستون‌ها کمتر از حد مجاز است"})
+			continue
+		}
+
+		displayName := strings.TrimSpace(row[0])
+		email := strings.TrimSpace(row[1])
+		password := strings.TrimSpace(row[2])
+		role := strings.TrimSpace(row[3])
+		phone := strings.TrimSpace(row[4])
+
+		// Validate display_name
+		if displayName == "" {
+			errors = append(errors, importError{Row: rowNum, Error: "نام نمایشی الزامی است"})
+			continue
+		}
+
+		// Validate email
+		if email == "" {
+			errors = append(errors, importError{Row: rowNum, Error: "ایمیل الزامی است"})
+			continue
+		}
+
+		// Validate password
+		if len(password) < 6 {
+			errors = append(errors, importError{Row: rowNum, Error: "رمز عبور باید حداقل ۶ کاراکتر باشد"})
+			continue
+		}
+
+		// Validate role
+		if !validRoles[role] {
+			errors = append(errors, importError{Row: rowNum, Error: "نقش نامعتبر است. مقادیر مجاز: student, teacher, admin"})
+			continue
+		}
+
+		// Check for duplicate email
+		existing, _ := h.userRepo.GetByEmail(email)
+		if existing != nil {
+			errors = append(errors, importError{Row: rowNum, Error: "ایمیل قبلاً ثبت شده"})
+			continue
+		}
+
+		// Hash password
+		hashedPassword, err := hash.Hash(password)
+		if err != nil {
+			errors = append(errors, importError{Row: rowNum, Error: "خطا در رمزنگاری رمز عبور"})
+			continue
+		}
+
+		// Create user
+		user := &models.User{
+			Email:        email,
+			PasswordHash: hashedPassword,
+			DisplayName:  displayName,
+			Role:         role,
+			Phone:        phone,
+			IsActive:     true,
+		}
+
+		if err := h.userRepo.Create(user); err != nil {
+			// Check for unique constraint violation
+			if strings.Contains(err.Error(), "UNIQUE") || strings.Contains(err.Error(), "duplicate") {
+				errors = append(errors, importError{Row: rowNum, Error: "ایمیل قبلاً ثبت شده"})
+			} else {
+				errors = append(errors, importError{Row: rowNum, Error: "خطا در ایجاد کاربر"})
+			}
+			continue
+		}
+
+		imported++
+	}
+
+	return response.Success(c, map[string]interface{}{
+		"success":  true,
+		"imported": imported,
+		"errors":   errors,
+	})
+}
+
+// Suppress unused import warning
+var _ = bytes.NewReader
 
 // Admin impersonation handlers
 

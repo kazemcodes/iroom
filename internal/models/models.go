@@ -3,16 +3,19 @@ package models
 import "time"
 
 type User struct {
-	ID           int64     `json:"id" db:"id"`
-	Email        string    `json:"email" db:"email"`
-	PasswordHash string    `json:"-" db:"password_hash"`
-	DisplayName  string    `json:"display_name" db:"display_name"`
-	Role         string    `json:"role" db:"role"`
-	Phone        string    `json:"phone" db:"phone"`
-	AvatarURL    string    `json:"avatar_url,omitempty" db:"avatar_url"`
-	IsActive     bool      `json:"is_active" db:"is_active"`
-	CreatedAt    time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at" db:"updated_at"`
+	ID              int64     `json:"id" db:"id"`
+	Email           string    `json:"email" db:"email"`
+	PasswordHash    string    `json:"-" db:"password_hash"`
+	DisplayName     string    `json:"display_name" db:"display_name"`
+	Role            string    `json:"role" db:"role"`
+	Phone           string    `json:"phone" db:"phone"`
+	AvatarURL       string    `json:"avatar_url,omitempty" db:"avatar_url"`
+	IsActive        bool      `json:"is_active" db:"is_active"`
+	TOTPSecret      string    `json:"-" db:"totp_secret"`
+	TOTPEnabled     bool      `json:"totp_enabled" db:"totp_enabled"`
+	TOTPBackupCodes string    `json:"-" db:"totp_backup_codes"`
+	CreatedAt       time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at" db:"updated_at"`
 }
 
 type Class struct {
@@ -225,3 +228,53 @@ type PaginatedResponse struct {
 	PerPage    int         `json:"per_page"`
 	TotalPages int         `json:"total_pages"`
 }
+
+// Webhook models
+
+type Webhook struct {
+	ID        int64     `json:"id" db:"id"`
+	UserID    int64     `json:"user_id" db:"user_id"`
+	URL       string    `json:"url" db:"url"`
+	Secret    string    `json:"-" db:"secret"`
+	Events    []string  `json:"events" db:"-"`
+	EventsJSON string   `json:"-" db:"events"`
+	IsActive  bool      `json:"is_active" db:"is_active"`
+	CreatedAt time.Time `json:"created_at" db:"created_at"`
+}
+
+type WebhookDelivery struct {
+	ID           int64     `json:"id" db:"id"`
+	WebhookID    int64     `json:"webhook_id" db:"webhook_id"`
+	EventType    string    `json:"event_type" db:"event_type"`
+	Payload      string    `json:"payload" db:"payload"`
+	StatusCode   *int      `json:"status_code,omitempty" db:"status_code"`
+	ResponseBody string    `json:"response_body,omitempty" db:"response_body"`
+	Success      bool      `json:"success" db:"success"`
+	RetryCount   int       `json:"retry_count" db:"retry_count"`
+	CreatedAt    time.Time `json:"created_at" db:"created_at"`
+}
+
+type CreateWebhookRequest struct {
+	URL    string   `json:"url" validate:"required,url"`
+	Events []string `json:"events" validate:"required,min=1"`
+}
+
+type UpdateWebhookRequest struct {
+	URL      string   `json:"url,omitempty" validate:"omitempty,url"`
+	Events   []string `json:"events,omitempty" validate:"omitempty,min=1"`
+	IsActive *bool    `json:"is_active,omitempty"`
+}
+
+type WebhookEvent struct {
+	Type      string      `json:"type"`
+	Timestamp time.Time   `json:"timestamp"`
+	Data      interface{} `json:"data"`
+}
+
+// Webhook event types
+const (
+	WebhookEventSessionStarted  = "session.started"
+	WebhookEventSessionEnded    = "session.ended"
+	WebhookEventUserRegistered  = "user.registered"
+	WebhookEventTicketCreated   = "ticket.created"
+)
