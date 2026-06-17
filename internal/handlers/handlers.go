@@ -9,6 +9,7 @@ import (
 	"image"
 	_ "image/jpeg"
 	"image/png"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -127,6 +128,7 @@ func (h *AuthHandler) Login(c echo.Context) error {
 		if err == sql.ErrNoRows {
 			return response.Unauthorized(c, "ایمیل یا رمز عبور اشتباه است")
 		}
+		slog.Error("login: failed to get user", "error", err, "email", req.Email)
 		return response.InternalError(c, "خطای داخلی")
 	}
 
@@ -140,6 +142,7 @@ func (h *AuthHandler) Login(c echo.Context) error {
 
 	tokens, err := h.generateTokens(user)
 	if err != nil {
+		slog.Error("login: failed to generate tokens", "error", err, "user_id", user.ID)
 		return response.InternalError(c, "خطا در تولید توکن")
 	}
 

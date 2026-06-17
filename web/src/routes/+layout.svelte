@@ -17,6 +17,7 @@
 
 	let ws = $state<WebSocket | null>(null);
 	let reconnectTimeout: ReturnType<typeof setTimeout>;
+	let mounted = $state(false);
 
 	function connectWebSocket() {
 		if (!browser) return;
@@ -36,7 +37,6 @@
 		};
 
 		ws.onclose = () => {
-			// Reconnect after 5 seconds
 			reconnectTimeout = setTimeout(connectWebSocket, 5000);
 		};
 
@@ -46,23 +46,34 @@
 	}
 
 	onMount(async () => {
-		try {
-			const [c, s] = await Promise.all([
-				api.get<any>('/classes'),
-				api.get<any>('/sessions')
-			]);
-			if (c.success && c.data) counts.classes = Array.isArray(c.data) ? c.data.length : (c.data?.total || 0);
-			if (s.success && s.data) counts.sessions = Array.isArray(s.data) ? s.data.length : (s.data?.total || 0);
-		} catch {}
-
-		// Load notifications and connect WebSocket
-		await notifications.load();
-		connectWebSocket();
+		auth.init();
+		mounted = true;
 	});
 
-	onDestroy(() => {
-		if (reconnectTimeout) clearTimeout(reconnectTimeout);
-		if (ws) ws.close();
+	$effect(() => {
+		if (!mounted) return;
+		const token = localStorage.getItem('access_token');
+		if (!token) return;
+
+		(async () => {
+			try {
+				const [c, s] = await Promise.all([
+					api.get<any>('/classes'),
+					api.get<any>('/sessions')
+				]);
+				if (c.success && c.data) counts.classes = Array.isArray(c.data) ? c.data.length : (c.data?.total || 0);
+				if (s.success && s.data) counts.sessions = Array.isArray(s.data) ? s.data.length : (s.data?.total || 0);
+			} catch {}
+
+			await notifications.load();
+			connectWebSocket();
+		})();
+
+		return () => {
+			if (reconnectTimeout) clearTimeout(reconnectTimeout);
+			if (ws) ws.close();
+			ws = null;
+		};
 	});
 
 	const isOnAdmin = $derived(currentPath.startsWith('/admin'));

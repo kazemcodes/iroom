@@ -43,6 +43,14 @@ func New(dbPath string) (*sql.DB, error) {
 }
 
 func runMigrations(db *sql.DB) error {
+	// Create migration tracking table if it doesn't exist
+	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS schema_migrations (
+		filename TEXT PRIMARY KEY,
+		applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		return fmt.Errorf("create schema_migrations table: %w", err)
+	}
+
 	entries, err := migrationsFS.ReadDir("migrations")
 	if err != nil {
 		return err
@@ -53,6 +61,17 @@ func runMigrations(db *sql.DB) error {
 			continue
 		}
 
+		// Check if migration was already applied
+		var exists int
+		err := db.QueryRow("SELECT COUNT(*) FROM schema_migrations WHERE filename = ?", entry.Name()).Scan(&exists)
+		if err != nil {
+			return fmt.Errorf("check migration %s: %w", entry.Name(), err)
+		}
+		if exists > 0 {
+			slog.Info("migration already applied, skipping", "file", entry.Name())
+			continue
+		}
+
 		data, err := migrationsFS.ReadFile("migrations/" + entry.Name())
 		if err != nil {
 			return fmt.Errorf("read migration %s: %w", entry.Name(), err)
@@ -60,6 +79,11 @@ func runMigrations(db *sql.DB) error {
 
 		if _, err := db.Exec(string(data)); err != nil {
 			return fmt.Errorf("exec migration %s: %w", entry.Name(), err)
+		}
+
+		// Record migration as applied
+		if _, err := db.Exec("INSERT INTO schema_migrations (filename) VALUES (?)", entry.Name()); err != nil {
+			return fmt.Errorf("record migration %s: %w", entry.Name(), err)
 		}
 
 		slog.Info("migration applied", "file", entry.Name())

@@ -61,9 +61,9 @@ func RateLimit(limit int, window time.Duration) echo.MiddlewareFunc {
 }
 
 func AuthRateLimit() echo.MiddlewareFunc {
-	return RateLimit(20, time.Minute)
+	return RateLimit(100, time.Minute)
 }
 
 func APIKeyRateLimit() echo.MiddlewareFunc {
-	return RateLimit(60, time.Minute)
+	return RateLimit(120, time.Minute)
 }

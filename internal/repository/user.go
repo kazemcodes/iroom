@@ -33,7 +33,7 @@ func (r *UserRepo) Create(u *models.User) error {
 func (r *UserRepo) GetByID(id int64) (*models.User, error) {
 	u := &models.User{}
 	err := r.db.QueryRow(
-		`SELECT id, email, password_hash, display_name, role, phone, is_active, totp_secret, totp_enabled, totp_backup_codes, created_at, updated_at FROM users WHERE id = ?`, id,
+		`SELECT id, email, password_hash, display_name, role, phone, is_active, COALESCE(totp_secret,''), totp_enabled, COALESCE(totp_backup_codes,''), created_at, updated_at FROM users WHERE id = ?`, id,
 	).Scan(&u.ID, &u.Email, &u.PasswordHash, &u.DisplayName, &u.Role, &u.Phone, &u.IsActive, &u.TOTPSecret, &u.TOTPEnabled, &u.TOTPBackupCodes, &u.CreatedAt, &u.UpdatedAt)
 	if err != nil {
 		return nil, err
@@ -44,7 +44,7 @@ func (r *UserRepo) GetByID(id int64) (*models.User, error) {
 func (r *UserRepo) GetByEmail(email string) (*models.User, error) {
 	u := &models.User{}
 	err := r.db.QueryRow(
-		`SELECT id, email, password_hash, display_name, role, phone, is_active, totp_secret, totp_enabled, totp_backup_codes, created_at, updated_at FROM users WHERE email = ?`, email,
+		`SELECT id, email, password_hash, display_name, role, phone, is_active, COALESCE(totp_secret,''), totp_enabled, COALESCE(totp_backup_codes,''), created_at, updated_at FROM users WHERE email = ?`, email,
 	).Scan(&u.ID, &u.Email, &u.PasswordHash, &u.DisplayName, &u.Role, &u.Phone, &u.IsActive, &u.TOTPSecret, &u.TOTPEnabled, &u.TOTPBackupCodes, &u.CreatedAt, &u.UpdatedAt)
 	if err != nil {
 		return nil, err
@@ -68,7 +68,7 @@ func (r *UserRepo) List(page, perPage int, search string) ([]models.User, int64,
 	}
 
 	offset := (page - 1) * perPage
-	query = `SELECT id, email, password_hash, display_name, role, phone, is_active, totp_secret, totp_enabled, totp_backup_codes, created_at, updated_at FROM users WHERE 1=1`
+	query = `SELECT id, email, password_hash, display_name, role, phone, is_active, COALESCE(totp_secret,''), totp_enabled, COALESCE(totp_backup_codes,''), created_at, updated_at FROM users WHERE 1=1`
 	if search != "" {
 		query += ` AND (email LIKE ? OR display_name LIKE ? OR phone LIKE ?)`
 	}

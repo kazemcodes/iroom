@@ -53,7 +53,9 @@ async function request<T>(
 			localStorage.removeItem('access_token');
 			localStorage.removeItem('refresh_token');
 			localStorage.removeItem('user');
-			window.location.href = '/';
+			if (token && window.location.pathname !== '/') {
+				window.location.href = '/';
+			}
 			return { success: false, error: 'توکن منقضی شده' };
 		}
 
@@ -84,7 +86,9 @@ async function postFormData<T>(path: string, formData: FormData): Promise<APIRes
 			localStorage.removeItem('access_token');
 			localStorage.removeItem('refresh_token');
 			localStorage.removeItem('user');
-			window.location.href = '/';
+			if (token && window.location.pathname !== '/') {
+				window.location.href = '/';
+			}
 			return { success: false, error: 'توکن منقضی شده' };
 		}
 
