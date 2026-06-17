@@ -5,6 +5,7 @@ export interface User {
 	role: 'admin' | 'teacher' | 'student';
 	phone: string;
 	is_active: boolean;
+	two_factor_enabled?: boolean;
 	created_at: string;
 	updated_at: string;
 }
@@ -162,3 +163,45 @@ export interface RecurringSession {
 	created_at: string;
 	updated_at: string;
 }
+
+export interface Webhook {
+	id: number;
+	user_id: number;
+	url: string;
+	events: string[];
+	is_active: boolean;
+	created_at: string;
+	delivery_count?: number;
+}
+
+export interface WebhookDelivery {
+	id: number;
+	webhook_id: number;
+	event_type: string;
+	payload: string;
+	status_code?: number;
+	response_body?: string;
+	success: boolean;
+	retry_count: number;
+	created_at: string;
+}
+
+export interface CreateWebhookRequest {
+	url: string;
+	events: string[];
+}
+
+export interface UpdateWebhookRequest {
+	url?: string;
+	events?: string[];
+	is_active?: boolean;
+}
+
+export const WEBHOOK_EVENTS = {
+	'session.started': 'شروع جلسه',
+	'session.ended': 'پایان جلسه',
+	'user.registered': 'ثبت‌نام کاربر',
+	'ticket.created': 'ایجاد تیکت',
+} as const;
+
+export type WebhookEventType = keyof typeof WEBHOOK_EVENTS;

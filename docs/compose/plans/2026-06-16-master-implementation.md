@@ -48,7 +48,7 @@
 
 The current implementation just wraps `<input type="date">` with a Persian label. It needs to be a proper Jalali calendar picker.
 
-- [ ] **Step 1: Implement proper Jalali date picker**
+- [x] **Step 1: Implement proper Jalali date picker**
 
 Replace the current implementation with a dropdown-style Jalali calendar:
 - Month names: فروردین، اردیبهشت، خرداد، تیر، مرداد، شهریور، مهر، آبان، آذر، دی، بهمن، اسفند
@@ -60,7 +60,7 @@ Replace the current implementation with a dropdown-style Jalali calendar:
 
 Use the `date-fns-jalali` library (already in package.json) for date conversion.
 
-- [ ] **Step 2: Verify build**
+- [x] **Step 2: Verify build**
 
 Run: `cd web && npm run build`
 Expected: SUCCESS
@@ -74,7 +74,7 @@ Expected: SUCCESS
 **Files:**
 - Modify: `cmd/server/main.go` or `internal/handlers/handlers.go`
 
-- [ ] **Step 1: Add health endpoint with system info**
+- [x] **Step 1: Add health endpoint with system info**
 
 The health endpoint should return:
 ```json
@@ -90,7 +90,7 @@ The health endpoint should return:
 }
 ```
 
-- [ ] **Step 2: Verify build**
+- [x] **Step 2: Verify build**
 
 Run: `cd /home/kazem/StudioProjects/iroom && go build -o server ./cmd/server`
 Expected: SUCCESS
@@ -104,56 +104,56 @@ Expected: SUCCESS
 **Files:**
 - Modify: `web/src/routes/(app)/dashboard/+page.svelte`
 
-- [ ] **Step 1: Import toPersianNum**
-- [ ] **Step 2: Replace all number displays with toPersianNum()**
-- [ ] **Step 3: Replace date formatting with toPersianDate()**
-- [ ] **Step 4: Verify build**
+- [x] **Step 1: Import toPersianNum**
+- [x] **Step 2: Replace all number displays with toPersianNum()**
+- [x] **Step 3: Replace date formatting with toPersianDate()**
+- [x] **Step 4: Verify build**
 
 ### Task 4: Classes List Page
 
 **Files:**
 - Modify: `web/src/routes/(app)/classes/+page.svelte`
 
-- [ ] **Step 1: Import toPersianNum**
-- [ ] **Step 2: Add pagination (page navigation, per-page selector)**
-- [ ] **Step 3: Replace all numbers with toPersianNum()**
-- [ ] **Step 4: Replace dates with toPersianDate()**
-- [ ] **Step 5: Verify build**
+- [x] **Step 1: Import toPersianNum**
+- [x] **Step 2: Add pagination (page navigation, per-page selector)**
+- [x] **Step 3: Replace all numbers with toPersianNum()**
+- [x] **Step 4: Replace dates with toPersianDate()**
+- [x] **Step 5: Verify build**
 
 ### Task 5: Class Detail Page
 
 **Files:**
 - Modify: `web/src/routes/(app)/classes/[id]/+page.svelte`
 
-- [ ] **Step 1: Import toPersianNum**
-- [ ] **Step 2: Replace all numbers with toPersianNum()**
-- [ ] **Step 3: Replace dates with toPersianDate()**
-- [ ] **Step 4: Use JalaliDatePicker for session date input**
-- [ ] **Step 5: Verify build**
+- [x] **Step 1: Import toPersianNum**
+- [x] **Step 2: Replace all numbers with toPersianNum()**
+- [x] **Step 3: Replace dates with toPersianDate()**
+- [x] **Step 4: Use JalaliDatePicker for session date input**
+- [x] **Step 5: Verify build**
 
 ### Task 6: Sessions List Page
 
 **Files:**
 - Modify: `web/src/routes/(app)/sessions/+page.svelte`
 
-- [ ] **Step 1: Import toPersianNum**
-- [ ] **Step 2: Add pagination**
-- [ ] **Step 3: Replace all numbers with toPersianNum()**
-- [ ] **Step 4: Replace dates with toPersianDate()**
-- [ ] **Step 5: Verify build**
+- [x] **Step 1: Import toPersianNum**
+- [x] **Step 2: Add pagination**
+- [x] **Step 3: Replace all numbers with toPersianNum()**
+- [x] **Step 4: Replace dates with toPersianDate()**
+- [x] **Step 5: Verify build**
 
 ### Task 7: Files Page
 
 **Files:**
 - Modify: `web/src/routes/(app)/files/+page.svelte`
 
-- [ ] **Step 1: Import toPersianNum**
-- [ ] **Step 2: Add pagination**
-- [ ] **Step 3: Replace all numbers with toPersianNum()**
-- [ ] **Step 4: Replace dates with toPersianDate()**
-- [ ] **Step 5: Add drag-and-drop upload**
-- [ ] **Step 6: Add upload progress indicator**
-- [ ] **Step 7: Verify build**
+- [x] **Step 1: Import toPersianNum**
+- [x] **Step 2: Add pagination**
+- [x] **Step 3: Replace all numbers with toPersianNum()**
+- [x] **Step 4: Replace dates with toPersianDate()**
+- [x] **Step 5: Add drag-and-drop upload**
+- [x] **Step 6: Add upload progress indicator**
+- [x] **Step 7: Verify build**
 
 ### Task 8: Support Pages
 
@@ -161,19 +161,19 @@ Expected: SUCCESS
 - Modify: `web/src/routes/(app)/support/+page.svelte`
 - Modify: `web/src/routes/(app)/support/[id]/+page.svelte`
 
-- [ ] **Step 1: Import toPersianNum**
-- [ ] **Step 2: Replace all numbers with toPersianNum()**
-- [ ] **Step 3: Replace dates with toPersianDateTime()**
-- [ ] **Step 4: Verify build**
+- [x] **Step 1: Import toPersianNum**
+- [x] **Step 2: Replace all numbers with toPersianNum()**
+- [x] **Step 3: Replace dates with toPersianDateTime()**
+- [x] **Step 4: Verify build**
 
 ### Task 9: Profile Page
 
 **Files:**
 - Modify: `web/src/routes/(app)/profile/+page.svelte`
 
-- [ ] **Step 1: Import toPersianNum**
-- [ ] **Step 2: Replace all numbers with toPersianNum()**
-- [ ] **Step 3: Verify build**
+- [x] **Step 1: Import toPersianNum**
+- [x] **Step 2: Replace all numbers with toPersianNum()**
+- [x] **Step 3: Verify build**
 
 ### Task 10: Auth Pages
 
@@ -181,20 +181,20 @@ Expected: SUCCESS
 - Modify: `web/src/routes/auth/+page.svelte`
 - Modify: `web/src/routes/auth/forgot-password/+page.svelte`
 
-- [ ] **Step 1: Import toPersianNum where needed**
-- [ ] **Step 2: Verify build**
+- [x] **Step 1: Import toPersianNum where needed**
+- [x] **Step 2: Verify build**
 
 ### Task 11: Session Logs Page
 
 **Files:**
 - Modify: `web/src/routes/(app)/sessions/[id]/logs/+page.svelte`
 
-- [ ] **Step 1: Import toPersianNum**
-- [ ] **Step 2: Replace all numbers with toPersianNum()**
-- [ ] **Step 3: Replace dates with toPersianDateTime()**
-- [ ] **Step 4: Add visual timeline for participant join/leave**
-- [ ] **Step 5: Add CSV export button**
-- [ ] **Step 6: Verify build**
+- [x] **Step 1: Import toPersianNum**
+- [x] **Step 2: Replace all numbers with toPersianNum()**
+- [x] **Step 3: Replace dates with toPersianDateTime()**
+- [x] **Step 4: Add visual timeline for participant join/leave**
+- [x] **Step 5: Add CSV export button**
+- [x] **Step 6: Verify build**
 
 ### Task 12: Recordings Pages
 
@@ -202,21 +202,21 @@ Expected: SUCCESS
 - Modify: `web/src/routes/(app)/recordings/[id]/+page.svelte`
 - Modify: `web/src/routes/(app)/admin/recordings/+page.svelte`
 
-- [ ] **Step 1: Import toPersianNum**
-- [ ] **Step 2: Replace all numbers with toPersianNum()**
-- [ ] **Step 3: Replace dates with toPersianDate()**
-- [ ] **Step 4: Verify build**
+- [x] **Step 1: Import toPersianNum**
+- [x] **Step 2: Replace all numbers with toPersianNum()**
+- [x] **Step 3: Replace dates with toPersianDate()**
+- [x] **Step 4: Verify build**
 
 ### Task 13: Admin Logs Page
 
 **Files:**
 - Modify: `web/src/routes/(app)/admin/logs/+page.svelte`
 
-- [ ] **Step 1: Import toPersianNum**
-- [ ] **Step 2: Replace all numbers with toPersianNum()**
-- [ ] **Step 3: Replace dates with toPersianDateTime()**
-- [ ] **Step 4: Add CSV export**
-- [ ] **Step 5: Verify build**
+- [x] **Step 1: Import toPersianNum**
+- [x] **Step 2: Replace all numbers with toPersianNum()**
+- [x] **Step 3: Replace dates with toPersianDateTime()**
+- [x] **Step 4: Add CSV export**
+- [x] **Step 5: Verify build**
 
 ---
 
@@ -227,21 +227,21 @@ Expected: SUCCESS
 **Files:**
 - Modify: `web/src/app.css`
 
-- [ ] **Step 1: Add Skyroom color variables**
-- [ ] **Step 2: Add Skyroom scrollbar styles**
-- [ ] **Step 3: Add Skyroom animation keyframes**
-- [ ] **Step 4: Update component classes to match Skyroom spacing**
-- [ ] **Step 5: Verify build**
+- [x] **Step 1: Add Skyroom color variables**
+- [x] **Step 2: Add Skyroom scrollbar styles**
+- [x] **Step 3: Add Skyroom animation keyframes**
+- [x] **Step 4: Update component classes to match Skyroom spacing**
+- [x] **Step 5: Verify build**
 
 ### Task 15: Update Main Layout Sidebar
 
 **Files:**
 - Modify: `web/src/routes/+layout.svelte`
 
-- [ ] **Step 1: Apply Skyroom sidebar colors (#1a1a2e bg, #2a2a4a borders)**
-- [ ] **Step 2: Apply Skyroom active link style**
-- [ ] **Step 3: Apply Skyroom user info section**
-- [ ] **Step 4: Verify build**
+- [x] **Step 1: Apply Skyroom sidebar colors (#1a1a2e bg, #2a2a4a borders)**
+- [x] **Step 2: Apply Skyroom active link style**
+- [x] **Step 3: Apply Skyroom user info section**
+- [x] **Step 4: Verify build**
 
 ---
 
@@ -249,22 +249,22 @@ Expected: SUCCESS
 
 ### Task 16: Full Build Verification
 
-- [ ] **Step 1: Frontend build**
+- [x] **Step 1: Frontend build**
 
 Run: `cd web && npm run build`
 Expected: SUCCESS with no errors
 
-- [ ] **Step 2: Backend build**
+- [x] **Step 2: Backend build**
 
 Run: `cd /home/kazem/StudioProjects/iroom && go build -o server ./cmd/server`
 Expected: SUCCESS with no errors
 
-- [ ] **Step 3: Run existing tests**
+- [x] **Step 3: Run existing tests**
 
 Run: `cd /home/kazem/StudioProjects/iroom && go test ./internal/handlers/ -v`
 Expected: All tests pass
 
-- [ ] **Step 4: Docker build**
+- [x] **Step 4: Docker build**
 
 Run: `cd /home/kazem/StudioProjects/iroom && docker-compose build`
 Expected: SUCCESS

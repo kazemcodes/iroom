@@ -18,7 +18,7 @@
 - Create: `web/src/lib/utils/persian.ts`
 - Create: `web/src/lib/utils/persian.test.ts`
 
-- [ ] **Step 1: Create persian.ts**
+- [x] **Step 1: Create persian.ts**
 
 ```typescript
 // web/src/lib/utils/persian.ts
@@ -63,7 +63,7 @@ export function formatDuration(seconds: number): string {
 }
 ```
 
-- [ ] **Step 2: Verify build**
+- [x] **Step 2: Verify build**
 
 Run: `cd web && npm run build`
 Expected: SUCCESS
@@ -77,7 +77,7 @@ Expected: SUCCESS
 - Create: `web/src/lib/components/Toast.svelte`
 - Modify: `web/src/routes/+layout.svelte` (add Toast component)
 
-- [ ] **Step 1: Create toast store**
+- [x] **Step 1: Create toast store**
 
 ```typescript
 // web/src/lib/stores/toast.ts
@@ -108,7 +108,7 @@ export function removeToast(id: number) {
 }
 ```
 
-- [ ] **Step 2: Create Toast.svelte component**
+- [x] **Step 2: Create Toast.svelte component**
 
 ```svelte
 <script lang="ts">
@@ -144,7 +144,7 @@ export function removeToast(id: number) {
 </style>
 ```
 
-- [ ] **Step 3: Add Toast to layout**
+- [x] **Step 3: Add Toast to layout**
 
 In `web/src/routes/+layout.svelte`, add at the end of the template:
 ```svelte
@@ -158,7 +158,7 @@ In `web/src/routes/+layout.svelte`, add at the end of the template:
 <Toast />
 ```
 
-- [ ] **Step 4: Verify build**
+- [x] **Step 4: Verify build**
 
 Run: `cd web && npm run build`
 Expected: SUCCESS
@@ -173,7 +173,7 @@ Expected: SUCCESS
 - Create: `web/src/lib/classroom/ClassroomWindow.ts`
 - Create: `web/src/lib/classroom/ClassroomBridge.ts`
 
-- [ ] **Step 1: Create ClassroomWindow.ts**
+- [x] **Step 1: Create ClassroomWindow.ts**
 
 ```typescript
 // web/src/lib/classroom/ClassroomWindow.ts
@@ -226,7 +226,7 @@ class ClassroomWindowManager {
 export const classroomWindow = new ClassroomWindowManager();
 ```
 
-- [ ] **Step 2: Create ClassroomBridge.ts**
+- [x] **Step 2: Create ClassroomBridge.ts**
 
 ```typescript
 // web/src/lib/classroom/ClassroomBridge.ts
@@ -257,7 +257,7 @@ export function closeBridge() {
 }
 ```
 
-- [ ] **Step 3: Verify build**
+- [x] **Step 3: Verify build**
 
 Run: `cd web && npm run build`
 Expected: SUCCESS
@@ -270,7 +270,7 @@ Expected: SUCCESS
 - Create: `web/src/routes/(app)/classroom/popup/[id]/+page.svelte`
 - Modify: `web/src/routes/(app)/classroom/[id]/+page.svelte` (becomes launcher)
 
-- [ ] **Step 1: Create popup page**
+- [x] **Step 1: Create popup page**
 
 The popup page is a compact 3-column layout without the main app sidebar. It should contain the same LiveKit connection logic as the current classroom page but with the Skyroom-style layout (top bar, 3 columns, control bar).
 
@@ -281,11 +281,11 @@ Key elements:
 - Bottom control bar with mic/video/share/whiteboard/record/leave buttons
 - No sidebar, no main app header
 
-- [ ] **Step 2: Convert current classroom to launcher**
+- [x] **Step 2: Convert current classroom to launcher**
 
 The `/classroom/[id]` page becomes a simple launcher that shows session info and an "Open Classroom" button that calls `classroomWindow.open()`. If popup is blocked, show inline fallback.
 
-- [ ] **Step 3: Verify build**
+- [x] **Step 3: Verify build**
 
 Run: `cd web && npm run build`
 Expected: SUCCESS
@@ -299,19 +299,19 @@ Expected: SUCCESS
 - Modify: `web/src/routes/(app)/classes/[id]/+page.svelte`
 - Modify: `web/src/routes/(app)/admin/rooms/+page.svelte`
 
-- [ ] **Step 1: Update session join button**
+- [x] **Step 1: Update session join button**
 
 Change the "پیوستن" button to use `classroomWindow.open(session.id, session.title)` instead of direct navigation.
 
-- [ ] **Step 2: Update class session join button**
+- [x] **Step 2: Update class session join button**
 
 Same change in class detail page.
 
-- [ ] **Step 3: Update admin rooms join button**
+- [x] **Step 3: Update admin rooms join button**
 
 Same change in admin rooms page.
 
-- [ ] **Step 4: Verify build**
+- [x] **Step 4: Verify build**
 
 Run: `cd web && npm run build`
 Expected: SUCCESS
@@ -325,7 +325,7 @@ Expected: SUCCESS
 **Files:**
 - Modify: `web/src/routes/(app)/admin/+page.svelte`
 
-- [ ] **Step 1: Redesign dashboard page**
+- [x] **Step 1: Redesign dashboard page**
 
 Replace current tab-based admin with Skyroom-style dashboard:
 - Stats cards row (users, active rooms, today's sessions, recordings)
@@ -334,7 +334,7 @@ Replace current tab-based admin with Skyroom-style dashboard:
 - Activity feed from activity_logs table
 - Use Persian numbers via `toPersianNum()`
 
-- [ ] **Step 2: Verify build**
+- [x] **Step 2: Verify build**
 
 Run: `cd web && npm run build`
 Expected: SUCCESS
@@ -347,11 +347,11 @@ Expected: SUCCESS
 - Modify: `web/src/routes/(app)/admin/+layout.svelte` (create if needed)
 - Modify: `web/src/routes/+layout.svelte` (sidebar nav items)
 
-- [ ] **Step 1: Add admin-specific sidebar items**
+- [x] **Step 1: Add admin-specific sidebar items**
 
 Add navigation items: Dashboard, Users, Rooms, Sessions, Recordings, Tickets, Logs, Settings — each with Persian labels and icons.
 
-- [ ] **Step 2: Verify build**
+- [x] **Step 2: Verify build**
 
 Run: `cd web && npm run build`
 Expected: SUCCESS
@@ -363,7 +363,7 @@ Expected: SUCCESS
 **Files:**
 - Modify: `web/src/routes/(app)/admin/rooms/+page.svelte`
 
-- [ ] **Step 1: Redesign rooms page**
+- [x] **Step 1: Redesign rooms page**
 
 Skyroom-style room cards with:
 - Room name, teacher, student count, session count
@@ -371,7 +371,7 @@ Skyroom-style room cards with:
 - Quick actions: join, view sessions, edit, delete
 - Search and filter
 
-- [ ] **Step 2: Verify build**
+- [x] **Step 2: Verify build**
 
 Run: `cd web && npm run build`
 Expected: SUCCESS
@@ -387,19 +387,19 @@ Expected: SUCCESS
 - Modify: `web/src/routes/(app)/sessions/+page.svelte`
 - Modify: `web/src/routes/(app)/files/+page.svelte`
 
-- [ ] **Step 1: Add pagination to classes list**
+- [x] **Step 1: Add pagination to classes list**
 
 Add page navigation, per-page selector, and page info display.
 
-- [ ] **Step 2: Add pagination to sessions list**
+- [x] **Step 2: Add pagination to sessions list**
 
 Same pattern.
 
-- [ ] **Step 3: Add pagination to files list**
+- [x] **Step 3: Add pagination to files list**
 
 Same pattern.
 
-- [ ] **Step 4: Verify build**
+- [x] **Step 4: Verify build**
 
 Run: `cd web && npm run build`
 Expected: SUCCESS
@@ -412,15 +412,15 @@ Expected: SUCCESS
 - Create: `web/src/lib/components/ConfirmModal.svelte`
 - Modify: All pages with delete buttons
 
-- [ ] **Step 1: Create ConfirmModal.svelte**
+- [x] **Step 1: Create ConfirmModal.svelte**
 
 Reusable confirmation modal with title, message, confirm/cancel buttons.
 
-- [ ] **Step 2: Replace all confirm() calls with ConfirmModal**
+- [x] **Step 2: Replace all confirm() calls with ConfirmModal**
 
 Replace native `confirm()` dialogs with the styled modal across all pages.
 
-- [ ] **Step 3: Verify build**
+- [x] **Step 3: Verify build**
 
 Run: `cd web && npm run build`
 Expected: SUCCESS
@@ -432,15 +432,15 @@ Expected: SUCCESS
 **Files:**
 - Modify: `web/src/lib/components/Whiteboard.svelte`
 
-- [ ] **Step 1: Make canvas responsive**
+- [x] **Step 1: Make canvas responsive**
 
 Remove fixed 800x600 dimensions. Use container dimensions. Add resize observer.
 
-- [ ] **Step 2: Add laser pointer tool**
+- [x] **Step 2: Add laser pointer tool**
 
 Add laser pointer tool that shows a red dot for other participants (via DataChannels).
 
-- [ ] **Step 3: Verify build**
+- [x] **Step 3: Verify build**
 
 Run: `cd web && npm run build`
 Expected: SUCCESS
@@ -455,15 +455,15 @@ Expected: SUCCESS
 - Modify: `web/src/routes/(app)/sessions/[id]/logs/+page.svelte`
 - Modify: `internal/handlers/ticket.go` (session log handlers)
 
-- [ ] **Step 1: Improve session logs display**
+- [x] **Step 1: Improve session logs display**
 
 Show participant join/leave times, total duration, and visual timeline.
 
-- [ ] **Step 2: Add CSV export for logs**
+- [x] **Step 2: Add CSV export for logs**
 
 Add export button that downloads session logs as CSV.
 
-- [ ] **Step 3: Verify build**
+- [x] **Step 3: Verify build**
 
 Run: `cd web && npm run build && cd .. && export PATH=$PATH:$HOME/go-sdk/go/bin && GOTOOLCHAIN=local go build -o server ./cmd/server`
 Expected: SUCCESS
@@ -476,15 +476,15 @@ Expected: SUCCESS
 - Modify: `web/src/routes/(app)/support/+page.svelte`
 - Modify: `web/src/routes/(app)/support/[id]/+page.svelte`
 
-- [ ] **Step 1: Add ticket filtering**
+- [x] **Step 1: Add ticket filtering**
 
 Add status, priority, and category filters to ticket list.
 
-- [ ] **Step 2: Add ticket search**
+- [x] **Step 2: Add ticket search**
 
 Add search functionality to ticket list.
 
-- [ ] **Step 3: Verify build**
+- [x] **Step 3: Verify build**
 
 Run: `cd web && npm run build`
 Expected: SUCCESS

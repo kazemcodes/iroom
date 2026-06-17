@@ -1,7 +1,22 @@
 <script lang="ts">
 	import { api } from '$lib/api';
 	import { onMount } from 'svelte';
+	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
+	import type { Webhook, WebhookDelivery, CreateWebhookRequest, UpdateWebhookRequest } from '$lib/types';
+	import { WEBHOOK_EVENTS, type WebhookEventType } from '$lib/types';
 
+	// Tab management
+	let activeTab = $state('general');
+	const tabs = [
+		{ id: 'general', label: 'عمومی' },
+		{ id: 'video', label: 'ویدیو' },
+		{ id: 'security', label: 'امنیت' },
+		{ id: 'email', label: 'ایمیل' },
+		{ id: 'api', label: 'API' },
+		{ id: 'webhooks', label: 'وب‌هوک‌ها' },
+	];
+
+	// General settings state
 	let settings = $state({
 		max_users_per_room: 100,
 		recording_enabled: true,
@@ -14,10 +29,38 @@
 	let saving = $state(false);
 	let saved = $state(false);
 
+	// Webhook state
+	let webhooks = $state<Webhook[]>([]);
+	let webhooksLoading = $state(true);
+	let showWebhookModal = $state(false);
+	let editingWebhook = $state<Webhook | null>(null);
+	let webhookSaving = $state(false);
+	let webhookTested = $state<number | null>(null);
+
+	// Webhook form state
+	let webhookForm = $state<CreateWebhookRequest>({
+		url: '',
+		events: [],
+	});
+	let webhookActive = $state(true);
+
+	// Delivery logs state
+	let deliveries = $state<WebhookDelivery[]>([]);
+	let deliveriesLoading = $state(false);
+	let selectedWebhookId = $state<number | null>(null);
+	let showDeliveries = $state(false);
+
+	// Delete confirmation
+	let showDeleteConfirm = $state(false);
+	let webhookToDelete = $state<number | null>(null);
+
 	onMount(async () => {
 		const res = await api.get<any>('/admin/settings');
 		if (res.success && res.data) settings = { ...settings, ...res.data };
 		loading = false;
+
+		// Load webhooks
+		await loadWebhooks();
 	});
 
 	async function saveSettings() {
@@ -30,99 +73,492 @@
 		}
 		saving = false;
 	}
+
+	// Webhook functions
+	async function loadWebhooks() {
+		webhooksLoading = true;
+		const res = await api.get<Webhook[]>('/admin/webhooks');
+		if (res.success && res.data) {
+			webhooks = res.data;
+		}
+		webhooksLoading = false;
+	}
+
+	function openCreateModal() {
+		editingWebhook = null;
+		webhookForm = { url: '', events: [] };
+		webhookActive = true;
+		showWebhookModal = true;
+	}
+
+	function openEditModal(webhook: Webhook) {
+		editingWebhook = webhook;
+		webhookForm = { url: webhook.url, events: [...webhook.events] };
+		webhookActive = webhook.is_active;
+		showWebhookModal = true;
+	}
+
+	function closeWebhookModal() {
+		showWebhookModal = false;
+		editingWebhook = null;
+		webhookForm = { url: '', events: [] };
+		webhookActive = true;
+	}
+
+	function toggleEvent(event: WebhookEventType) {
+		if (webhookForm.events.includes(event)) {
+			webhookForm.events = webhookForm.events.filter(e => e !== event);
+		} else {
+			webhookForm.events = [...webhookForm.events, event];
+		}
+	}
+
+	async function saveWebhook() {
+		if (!webhookForm.url || webhookForm.events.length === 0) return;
+
+		webhookSaving = true;
+		let res;
+		if (editingWebhook) {
+			const updateData: UpdateWebhookRequest = {
+				url: webhookForm.url,
+				events: webhookForm.events,
+				is_active: webhookActive,
+			};
+			res = await api.put<Webhook>(`/admin/webhooks/${editingWebhook.id}`, updateData);
+		} else {
+			res = await api.post<Webhook>('/admin/webhooks', webhookForm);
+		}
+
+		if (res.success) {
+			await loadWebhooks();
+			closeWebhookModal();
+		}
+		webhookSaving = false;
+	}
+
+	function confirmDeleteWebhook(id: number) {
+		webhookToDelete = id;
+		showDeleteConfirm = true;
+	}
+
+	async function deleteWebhook() {
+		if (!webhookToDelete) return;
+		const res = await api.delete(`/admin/webhooks/${webhookToDelete}`);
+		if (res.success) {
+			await loadWebhooks();
+			if (selectedWebhookId === webhookToDelete) {
+				showDeliveries = false;
+				selectedWebhookId = null;
+			}
+		}
+		showDeleteConfirm = false;
+		webhookToDelete = null;
+	}
+
+	async function testWebhook(id: number) {
+		webhookTested = id;
+		const res = await api.post(`/admin/webhooks/${id}/test`);
+		if (res.success) {
+			setTimeout(() => webhookTested = null, 3000);
+		}
+	}
+
+	async function loadDeliveries(webhookId: number) {
+		if (selectedWebhookId === webhookId && showDeliveries) {
+			showDeliveries = false;
+			selectedWebhookId = null;
+			return;
+		}
+
+		selectedWebhookId = webhookId;
+		showDeliveries = true;
+		deliveriesLoading = true;
+		const res = await api.get<{ items: WebhookDelivery[] }>(`/admin/webhooks/${webhookId}/deliveries`);
+		if (res.success && res.data) {
+			deliveries = res.data.items;
+		}
+		deliveriesLoading = false;
+	}
+
+	function getEventLabel(event: string): string {
+		return WEBHOOK_EVENTS[event as WebhookEventType] || event;
+	}
+
+	function formatDate(dateStr: string): string {
+		return new Date(dateStr).toLocaleString('fa-IR');
+	}
 </script>
 
-<div class="max-w-2xl mx-auto space-y-6">
+<div class="max-w-4xl mx-auto space-y-6">
 	<div>
 		<h1 class="text-2xl font-bold text-gray-900">تنظیمات سیستم</h1>
 		<p class="text-gray-500 mt-1">تنظیمات کلی پلتفرم کلاس آنلاین</p>
-	</div>
-
-	{#if loading}
-		<div class="flex items-center justify-center py-12">
-			<div class="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full"></div>
-		</div>
-	{:else}
-		<div class="bg-white rounded-xl border divide-y">
-			<!-- Max users per room -->
-			<div class="px-6 py-4 flex items-center justify-between">
-				<div>
-					<p class="font-medium text-gray-900">حداکثر کاربر در اتاق</p>
-					<p class="text-sm text-gray-500 mt-0.5">تعداد maksimum شرکت‌کنندگان در هر جلسه</p>
-				</div>
-				<input type="number" bind:value={settings.max_users_per_room} min="2" max="500" class="w-20 px-3 py-2 border rounded-lg text-sm text-center focus:ring-2 focus:ring-blue-500 outline-none" />
-			</div>
-
-			<!-- Recording enabled -->
-			<div class="px-6 py-4 flex items-center justify-between">
-				<div>
-					<p class="font-medium text-gray-900">ضبط جلسات</p>
-					<p class="text-sm text-gray-500 mt-0.5">امکان ضبط جلسات توسط مدرس</p>
-				</div>
-				<button
-					onclick={() => settings.recording_enabled = !settings.recording_enabled}
-					class="relative w-11 h-6 rounded-full transition-colors {settings.recording_enabled ? 'bg-blue-600' : 'bg-gray-300'}"
-				>
-					<span class="absolute top-0.5 right-0.5 w-5 h-5 bg-white rounded-full transition-transform {settings.recording_enabled ? 'translate-x-[-20px]' : ''}"></span>
-				</button>
-			</div>
-
-			<!-- Allow student video -->
-			<div class="px-6 py-4 flex items-center justify-between">
-				<div>
-					<p class="font-medium text-gray-900">ارسال ویدیو توسط دانش‌آموز</p>
-					<p class="text-sm text-gray-500 mt-0.5">اجازه ارسال ویدیو به دانش‌آموزان</p>
-				</div>
-				<button
-					onclick={() => settings.allow_student_video = !settings.allow_student_video}
-					class="relative w-11 h-6 rounded-full transition-colors {settings.allow_student_video ? 'bg-blue-600' : 'bg-gray-300'}"
-				>
-					<span class="absolute top-0.5 right-0.5 w-5 h-5 bg-white rounded-full transition-transform {settings.allow_student_video ? 'translate-x-[-20px]' : ''}"></span>
-				</button>
-			</div>
-
-			<!-- Max file size -->
-			<div class="px-6 py-4 flex items-center justify-between">
-				<div>
-					<p class="font-medium text-gray-900">حداکثر حجم فایل (MB)</p>
-					<p class="text-sm text-gray-500 mt-0.5">حداکثر اندازه آپلود فایل</p>
-				</div>
-				<input type="number" bind:value={settings.max_file_size_mb} min="1" max="500" class="w-20 px-3 py-2 border rounded-lg text-sm text-center focus:ring-2 focus:ring-blue-500 outline-none" />
-			</div>
-
-			<!-- Auto end session -->
-			<div class="px-6 py-4 flex items-center justify-between">
-				<div>
-					<p class="font-medium text-gray-900">پایان خودکار جلسه (دقیقه)</p>
-					<p class="text-sm text-gray-500 mt-0.5">زمان پایان خودکار پس از شروع</p>
-				</div>
-				<input type="number" bind:value={settings.session_auto_end_minutes} min="30" max="480" class="w-20 px-3 py-2 border rounded-lg text-sm text-center focus:ring-2 focus:ring-blue-500 outline-none" />
-			</div>
-
-			<!-- Maintenance mode -->
-			<div class="px-6 py-4 flex items-center justify-between">
-				<div>
-					<p class="font-medium text-gray-900">حالت تعمیر و نگهداری</p>
-					<p class="text-sm text-gray-500 mt-0.5">غیرفعال‌سازی موقت سیستم</p>
-				</div>
-				<button
-					onclick={() => settings.maintenance_mode = !settings.maintenance_mode}
-					class="relative w-11 h-6 rounded-full transition-colors {settings.maintenance_mode ? 'bg-red-600' : 'bg-gray-300'}"
-				>
-					<span class="absolute top-0.5 right-0.5 w-5 h-5 bg-white rounded-full transition-transform {settings.maintenance_mode ? 'translate-x-[-20px]' : ''}"></span>
-				</button>
-			</div>
-		</div>
-
-		<div class="flex items-center justify-between">
-			{#if saved}
-				<span class="text-sm text-green-600">ذخیره شد</span>
-			{:else}
-				<span></span>
-			{/if}
-			<button onclick={saveSettings} disabled={saving} class="px-6 py-2.5 bg-blue-600 text-white rounded-lg font-medium text-sm hover:bg-blue-700 transition-colors disabled:opacity-50">
-				{saving ? 'در حال ذخیره...' : 'ذخیره تنظیمات'}
-			</button>
-		</div>
-	{/if}
 </div>
+
+	<!-- Tabs -->
+	<div class="bg-white rounded-xl border overflow-hidden">
+		<div class="flex border-b overflow-x-auto">
+			{#each tabs as tab}
+				<button
+					onclick={() => activeTab = tab.id}
+					class="px-6 py-3 text-sm font-medium whitespace-nowrap transition-colors {activeTab === tab.id ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}"
+				>
+					{tab.label}
+				</button>
+			{/each}
+		</div>
+
+		<div class="p-6">
+			{#if activeTab === 'general'}
+				<!-- General Settings -->
+				{#if loading}
+					<div class="flex items-center justify-center py-12">
+						<div class="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full"></div>
+					</div>
+				{:else}
+					<div class="divide-y">
+						<!-- Max users per room -->
+						<div class="py-4 flex items-center justify-between">
+							<div>
+								<p class="font-medium text-gray-900">حداکثر کاربر در اتاق</p>
+								<p class="text-sm text-gray-500 mt-0.5">تعداد حداکثر شرکت‌کنندگان در هر جلسه</p>
+							</div>
+							<input type="number" bind:value={settings.max_users_per_room} min="2" max="500" class="w-20 px-3 py-2 border rounded-lg text-sm text-center focus:ring-2 focus:ring-blue-500 outline-none" />
+						</div>
+
+						<!-- Recording enabled -->
+						<div class="py-4 flex items-center justify-between">
+							<div>
+								<p class="font-medium text-gray-900">ضبط جلسات</p>
+								<p class="text-sm text-gray-500 mt-0.5">امکان ضبط جلسات توسط مدرس</p>
+							</div>
+							<button
+								onclick={() => settings.recording_enabled = !settings.recording_enabled}
+								class="relative w-11 h-6 rounded-full transition-colors {settings.recording_enabled ? 'bg-blue-600' : 'bg-gray-300'}"
+							>
+								<span class="absolute top-0.5 right-0.5 w-5 h-5 bg-white rounded-full transition-transform {settings.recording_enabled ? 'translate-x-[-20px]' : ''}"></span>
+							</button>
+						</div>
+
+						<!-- Allow student video -->
+						<div class="py-4 flex items-center justify-between">
+							<div>
+								<p class="font-medium text-gray-900">ارسال ویدیو توسط دانش‌آموز</p>
+								<p class="text-sm text-gray-500 mt-0.5">اجازه ارسال ویدیو به دانش‌آموزان</p>
+							</div>
+							<button
+								onclick={() => settings.allow_student_video = !settings.allow_student_video}
+								class="relative w-11 h-6 rounded-full transition-colors {settings.allow_student_video ? 'bg-blue-600' : 'bg-gray-300'}"
+							>
+								<span class="absolute top-0.5 right-0.5 w-5 h-5 bg-white rounded-full transition-transform {settings.allow_student_video ? 'translate-x-[-20px]' : ''}"></span>
+							</button>
+						</div>
+
+						<!-- Max file size -->
+						<div class="py-4 flex items-center justify-between">
+							<div>
+								<p class="font-medium text-gray-900">حداکثر حجم فایل (MB)</p>
+								<p class="text-sm text-gray-500 mt-0.5">حداکثر اندازه آپلود فایل</p>
+							</div>
+							<input type="number" bind:value={settings.max_file_size_mb} min="1" max="500" class="w-20 px-3 py-2 border rounded-lg text-sm text-center focus:ring-2 focus:ring-blue-500 outline-none" />
+						</div>
+
+						<!-- Auto end session -->
+						<div class="py-4 flex items-center justify-between">
+							<div>
+								<p class="font-medium text-gray-900">پایان خودکار جلسه (دقیقه)</p>
+								<p class="text-sm text-gray-500 mt-0.5">زمان پایان خودکار پس از شروع</p>
+							</div>
+							<input type="number" bind:value={settings.session_auto_end_minutes} min="30" max="480" class="w-20 px-3 py-2 border rounded-lg text-sm text-center focus:ring-2 focus:ring-blue-500 outline-none" />
+						</div>
+
+						<!-- Maintenance mode -->
+						<div class="py-4 flex items-center justify-between">
+							<div>
+								<p class="font-medium text-gray-900">حالت تعمیر و نگهداری</p>
+								<p class="text-sm text-gray-500 mt-0.5">غیرفعال‌سازی موقت سیستم</p>
+							</div>
+							<button
+								onclick={() => settings.maintenance_mode = !settings.maintenance_mode}
+								class="relative w-11 h-6 rounded-full transition-colors {settings.maintenance_mode ? 'bg-red-600' : 'bg-gray-300'}"
+							>
+								<span class="absolute top-0.5 right-0.5 w-5 h-5 bg-white rounded-full transition-transform {settings.maintenance_mode ? 'translate-x-[-20px]' : ''}"></span>
+							</button>
+						</div>
+					</div>
+
+					<div class="flex items-center justify-between mt-6 pt-4 border-t">
+						{#if saved}
+							<span class="text-sm text-green-600">ذخیره شد</span>
+						{:else}
+							<span></span>
+						{/if}
+						<button onclick={saveSettings} disabled={saving} class="px-6 py-2.5 bg-blue-600 text-white rounded-lg font-medium text-sm hover:bg-blue-700 transition-colors disabled:opacity-50">
+							{saving ? 'در حال ذخیره...' : 'ذخیره تنظیمات'}
+						</button>
+					</div>
+				{/if}
+
+			{:else if activeTab === 'webhooks'}
+				<!-- Webhooks Tab -->
+				<div class="space-y-6">
+					<div class="flex items-center justify-between">
+						<div>
+							<h2 class="text-lg font-semibold text-gray-900">مدیریت وب‌هوک‌ها</h2>
+							<p class="text-sm text-gray-500 mt-1">وب‌هوک‌ها برای دریافت اعلان‌های رویدادها در سیستم خارجی استفاده می‌شوند</p>
+						</div>
+						<button
+							onclick={openCreateModal}
+							class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors flex items-center gap-2"
+						>
+							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+							</svg>
+							ایجاد وب‌هوک
+						</button>
+					</div>
+
+					{#if webhooksLoading}
+						<div class="flex items-center justify-center py-12">
+							<div class="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full"></div>
+						</div>
+					{:else if webhooks.length === 0}
+						<div class="text-center py-12 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
+							<svg class="w-12 h-12 mx-auto text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+							</svg>
+							<p class="mt-4 text-gray-500">هیچ وب‌هوکی ایجاد نشده است</p>
+							<button onclick={openCreateModal} class="mt-4 text-blue-600 hover:text-blue-700 text-sm font-medium">
+								ایجاد اولین وب‌هوک
+							</button>
+						</div>
+					{:else}
+						<div class="space-y-4">
+							{#each webhooks as webhook (webhook.id)}
+								<div class="bg-white border rounded-xl overflow-hidden">
+									<div class="p-4">
+										<div class="flex items-start justify-between gap-4">
+											<div class="flex-1 min-w-0">
+												<div class="flex items-center gap-3">
+													<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {webhook.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}">
+														{webhook.is_active ? 'فعال' : 'غیرفعال'}
+													</span>
+													<span class="text-xs text-gray-500">
+														{formatDate(webhook.created_at)}
+													</span>
+												</div>
+												<p class="mt-2 text-sm font-mono text-gray-900 truncate" title={webhook.url}>
+													{webhook.url}
+												</p>
+												<div class="mt-2 flex flex-wrap gap-1.5">
+													{#each webhook.events as event}
+														<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+															{getEventLabel(event)}
+														</span>
+													{/each}
+												</div>
+											</div>
+											<div class="flex items-center gap-2">
+												<button
+													onclick={() => testWebhook(webhook.id)}
+													class="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+													title="تست وب‌هوک"
+												>
+													<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+														<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+														<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+													</svg>
+												</button>
+												<button
+													onclick={() => openEditModal(webhook)}
+													class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+													title="ویرایش"
+												>
+													<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+														<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+													</svg>
+												</button>
+												<button
+													onclick={() => confirmDeleteWebhook(webhook.id)}
+													class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+													title="حذف"
+												>
+													<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+														<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+													</svg>
+												</button>
+											</div>
+										</div>
+
+										{#if webhookTested === webhook.id}
+											<div class="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+												<p class="text-sm text-green-700">رویداد تست با موفقیت ارسال شد</p>
+											</div>
+										{/if}
+
+										<!-- Delivery logs toggle -->
+										<button
+											onclick={() => loadDeliveries(webhook.id)}
+											class="mt-3 text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
+										>
+											<svg class="w-4 h-4 transition-transform {selectedWebhookId === webhook.id && showDeliveries ? 'rotate-90' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+											</svg>
+											مشاهده لاگ ارسال
+										</button>
+									</div>
+
+									<!-- Delivery logs -->
+									{#if selectedWebhookId === webhook.id && showDeliveries}
+										<div class="border-t bg-gray-50 p-4">
+											<h4 class="text-sm font-medium text-gray-900 mb-3">لاگ ارسال</h4>
+											{#if deliveriesLoading}
+												<div class="flex items-center justify-center py-8">
+													<div class="animate-spin h-6 w-6 border-4 border-blue-600 border-t-transparent rounded-full"></div>
+												</div>
+											{:else if deliveries.length === 0}
+												<p class="text-sm text-gray-500 text-center py-4">هیچ ارسالی ثبت نشده است</p>
+											{:else}
+												<div class="space-y-2 max-h-64 overflow-y-auto">
+													{#each deliveries as delivery (delivery.id)}
+														<div class="bg-white p-3 rounded-lg border text-sm">
+															<div class="flex items-center justify-between">
+																<div class="flex items-center gap-2">
+																	<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {delivery.success ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+																		{delivery.success ? 'موفق' : 'ناموفق'}
+																	</span>
+																	<span class="text-gray-600">{getEventLabel(delivery.event_type)}</span>
+																</div>
+																<span class="text-xs text-gray-500">{formatDate(delivery.created_at)}</span>
+															</div>
+															{#if delivery.status_code}
+																<div class="mt-1 text-xs text-gray-500">
+																	کد وضعیت: <span class="font-mono">{delivery.status_code}</span>
+																	{#if delivery.retry_count > 0}
+																		<span class="mr-2">| تلاش: {delivery.retry_count}</span>
+																	{/if}
+																</div>
+															{/if}
+														</div>
+													{/each}
+												</div>
+											{/if}
+										</div>
+									{/if}
+								</div>
+							{/each}
+						</div>
+					{/if}
+				</div>
+
+			{:else}
+				<!-- Other tabs placeholder -->
+				<div class="text-center py-12">
+					<svg class="w-12 h-12 mx-auto text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+					</svg>
+					<p class="mt-4 text-gray-500">این بخش در حال توسعه است</p>
+				</div>
+			{/if}
+		</div>
+	</div>
+</div>
+
+<!-- Create/Edit Webhook Modal -->
+{#if showWebhookModal}
+	<!-- svelte-ignore a11y_click_events_have_key_events -->
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div class="fixed inset-0 z-50 flex items-center justify-center p-4" onclick={closeWebhookModal}>
+		<div class="fixed inset-0 bg-black/40 backdrop-blur-sm"></div>
+		<div
+			class="relative bg-white rounded-2xl w-full max-w-lg shadow-xl animate-slide-up"
+			onclick={(e) => e.stopPropagation()}
+		>
+			<div class="px-6 pt-6 pb-2">
+				<h2 class="font-bold text-lg text-gray-900">
+					{editingWebhook ? 'ویرایش وب‌هوک' : 'ایجاد وب‌هوک جدید'}
+				</h2>
+			</div>
+			<div class="px-6 pb-6 space-y-4">
+				<!-- URL Input -->
+				<div>
+					<label class="block text-sm font-medium text-gray-700 mb-1">آدرس URL</label>
+					<input
+						type="url"
+						bind:value={webhookForm.url}
+						placeholder="https://example.com/webhook"
+						class="w-full px-4 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+					/>
+					<p class="mt-1 text-xs text-gray-500">آدرس سروری که رویدادها به آن ارسال می‌شوند</p>
+				</div>
+
+				<!-- Events Selection -->
+				<div>
+					<label class="block text-sm font-medium text-gray-700 mb-2">رویدادها</label>
+					<div class="space-y-2">
+						{#each Object.entries(WEBHOOK_EVENTS) as [eventKey, eventLabel]}
+							<label class="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors {webhookForm.events.includes(eventKey) ? 'border-blue-500 bg-blue-50' : ''}">
+								<input
+									type="checkbox"
+									checked={webhookForm.events.includes(eventKey)}
+									onchange={() => toggleEvent(eventKey as WebhookEventType)}
+									class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+								/>
+								<div>
+									<span class="text-sm font-medium text-gray-900">{eventLabel}</span>
+									<span class="text-xs text-gray-500 font-mono mr-2">({eventKey})</span>
+								</div>
+							</label>
+						{/each}
+					</div>
+				</div>
+
+				<!-- Active Toggle -->
+				<div class="flex items-center justify-between p-3 border rounded-lg">
+					<div>
+						<span class="text-sm font-medium text-gray-900">وضعیت فعال</span>
+						<p class="text-xs text-gray-500">وب‌هوک فقط در حالت فعال رویدادها را ارسال می‌کند</p>
+					</div>
+					<button
+						onclick={() => webhookActive = !webhookActive}
+						class="relative w-11 h-6 rounded-full transition-colors {webhookActive ? 'bg-blue-600' : 'bg-gray-300'}"
+					>
+						<span class="absolute top-0.5 right-0.5 w-5 h-5 bg-white rounded-full transition-transform {webhookActive ? 'translate-x-[-20px]' : ''}"></span>
+					</button>
+				</div>
+			</div>
+			<div class="px-6 py-4 border-t flex justify-end gap-3">
+				<button onclick={closeWebhookModal} class="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+					انصراف
+				</button>
+				<button
+					onclick={saveWebhook}
+					disabled={webhookSaving || !webhookForm.url || webhookForm.events.length === 0}
+					class="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+				>
+					{webhookSaving ? 'در حال ذخیره...' : (editingWebhook ? 'بروزرسانی' : 'ایجاد')}
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- Delete Confirmation Modal -->
+<ConfirmModal
+	show={showDeleteConfirm}
+	title="حذف وب‌هوک"
+	message="آیا از حذف این وب‌هوک اطمینان دارید؟ این عمل قابل بازگشت نیست."
+	onConfirm={deleteWebhook}
+	onCancel={() => { showDeleteConfirm = false; webhookToDelete = null; }}
+/>
+
+<style>
+	@keyframes slide-up {
+		from { transform: translateY(20px); opacity: 0; }
+		to { transform: translateY(0); opacity: 1; }
+	}
+	.animate-slide-up {
+		animation: slide-up 0.2s ease-out;
+	}
+</style>
