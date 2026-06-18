@@ -12,8 +12,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/iroom/iroom/internal/models"
-	"github.com/iroom/iroom/internal/repository"
+	"github.com/iroom/iroom/internal/domain/entity"
+	repository "github.com/iroom/iroom/internal/adapter/repository/sqlite"
 )
 
 const (
@@ -46,7 +46,7 @@ func (s *WebhookDeliveryService) DispatchEvent(eventType string, data interface{
 		return
 	}
 
-	event := models.WebhookEvent{
+	event := entity.WebhookEvent{
 		Type:      eventType,
 		Timestamp: time.Now(),
 		Data:      data,
@@ -58,7 +58,7 @@ func (s *WebhookDeliveryService) DispatchEvent(eventType string, data interface{
 }
 
 // deliverWebhook sends a webhook payload with retry logic
-func (s *WebhookDeliveryService) deliverWebhook(webhook models.Webhook, event models.WebhookEvent) {
+func (s *WebhookDeliveryService) deliverWebhook(webhook entity.Webhook, event entity.WebhookEvent) {
 	payload, err := json.Marshal(event)
 	if err != nil {
 		slog.Error("failed to marshal webhook payload", "error", err)
@@ -99,11 +99,11 @@ func (s *WebhookDeliveryService) deliverWebhook(webhook models.Webhook, event mo
 	}
 
 	// Log the delivery
-	delivery := &models.WebhookDelivery{
+	delivery := &entity.WebhookDelivery{
 		WebhookID:    webhook.ID,
 		EventType:    event.Type,
 		Payload:      string(payload),
-		StatusCode:   lastStatusCode,
+		StatusCode:   *lastStatusCode,
 		ResponseBody: lastResponseBody,
 		Success:      success,
 		RetryCount:   0,
@@ -119,7 +119,7 @@ func (s *WebhookDeliveryService) deliverWebhook(webhook models.Webhook, event mo
 }
 
 // sendWebhook sends a single webhook request
-func (s *WebhookDeliveryService) sendWebhook(webhook models.Webhook, payload []byte) (int, string, error) {
+func (s *WebhookDeliveryService) sendWebhook(webhook entity.Webhook, payload []byte) (int, string, error) {
 	req, err := http.NewRequest(http.MethodPost, webhook.URL, bytes.NewBuffer(payload))
 	if err != nil {
 		return 0, "", fmt.Errorf("failed to create request: %w", err)
@@ -152,8 +152,8 @@ func generateSignature(payload []byte, secret string) string {
 }
 
 // SendTestEvent sends a test event to a specific webhook
-func (s *WebhookDeliveryService) SendTestEvent(webhook models.Webhook) {
-	event := models.WebhookEvent{
+func (s *WebhookDeliveryService) SendTestEvent(webhook entity.Webhook) {
+	event := entity.WebhookEvent{
 		Type:      "test",
 		Timestamp: time.Now(),
 		Data: map[string]string{
