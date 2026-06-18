@@ -146,9 +146,12 @@ func main() {
 	e.HideBanner = true
 	e.Use(echoMiddleware.Logger())
 	e.Use(echoMiddleware.Recover())
+	e.Use(echoMiddleware.Gzip())
 	e.Use(middleware.CORS())
 	e.Use(middleware.MaintenanceMode(db, cfg.JWT.Secret))
 	e.Use(middleware.RateLimit(100, time.Minute))
+	e.Use(middleware.CSRF())
+	e.Use(middleware.AuditLog(logRepo))
 
 	// Health
 	e.GET("/api/v1/health", healthHandler.Health)

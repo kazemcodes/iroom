@@ -1,8 +1,10 @@
 <script lang="ts">
 	import { api } from '$lib/api';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import type { User, Class, Session, DashboardStats, ActivityLog } from '$lib/types';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
+
+	let refreshInterval: ReturnType<typeof setInterval> | null = null;
 
 	import { goto } from '$app/navigation';
 	let activeTab = $state<'users' | 'classes' | 'sessions'>('users');
@@ -48,49 +50,26 @@
 	onMount(async () => {
 		await Promise.all([loadDashboard(), loadUsers(), loadClasses(), loadSessions()]);
 		await loadHealth();
+		// Refresh dashboard every 30 seconds
+		refreshInterval = setInterval(async () => {
+			await loadDashboard();
+			await loadHealth();
+		}, 30000);
+	});
+
+	onDestroy(() => {
+		if (refreshInterval) clearInterval(refreshInterval);
 	});
 
 	async function loadDashboard() {
 		loading = true;
-		const [statsRes, classesRes, sessionsRes, usersRes, recordingsRes] = await Promise.all([
-			api.get<DashboardStats>('/admin/stats'),
-			api.get<Class[]>('/classes'),
-			api.get<Session[]>('/sessions'),
-			api.get<{ items: User[] }>('/admin/users', { per_page: '1' }),
-			api.get<{ total?: number }>('/admin/recordings', { per_page: '1' })
-		]);
-
+		// Single API call for stats
+		const statsRes = await api.get<DashboardStats>('/admin/stats');
 		if (statsRes.success && statsRes.data) {
 			stats = statsRes.data;
-		} else {
-			let uCount = 0;
-			if (usersRes.success && usersRes.data) {
-				uCount = (usersRes.data as any).total || 0;
-			}
-			const cArr = classesRes.success && classesRes.data ? (Array.isArray(classesRes.data) ? classesRes.data : []) : [];
-			const sArr = sessionsRes.success && sessionsRes.data ? (Array.isArray(sessionsRes.data) ? sessionsRes.data : []) : [];
-			stats = { users: uCount || cArr.length, classes: cArr.length, sessions: sArr.length, messages: 0 };
 		}
 
-		const classesArr = classesRes.success && classesRes.data ? (Array.isArray(classesRes.data) ? classesRes.data : []) : [];
-		const sessionsArr = sessionsRes.success && sessionsRes.data ? (Array.isArray(sessionsRes.data) ? sessionsRes.data : []) : [];
-		const usersArr = usersRes.success && usersRes.data ? ((usersRes.data as any).items || []) : [];
-		const teachersMap: Record<number, string> = {};
-		usersArr.forEach((u: User) => { teachersMap[u.id] = u.display_name; });
-
-		const today = new Date().toISOString().slice(0, 10);
-		todaySessions = sessionsArr.filter((s: Session) => s.scheduled_at && s.scheduled_at.startsWith(today)).length;
-
-		if (recordingsRes.success && recordingsRes.data) {
-			recordings = (recordingsRes.data as any).total || 0;
-		}
-
-		liveRooms = classesArr.map((cls: Class) => ({
-			...cls,
-			activeSessions: sessionsArr.filter((s: Session) => s.class_id === cls.id && s.status === 'live').length,
-			teacherName: teachersMap[cls.teacher_id] || '—'
-		})).filter((r: any) => r.activeSessions > 0).slice(0, 8);
-
+		// Load activity logs (separate call needed for list)
 		const logsRes = await api.get<{ items: ActivityLog[] }>('/admin/activity-logs', { per_page: '10' });
 		if (logsRes.success && logsRes.data) {
 			activityLogs = (logsRes.data as any).items || (Array.isArray(logsRes.data) ? logsRes.data : []);

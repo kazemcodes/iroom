@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/iroom/iroom/internal/domain/entity"
+	sanitize "github.com/iroom/iroom/internal/pkg/sanitize"
 	repository "github.com/iroom/iroom/internal/adapter/repository/sqlite"
 )
 
@@ -31,10 +32,15 @@ func (uc *UserUseCase) GetByID(id int64) (*entity.User, error) {
 	return uc.userRepo.GetByID(id)
 }
 
-func (uc *UserUseCase) Create(email, password, displayName, phone, role string) (*entity.User, error) {
+func (uc *UserUseCase) Create(email, password, displayName, phone, role string, callerRole string) (*entity.User, error) {
 	existing, _ := uc.userRepo.GetByEmail(email)
 	if existing != nil {
 		return nil, fmt.Errorf("ایمیل قبلاً ثبت شده است")
+	}
+
+	// Prevent role escalation: only owners can create admins
+	if role == "admin" && callerRole != "owner" {
+		return nil, fmt.Errorf("فقط مالک می‌تواند مدیر ایجاد کند")
 	}
 
 	hashedPassword, err := uc.hasher.Hash(password)
@@ -45,7 +51,7 @@ func (uc *UserUseCase) Create(email, password, displayName, phone, role string) 
 	user := &entity.User{
 		Email:        email,
 		PasswordHash: hashedPassword,
-		DisplayName:  displayName,
+		DisplayName:  sanitize.Sanitize(displayName),
 		Role:         entity.UserRole(role),
 		Phone:        phone,
 		IsActive:     true,
@@ -57,13 +63,22 @@ func (uc *UserUseCase) Create(email, password, displayName, phone, role string) 
 	return user, nil
 }
 
-func (uc *UserUseCase) Update(id int64, displayName, phone, role string, isActive *bool) error {
+func (uc *UserUseCase) Update(id int64, displayName, phone, role string, isActive *bool, callerRole string) error {
 	user, err := uc.userRepo.GetByID(id)
 	if err != nil {
 		return fmt.Errorf("کاربر یافت نشد")
 	}
+
+	// Prevent role escalation
+	if role == "admin" && callerRole != "owner" {
+		return fmt.Errorf("فقط مالک می‌تواند نقش مدیر را تعیین کند")
+	}
+	if user.Role == "admin" && callerRole != "owner" && role != "" && role != "admin" {
+		return fmt.Errorf("فقط مالک می‌تواند نقش مدیر را تغییر دهد")
+	}
+
 	if displayName != "" {
-		user.DisplayName = displayName
+		user.DisplayName = sanitize.Sanitize(displayName)
 	}
 	if phone != "" {
 		user.Phone = phone

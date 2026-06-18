@@ -17,10 +17,37 @@ type rateLimiter struct {
 }
 
 func newRateLimiter(limit int, window time.Duration) *rateLimiter {
-	return &rateLimiter{
+	rl := &rateLimiter{
 		requests: make(map[string][]time.Time),
 		limit:    limit,
 		window:   window,
+	}
+	// Start cleanup goroutine to prevent memory leak
+	go rl.cleanup()
+	return rl
+}
+
+func (rl *rateLimiter) cleanup() {
+	ticker := time.NewTicker(rl.window)
+	defer ticker.Stop()
+	for range ticker.C {
+		rl.mu.Lock()
+		now := time.Now()
+		cutoff := now.Add(-rl.window)
+		for key, reqs := range rl.requests {
+			valid := make([]time.Time, 0, len(reqs))
+			for _, t := range reqs {
+				if t.After(cutoff) {
+					valid = append(valid, t)
+				}
+			}
+			if len(valid) == 0 {
+				delete(rl.requests, key)
+			} else {
+				rl.requests[key] = valid
+			}
+		}
+		rl.mu.Unlock()
 	}
 }
 
@@ -43,11 +70,7 @@ func (rl *rateLimiter) allow(key string) bool {
 		return false
 	}
 
-	if len(valid) == 0 {
-		delete(rl.requests, key)
-	} else {
-		rl.requests[key] = valid
-	}
+	rl.requests[key] = append(valid, now)
 	return true
 }
 

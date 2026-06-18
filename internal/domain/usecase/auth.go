@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/iroom/iroom/internal/domain/entity"
+	sanitize "github.com/iroom/iroom/internal/pkg/sanitize"
 	repository "github.com/iroom/iroom/internal/adapter/repository/sqlite"
 )
 
@@ -76,7 +77,7 @@ func (uc *AuthUseCase) Register(email, password, displayName, phone string) (*en
 	user := &entity.User{
 		Email:        email,
 		PasswordHash: hashedPassword,
-		DisplayName:  displayName,
+		DisplayName:  sanitize.Sanitize(displayName),
 		Role:         entity.RoleStudent,
 		Phone:        phone,
 		IsActive:     true,
@@ -156,7 +157,7 @@ func (uc *AuthUseCase) GuestLogin(sessionID int64, displayName string) (*entity.
 	guestUser := &entity.User{
 		Email:        guestEmail,
 		PasswordHash: hashedPassword,
-		DisplayName:  displayName,
+		DisplayName:  sanitize.Sanitize(displayName),
 		Role:         entity.RoleStudent,
 		IsActive:     true,
 	}
@@ -245,4 +246,26 @@ func (uc *AuthUseCase) generateTokens(user *entity.User) (map[string]interface{}
 		"refresh_token": refreshToken,
 		"expires_in":    uc.accessExpiry * 60,
 	}, nil
+}
+
+// CleanupGuestAccounts deletes guest accounts older than 24 hours.
+// Should be called periodically to prevent database bloat.
+func (uc *AuthUseCase) CleanupGuestAccounts() error {
+	cutoff := time.Now().Add(-24 * time.Hour)
+	
+	// Get all guest users
+	users, _, err := uc.userRepo.List(1, 1000, "guest_")
+	if err != nil {
+		return err
+	}
+
+	for _, user := range users {
+		if user.CreatedAt.Before(cutoff) {
+			user.IsActive = false
+			if err := uc.userRepo.Update(&user); err != nil {
+				slog.Error("failed to deactivate guest user", "user_id", user.ID, "error", err)
+			}
+		}
+	}
+	return nil
 }

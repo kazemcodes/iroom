@@ -116,6 +116,7 @@ func (h *ChatHandler) readPump(client *services.Client, sessionID int64) {
 				UserID:    client.UserID,
 				Content:   msg.Content,
 				Type:      "text",
+				CreatedAt: time.Now(),
 			}
 			h.messageRepo.Create(chatMsg)
 
@@ -125,7 +126,7 @@ func (h *ChatHandler) readPump(client *services.Client, sessionID int64) {
 					"user_id":           client.UserID,
 					"user_display_name": client.Email,
 					"content":           msg.Content,
-					"created_at":        "",
+					"created_at":        time.Now().Format(time.RFC3339),
 				},
 			}
 			data, _ := json.Marshal(broadcast)

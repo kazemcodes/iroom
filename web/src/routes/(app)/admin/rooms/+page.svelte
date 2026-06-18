@@ -10,6 +10,7 @@
 	let classes = $state<Class[]>([]);
 	let teachers = $state<Record<number, User>>({});
 	let sessions = $state<Session[]>([]);
+	let studentCounts = $state<Record<number, number>>({});
 	let loading = $state(true);
 
 	let searchQuery = $state('');
@@ -44,6 +45,15 @@
 			list.forEach(u => { teachers[u.id] = u; });
 		}
 		loading = false;
+
+		// Load actual student counts for each class
+		for (const cls of classes) {
+			const res = await api.get<{ items: User[] }>(`/classes/${cls.id}/students`);
+			if (res.success && res.data) {
+				const items = Array.isArray(res.data.items) ? res.data.items : (Array.isArray(res.data) ? res.data : []);
+				studentCounts[cls.id] = items.length;
+			}
+		}
 	}
 
 	function getActiveSessions(classId: number) {
@@ -55,8 +65,8 @@
 	}
 
 	function getStudentsCount(classId: number) {
-		const classSessions = sessions.filter(s => s.class_id === classId);
-		return classSessions.length > 0 ? Math.min(classSessions.length * 5, 30) : 0;
+		// Return actual count from loaded data
+		return studentCounts[classId] || 0;
 	}
 
 	function isRoomActive(classId: number) {

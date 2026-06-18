@@ -43,6 +43,11 @@ func New(dbPath string) (*sql.DB, error) {
 		return nil, fmt.Errorf("open db: %w", err)
 	}
 
+	// Configure connection pool for SQLite
+	db.SetMaxOpenConns(1)
+	db.SetMaxIdleConns(1)
+	db.SetConnMaxLifetime(0) // SQLite connections don't benefit from pooling
+
 	db.SetMaxOpenConns(1)
 	db.SetMaxIdleConns(1)
 

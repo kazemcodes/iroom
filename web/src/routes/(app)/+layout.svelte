@@ -55,8 +55,18 @@
 		ws.onerror = () => { ws?.close(); };
 	}
 
-	onMount(() => {
+	onMount(async () => {
 		auth.init();
+		// Validate token on mount
+		const token = localStorage.getItem('access_token');
+		if (token) {
+			const res = await api.get('/auth/me');
+			if (!res.success) {
+				auth.logout();
+				goto('/auth');
+				return;
+			}
+		}
 		mounted = true;
 	});
 

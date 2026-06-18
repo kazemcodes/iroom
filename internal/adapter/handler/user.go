@@ -52,7 +52,8 @@ func (h *UserHandler) Create(c echo.Context) error {
 		return response.BadRequest(c, "داده‌های نامعتبر")
 	}
 
-	user, err := h.userUC.Create(req.Email, req.Password, req.DisplayName, req.Phone, req.Role)
+	callerRole := getUserRole(c)
+	user, err := h.userUC.Create(req.Email, req.Password, req.DisplayName, req.Phone, req.Role, callerRole)
 	if err != nil {
 		return response.BadRequest(c, err.Error())
 	}
@@ -73,7 +74,8 @@ func (h *UserHandler) Update(c echo.Context) error {
 		return response.BadRequest(c, "داده‌های نامعتبر")
 	}
 
-	if err := h.userUC.Update(id, req.DisplayName, req.Phone, req.Role, req.IsActive); err != nil {
+	callerRole := getUserRole(c)
+	if err := h.userUC.Update(id, req.DisplayName, req.Phone, req.Role, req.IsActive, callerRole); err != nil {
 		return response.InternalError(c, err.Error())
 	}
 

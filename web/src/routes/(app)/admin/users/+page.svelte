@@ -2,6 +2,7 @@
 	import { api } from '$lib/api';
 	import { onMount } from 'svelte';
 	import type { User } from '$lib/types';
+	import TableSkeleton from '$lib/components/TableSkeleton.svelte';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import { toPersianNum } from '$lib/utils/persian';
 
@@ -150,13 +151,40 @@
 		reader.onload = (e) => {
 			const text = e.target?.result as string;
 			const lines = text.split(/\r?\n/).filter((line) => line.trim() !== '');
-			// Show header + up to 5 data rows
-			importPreview = lines.slice(0, 6).map((line) => {
-				// Simple CSV parse (handles basic commas, not quoted fields with commas)
-				return line.split(',').map((cell) => cell.trim());
-			});
+			// Parse CSV with quoted field support
+			importPreview = lines.slice(0, 6).map((line) => parseCSVLine(line));
 		};
 		reader.readAsText(file);
+	}
+
+	function parseCSVLine(line: string): string[] {
+		const result: string[] = [];
+		let current = '';
+		let inQuotes = false;
+		for (let i = 0; i < line.length; i++) {
+			const char = line[i];
+			if (inQuotes) {
+				if (char === '"' && line[i + 1] === '"') {
+					current += '"';
+					i++;
+				} else if (char === '"') {
+					inQuotes = false;
+				} else {
+					current += char;
+				}
+			} else {
+				if (char === '"') {
+					inQuotes = true;
+				} else if (char === ',') {
+					result.push(current.trim());
+					current = '';
+				} else {
+					current += char;
+				}
+			}
+		}
+		result.push(current.trim());
+		return result;
 	}
 
 	function downloadTemplate() {
@@ -166,6 +194,21 @@
 		const a = document.createElement('a');
 		a.href = url;
 		a.download = 'users_template.csv';
+		a.click();
+		URL.revokeObjectURL(url);
+	}
+
+	function exportUsers() {
+		const header = 'id,display_name,email,role,phone,is_active';
+		const rows = users.map(u =>
+			`${u.id},"${u.display_name}","${u.email}","${u.role}","${u.phone || ''}",${u.is_active}`
+		);
+		const csv = [header, ...rows].join('\n');
+		const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = `users_export_${new Date().toISOString().slice(0, 10)}.csv`;
 		a.click();
 		URL.revokeObjectURL(url);
 	}
@@ -215,6 +258,10 @@
 				<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
 				وارد کردن گروهی
 			</button>
+			<button onclick={exportUsers} class="sky-btn sky-btn-outline">
+				<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+				خروجی CSV
+			</button>
 			<button onclick={() => showCreateModal = true} class="sky-btn sky-btn-primary">
 				<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
 				کاربر جدید
@@ -234,10 +281,14 @@
 	</div>
 
 	{#if loading}
-		<div class="flex items-center justify-center py-12"><div class="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full"></div></div>
+		<TableSkeleton rows={5} cols={5} />
 	{:else if users.length === 0}
-		<div class="text-center py-20 bg-white rounded-xl">
-			<p class="text-gray-500">کاربری یافت نشد</p>
+		<div style="text-align:center;padding:80px 0;background:var(--color-pure);border-radius:12px;">
+			<div style="width:64px;height:64px;margin:0 auto 16px;border-radius:12px;background:var(--color-secret-glow);display:flex;align-items:center;justify-content:center;">
+				<svg width="32" height="32" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:var(--color-moonlit-mist);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg>
+			</div>
+			<p style="color:var(--color-mystic-sea);font-weight:500;">کاربری یافت نشد</p>
+			<p style="font-size:0.875rem;color:var(--color-moonlit-mist);margin-top:4px;">اولین کاربر خود را ایجاد کنید</p>
 		</div>
 	{:else}
 		<div class="bg-white rounded-xl overflow-hidden">

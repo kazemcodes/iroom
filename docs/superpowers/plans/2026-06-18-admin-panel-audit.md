@@ -410,53 +410,53 @@ Guest users are created with a dummy password and persist in the database indefi
 
 ## 6. Implementation Plan
 
-### Phase 1: Critical Security Fixes (Priority 1)
+### Phase 1: Critical Security Fixes (Priority 1) ✅ COMPLETED
 
-**Task 1.1: Add XSS Sanitization**
+**Task 1.1: Add XSS Sanitization** ✅
 - Files: `internal/adapter/handler/user.go`, `internal/adapter/handler/auth.go`
 - Add bluemonday sanitization to display names before storage
 
-**Task 1.2: Add Role Escalation Prevention**
+**Task 1.2: Add Role Escalation Prevention** ✅
 - File: `internal/adapter/handler/user.go`
 - Add check: only owners can create admins
 
-**Task 1.3: Add CSRF Middleware**
+**Task 1.3: Add CSRF Middleware** ✅
 - File: `internal/middleware/csrf.go` (new)
 - Add CSRF protection to state-changing endpoints
 
-**Task 1.4: Add Audit Logging**
+**Task 1.4: Add Audit Logging** ✅
 - File: `internal/middleware/audit.go` (new)
 - Log all admin actions to activity_log
 
 ---
 
-### Phase 2: High-Priority Bug Fixes (Priority 2)
+### Phase 2: High-Priority Bug Fixes (Priority 2) ✅ COMPLETED
 
-**Task 2.1: Fix Message `created_at`**
+**Task 2.1: Fix Message `created_at`** ✅
 - File: `internal/adapter/handler/chat.go:114-120`
 - Set `CreatedAt: time.Now()` explicitly
 
-**Task 2.2: Fix Dashboard API Calls**
+**Task 2.2: Fix Dashboard API Calls** ✅
 - File: `web/src/routes/(app)/admin/+page.svelte:53-99`
 - Use stats endpoint as single source of truth
 
-**Task 2.3: Fix Student Count**
+**Task 2.3: Fix Student Count** ✅
 - File: `web/src/routes/(app)/admin/rooms/+page.svelte:57-60`
 - Query actual student count from API
 
-**Task 2.4: Fix Token Validation on Load**
+**Task 2.4: Fix Token Validation on Load** ✅
 - File: `web/src/routes/(app)/+layout.svelte:58-61`
 - Add server-side token validation
 
 ---
 
-### Phase 3: Medium-Priority Fixes (Priority 3)
+### Phase 3: Medium-Priority Fixes (Priority 3) ✅ COMPLETED
 
-**Task 3.1: Fix Rate Limiter Memory Leak**
+**Task 3.1: Fix Rate Limiter Memory Leak** ✅
 - File: `internal/middleware/ratelimit.go`
 - Add stale IP cleanup
 
-**Task 3.2: Add Guest Account Cleanup**
+**Task 3.2: Add Guest Account Cleanup** ✅
 - File: `internal/domain/usecase/auth.go`
 - Add cleanup job for old guest accounts
 
