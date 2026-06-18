@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { api } from '$lib/api';
+	import { auth } from '$lib/stores';
 	import { onMount } from 'svelte';
 	import type { Class, Session, User } from '$lib/types';
 	import { goto } from '$app/navigation';
@@ -8,6 +9,8 @@
 	const toPersian = (n: number) => String(n).replace(/[0-9]/g, d => '۰۱۲۳۴۵۶۷۸۹'[+d]);
 
 	let classes = $state<Class[]>([]);
+	let currentUser = $state<any>(null);
+	auth.subscribe(s => { currentUser = s.user; });
 	let teachers = $state<Record<number, User>>({});
 	let sessions = $state<Session[]>([]);
 	let studentCounts = $state<Record<number, number>>({});
@@ -197,9 +200,9 @@
 
 					<div class="flex items-center gap-2">
 						{#if active}
-							<a href="/classes/{cls.id}" class="sky-btn flex-1" style="background: rgba(64,191,127,0.12); color: var(--color-lush-meadow); font-size: 12px; padding: 0.45rem;">ورود</a>
+							<a href="/{(currentUser?.email || 'admin').split('@')[0]}/{cls.slug || cls.name.toLowerCase().replace(/\s+/g, '-')}" class="sky-btn flex-1" style="background: rgba(64,191,127,0.12); color: var(--color-lush-meadow); font-size: 12px; padding: 0.45rem;">ورود</a>
 						{/if}
-						<a href="/classes/{cls.id}" class="sky-btn sky-btn-secondary flex-1" style="font-size: 12px; padding: 0.45rem;">جلسات</a>
+						<a href="/{(currentUser?.email || 'admin').split('@')[0]}/{cls.slug || cls.name.toLowerCase().replace(/\s+/g, '-')}" class="sky-btn sky-btn-secondary flex-1" style="font-size: 12px; padding: 0.45rem;">جلسات</a>
 						<button onclick={() => confirmDeleteRoom(cls.id)} class="sky-btn-icon" style="width:34px;height:34px;" title="حذف">
 							<svg width="16" height="16" fill="none" stroke="var(--color-fiery-passion)" stroke-width="1.75" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
 						</button>

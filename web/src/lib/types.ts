@@ -32,6 +32,7 @@ export interface Class {
 	color: string;
 	max_students: number;
 	invite_code?: string;
+	slug?: string;
 	is_archived?: boolean;
 	created_at: string;
 	updated_at: string;

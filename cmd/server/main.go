@@ -100,7 +100,7 @@ func main() {
 
 	// Use Cases (business logic)
 	authUC := usecase.NewAuthUseCase(userRepo, sessionRepo, logRepo, tokenProvider, passwordHasher, cfg.JWT.AccessExpiry, cfg.JWT.RefreshExpiry)
-	classUC := usecase.NewClassUseCase(classRepo, sessionRepo)
+	classUC := usecase.NewClassUseCase(classRepo, sessionRepo, userRepo)
 	sessionUC := usecase.NewSessionUseCase(sessionRepo, classRepo)
 	messageUC := usecase.NewMessageUseCase(messageRepo)
 	fileUC := usecase.NewFileUseCase(fileRepo, sessionRepo, classRepo, cfg.Upload.UploadDir)
@@ -160,7 +160,7 @@ func main() {
 	e.GET("/api/v1/sessions/:id/info", sessionHandler.GetPublicInfo)
 
 	// Class URL resolution (Skyroom-style /ch-{org}/{slug}/)
-	classURLHandler := handler.NewClassURLHandler(classUC)
+	classURLHandler := handler.NewClassURLHandler(classUC, userUC)
 	e.GET("/api/v1/classes/slug/:slug", classURLHandler.ResolveSlug)
 
 	// Auth (with stricter rate limit)

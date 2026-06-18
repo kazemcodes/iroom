@@ -8,6 +8,10 @@
 	let stats = $state({ users: 0, classes: 0, sessions: 0, messages: 0 });
 	let classes = $state<Class[]>([]);
 	let sessions = $state<Session[]>([]);
+	let currentUser = $state<any>(null);
+
+	// Subscribe to auth store
+	auth.subscribe(s => { currentUser = s.user; });
 	let loading = $state(true);
 
 	onMount(() => loadData());
@@ -39,7 +43,7 @@
 <div class="space-y-5">
 	<!-- Greeting -->
 	<div>
-		<h1 class="sky-page-title">سلام {$auth.user?.display_name} 👋</h1>
+		<h1 class="sky-page-title">سلام {currentUser?.display_name} 👋</h1>
 		<p class="sky-page-subtitle">
 			{toPersianDate(new Date())} — {new Date().toLocaleDateString('fa-IR', { weekday: 'long' })}
 		</p>
@@ -82,7 +86,7 @@
 				{:else}
 					<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
 						{#each classes.slice(0, 6) as cls}
-							<a href="/classes/{cls.id}" class="block p-4 rounded-xl transition-all hover:shadow-sm group" style="background: var(--color-secret-glow); text-decoration: none;">
+							<a href="/{(currentUser?.email || 'admin').split('@')[0]}/{cls.slug || cls.name.toLowerCase().replace(/\s+/g, '-')}" class="block p-4 rounded-xl transition-all hover:shadow-sm group" style="background: var(--color-secret-glow); text-decoration: none;">
 								<div class="flex items-center gap-3 mb-2">
 									<div class="w-9 h-9 rounded-lg flex items-center justify-center text-white font-bold text-sm shrink-0" style="background: {cls.color || 'var(--color-crystal-clear)'};">{cls.name.charAt(0)}</div>
 									<h3 class="font-bold text-sm group-hover:underline" style="color: var(--color-midnight-sky);">{cls.name}</h3>

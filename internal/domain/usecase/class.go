@@ -2,7 +2,9 @@ package usecase
 
 import (
 	"fmt"
+	"strings"
 	"time"
+	"unicode"
 
 	"github.com/iroom/iroom/internal/domain/entity"
 	repository "github.com/iroom/iroom/internal/adapter/repository/sqlite"
@@ -13,19 +15,56 @@ import (
 type ClassUseCase struct {
 	classRepo   *repository.ClassRepo
 	sessionRepo *repository.SessionRepo
+	userRepo    *repository.UserRepo
 }
 
-func NewClassUseCase(classRepo *repository.ClassRepo, sessionRepo *repository.SessionRepo) *ClassUseCase {
-	return &ClassUseCase{classRepo: classRepo, sessionRepo: sessionRepo}
+func NewClassUseCase(classRepo *repository.ClassRepo, sessionRepo *repository.SessionRepo, userRepo *repository.UserRepo) *ClassUseCase {
+	return &ClassUseCase{classRepo: classRepo, sessionRepo: sessionRepo, userRepo: userRepo}
+}
+
+// generateSlug creates a URL-friendly slug from a class name.
+// Converts Persian/Arabic to transliteration, strips special chars.
+func generateSlug(name string) string {
+	slug := strings.ToLower(name)
+	// Replace common Persian chars with Latin equivalents
+	replacements := map[string]string{
+		" ": "-", "‌": "", "۰": "0", "۱": "1", "۲": "2", "۳": "3",
+		"۴": "4", "۵": "5", "۶": "6", "۷": "7", "۸": "8", "۹": "9",
+	}
+	for k, v := range replacements {
+		slug = strings.ReplaceAll(slug, k, v)
+	}
+	// Remove non-alphanumeric except hyphens
+	var result []rune
+	for _, r := range slug {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) || r == '-' {
+			result = append(result, r)
+		}
+	}
+	slug = string(result)
+	// Collapse multiple hyphens
+	for strings.Contains(slug, "--") {
+		slug = strings.ReplaceAll(slug, "--", "-")
+	}
+	slug = strings.Trim(slug, "-")
+	if slug == "" {
+		slug = fmt.Sprintf("class-%d", time.Now().UnixMilli())
+	}
+	return slug
 }
 
 func (uc *ClassUseCase) Create(teacherID int64, name, description, color string, maxStudents int) (*entity.Class, error) {
+	slug := generateSlug(name)
+	// Ensure slug uniqueness by appending teacher ID
+	slug = fmt.Sprintf("%s-%d", slug, teacherID)
+
 	c := &entity.Class{
 		TeacherID:   teacherID,
 		Name:        name,
 		Description: description,
 		Color:       color,
 		MaxStudents: maxStudents,
+		Slug:        slug,
 	}
 	if err := uc.classRepo.Create(c); err != nil {
 		return nil, fmt.Errorf("خطا در ایجاد کلاس")

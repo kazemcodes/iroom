@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { isAdmin, isTeacher } from '$lib/stores';
+	import { auth, isAdmin, isTeacher } from '$lib/stores';
 	import { api } from '$lib/api';
 	import { onMount } from 'svelte';
 	import type { Class } from '$lib/types';
@@ -8,6 +8,8 @@
 	let classes = $state<Class[]>([]);
 	let loading = $state(true);
 	let showCreate = $state(false);
+	let currentUser = $state<any>(null);
+	auth.subscribe(s => { currentUser = s.user; });
 	let search = $state('');
 	let currentPage = $state(1);
 	let totalClasses = $state(0);
@@ -58,7 +60,15 @@
 		joinLoading = true; joinError = '';
 		const res = await api.post<{ class_id: number }>(`/classes/join/${joinCode.trim()}`);
 		if (!res.success) { joinError = res.error || 'خطا در پیوستن'; joinLoading = false; return; }
-		if (res.data?.class_id) window.location.href = `/classes/${res.data.class_id}`;
+		if (res.data?.class_id) {
+			// Fetch class data to get slug
+			const classRes = await api.get<any>(`/classes/${res.data.class_id}`);
+			if (classRes.success && classRes.data?.slug) {
+				window.location.href = `/admin/${classRes.data.slug}`;
+			} else {
+				window.location.href = `/classroom/popup/${res.data.class_id}`;
+			}
+		}
 		showJoinByCode = false; joinCode = ''; joinLoading = false;
 	}
 
@@ -116,7 +126,7 @@
 	{:else}
 		<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
 			{#each classes as cls}
-				<a href="/classes/{cls.id}" class="sky-card block p-5 group" style="text-decoration: none;">
+				<a href="/{(currentUser?.email || 'admin').split('@')[0]}/{cls.slug || cls.name.toLowerCase().replace(/\s+/g, '-')}" class="sky-card block p-5 group" style="text-decoration: none;">
 					<div class="flex items-center gap-3 mb-3">
 						<div class="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-sm shrink-0"
 							style="background: {cls.color || 'var(--color-crystal-clear)'};">
