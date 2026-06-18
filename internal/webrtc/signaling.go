@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/iroom/iroom/internal/pkg/response"
 	"github.com/labstack/echo/v4"
 	"github.com/pion/webrtc/v4"
 )
@@ -39,9 +40,11 @@ type AnswerResponse struct {
 }
 
 type CandidateRequest struct {
-	Candidate string `json:"candidate"`
-	RoomID    string `json:"room_id"`
-	UserID    string `json:"user_id"`
+	Candidate     string  `json:"candidate"`
+	SDPMid        *string `json:"sdp_mid"`
+	SDPMLineIndex *uint16 `json:"sdp_m_line_index"`
+	RoomID        string  `json:"room_id"`
+	UserID        string  `json:"user_id"`
 }
 
 type RoomInfoResponse struct {
@@ -53,17 +56,20 @@ type RoomInfoResponse struct {
 func (ss *SignalingServer) HandleOffer(c echo.Context) error {
 	var req OfferRequest
 	if err := c.Bind(&req); err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "invalid request")
+		return response.BadRequest(c, "درخواست نامعتبر")
 	}
 
 	if req.SDP == "" || req.RoomID == "" || req.UserID == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, "missing required fields")
+		return response.BadRequest(c, "فیلدهای الزامی خالی هستند")
 	}
+
+	// Ensure room exists before adding participant
+	ss.roomManager.GetOrCreateRoom(req.RoomID, 50, 0)
 
 	peerConn, err := ss.createPeerConnection(req.UserID, req.RoomID)
 	if err != nil {
 		slog.Error("failed to create peer connection", "error", err, "user_id", req.UserID)
-		return echo.NewHTTPError(http.StatusInternalServerError, "failed to create connection")
+		return response.InternalError(c, "خطا در ایجاد اتصال")
 	}
 
 	offer := webrtc.SessionDescription{
@@ -73,18 +79,18 @@ func (ss *SignalingServer) HandleOffer(c echo.Context) error {
 
 	if err := peerConn.SetRemoteDescription(offer); err != nil {
 		slog.Error("failed to set remote description", "error", err, "user_id", req.UserID)
-		return echo.NewHTTPError(http.StatusBadRequest, "invalid SDP offer")
+		return response.BadRequest(c, "SDP offer نامعتبر")
 	}
 
 	answer, err := peerConn.CreateAnswer(nil)
 	if err != nil {
 		slog.Error("failed to create answer", "error", err, "user_id", req.UserID)
-		return echo.NewHTTPError(http.StatusInternalServerError, "failed to create answer")
+		return response.InternalError(c, "خطا در ایجاد پاسخ")
 	}
 
 	if err := peerConn.SetLocalDescription(answer); err != nil {
 		slog.Error("failed to set local description", "error", err, "user_id", req.UserID)
-		return echo.NewHTTPError(http.StatusInternalServerError, "failed to set local description")
+		return response.InternalError(c, "خطا در تنظیم توضیحات محلی")
 	}
 
 	participant := &Participant{
@@ -95,12 +101,12 @@ func (ss *SignalingServer) HandleOffer(c echo.Context) error {
 
 	if err := ss.roomManager.AddParticipant(req.RoomID, participant); err != nil {
 		peerConn.Close()
-		return echo.NewHTTPError(http.StatusConflict, err.Error())
+		return response.InternalError(c, err.Error())
 	}
 
 	ss.broadcastParticipantJoined(req.RoomID, req.UserID, req.Name)
 
-	return c.JSON(http.StatusOK, AnswerResponse{
+	return response.Success(c, AnswerResponse{
 		SDP: answer.SDP,
 	})
 }
@@ -108,28 +114,30 @@ func (ss *SignalingServer) HandleOffer(c echo.Context) error {
 func (ss *SignalingServer) HandleCandidate(c echo.Context) error {
 	var req CandidateRequest
 	if err := c.Bind(&req); err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "invalid request")
+		return response.BadRequest(c, "درخواست نامعتبر")
 	}
 
 	if req.Candidate == "" || req.RoomID == "" || req.UserID == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, "missing required fields")
+		return response.BadRequest(c, "فیلدهای الزامی خالی هستند")
 	}
 
 	participant := ss.roomManager.GetParticipant(req.RoomID, req.UserID)
 	if participant == nil || participant.Conn == nil {
-		return echo.NewHTTPError(http.StatusNotFound, "participant not found")
+		return response.NotFound(c, "شرکت‌کننده یافت نشد")
 	}
 
 	candidate := webrtc.ICECandidateInit{
-		Candidate: req.Candidate,
+		Candidate:  req.Candidate,
+		SDPMid:     req.SDPMid,
+		SDPMLineIndex: req.SDPMLineIndex,
 	}
 
 	if err := participant.Conn.AddICECandidate(candidate); err != nil {
 		slog.Error("failed to add ICE candidate", "error", err, "user_id", req.UserID)
-		return echo.NewHTTPError(http.StatusBadRequest, "invalid ICE candidate")
+		return response.BadRequest(c, "ICE candidate نامعتبر")
 	}
 
-	return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
+	return response.Success(c, map[string]string{"status": "ok"})
 }
 
 func (ss *SignalingServer) HandleLeave(c echo.Context) error {

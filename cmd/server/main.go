@@ -232,11 +232,10 @@ func main() {
 	api.POST("/sessions/:id/messages", messageHandler.Send)
 
 	// Chat WebSocket
+	chatHandler := handler.NewChatHandler(messageRepo, cfg.JWT.Secret)
 	wsGroup := e.Group("/ws")
 	wsGroup.Use(middleware.RateLimit(30, time.Minute))
-	wsGroup.GET("/sessions/:id", func(c echo.Context) error {
-		return response.Success(c, map[string]string{"message": "WebSocket"})
-	})
+	wsGroup.GET("/sessions/:id", chatHandler.HandleWS)
 
 	// Notifications/Presence WebSocket
 	wsGroup.GET("", func(c echo.Context) error {

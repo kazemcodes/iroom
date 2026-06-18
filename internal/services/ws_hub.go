@@ -225,6 +225,16 @@ func (h *Hub) GetClientCount() int {
 	return count
 }
 
+// Register adds a client to the hub
+func (h *Hub) Register(client *Client) {
+	h.register <- client
+}
+
+// Unregister removes a client from the hub
+func (h *Hub) Unregister(client *Client) {
+	h.unregister <- client
+}
+
 // readPump handles incoming messages from the client
 func (c *Client) readPump() {
 	defer func() {

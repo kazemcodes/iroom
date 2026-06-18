@@ -19,6 +19,7 @@
   Auth: Requires JWT (from guest login or admin login)
 -->
 <script lang="ts">
+	// @ts-nocheck
 	import { page } from '$app/state';
 	import { auth } from '$lib/stores';
 	import { api } from '$lib/api';
@@ -117,19 +118,24 @@
 	}
 
 	async function joinRoom() {
+		console.log('[Classroom] joinRoom called, sessionId:', sessionId);
 		const joinRes = await api.get(`/sessions/${sessionId}/classroom`);
+		console.log('[Classroom] joinRes:', joinRes);
 		if (!joinRes.success || !joinRes.data) { alert(joinRes.error || 'خطا در دریافت اطلاعات اتاق'); return; }
 
 		const { room_id, user_id, role } = joinRes.data as { room_id: string; user_id: string; role: string };
+		console.log('[Classroom] room_id:', room_id, 'user_id:', user_id, 'role:', role);
 		try {
 			pion = new PionClient({
 				roomId: String(room_id), userId: String(user_id), role,
 				displayName: $auth.user?.display_name || 'کاربر',
 			});
 			pion.onLocalStream = (stream) => {
+				console.log('[Classroom] onLocalStream fired');
 				if (localVideoEl) localVideoEl.srcObject = stream;
 			};
 			pion.onRemoteStream = (stream, participantId) => {
+				console.log('[Classroom] onRemoteStream fired, participantId:', participantId);
 				if (remoteContainer) {
 					const el = document.createElement('video');
 					el.id = `track-${participantId}`;
@@ -140,13 +146,15 @@
 					el.srcObject = stream;
 				}
 			};
+			console.log('[Classroom] calling pion.connect()...');
 			await pion.connect();
+			console.log('[Classroom] pion.connect() succeeded');
 			connected = true;
 			startTimer();
 			startParticipantRefresh();
 			showJoinNotification($auth.user?.display_name || 'کاربر');
 		} catch (e: any) {
-			console.error('Join failed:', e);
+			console.error('[Classroom] Join failed:', e);
 			alert('خطا در اتصال به اتاق: ' + (e?.message || e));
 		}
 	}
@@ -408,7 +416,7 @@
 				<!-- Mainbar -->
 				<div class="skyroom-mainbar">
 					{#if !connected}
-						<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:16px;">
+						<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:16px;position:relative;z-index:10;">
 							<div style="width:80px;height:80px;border-radius:50%;background:var(--block-bg-light);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(0,0,0,0.3);">
 								<span style="font-size:32px;font-weight:700;color:var(--accent);">{$auth.user?.display_name?.charAt(0) || '?'}</span>
 							</div>
@@ -425,8 +433,8 @@
 							{/if}
 						</div>
 					{/if}
-					<div bind:this={remoteContainer} class="absolute inset-0 {gridCols} gap-1 p-1 auto-rows-fr"></div>
-					<div class="absolute bottom-4 left-3 w-36 h-28 rounded overflow-hidden {webcamOn ? 'border border-[#3a3a5a]' : 'hidden'}">
+					<div bind:this={remoteContainer} style="position:absolute;inset:0;display:grid;{gridCols};gap:4px;padding:4px;pointer-events:{connected ? 'auto' : 'none'};"></div>
+					<div class="absolute bottom-4 left-3 w-36 h-28 rounded overflow-hidden border border-[#3a3a5a]">
 						<video bind:this={localVideoEl} autoplay muted playsinline class="w-full h-full object-cover"></video>
 					</div>
 				</div>

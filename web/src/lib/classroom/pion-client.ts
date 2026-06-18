@@ -46,10 +46,12 @@ export class PionClient {
 	}
 
 	async connect(): Promise<void> {
+		console.log('[Pion] Starting connect...');
 		this.localStream = await navigator.mediaDevices.getUserMedia({
 			video: true,
 			audio: true
 		});
+		console.log('[Pion] Got local stream');
 
 		if (this.onLocalStream) {
 			this.onLocalStream(this.localStream);
@@ -57,10 +59,12 @@ export class PionClient {
 
 		const token = localStorage.getItem('access_token');
 		if (!token) throw new Error('No auth token');
+		console.log('[Pion] Got token');
 
 		this.pc = new RTCPeerConnection({
 			iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
 		});
+		console.log('[Pion] Created RTCPeerConnection');
 
 		this.localStream.getTracks().forEach(track => {
 			if (this.pc) {
@@ -70,6 +74,7 @@ export class PionClient {
 
 		this.pc.onicecandidate = async (event) => {
 			if (event.candidate) {
+				console.log('[Pion] Sending ICE candidate');
 				await fetch(`/api/v1/sessions/${this.roomId}/classroom/candidate`, {
 					method: 'POST',
 					headers: {
@@ -78,6 +83,8 @@ export class PionClient {
 					},
 					body: JSON.stringify({
 						candidate: event.candidate.candidate,
+						sdp_mid: event.candidate.sdpMid,
+						sdp_m_line_index: event.candidate.sdpMLineIndex,
 						room_id: this.roomId,
 						user_id: this.userId
 					})
@@ -100,6 +107,7 @@ export class PionClient {
 
 		const offer = await this.pc.createOffer();
 		await this.pc.setLocalDescription(offer);
+		console.log('[Pion] Created SDP offer, sending to server...');
 
 		const offerRes = await fetch(`/api/v1/sessions/${this.roomId}/classroom/offer`, {
 			method: 'POST',
@@ -116,10 +124,12 @@ export class PionClient {
 		});
 
 		const offerData = await offerRes.json();
+		console.log('[Pion] Offer response:', offerData);
 		if (!offerData.success) throw new Error(offerData.error || 'Failed to send offer');
 
 		const answer = new RTCSessionDescription({ type: 'answer', sdp: offerData.data.sdp });
 		await this.pc.setRemoteDescription(answer);
+		console.log('[Pion] Connected!');
 	}
 
 	async toggleAudio(): Promise<void> {

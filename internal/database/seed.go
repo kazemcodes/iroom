@@ -1,3 +1,11 @@
+/**
+ * Seed — Creates initial admin user on first database run.
+ *
+ * Only runs if the users table is empty. Generates a random 12-character
+ * password and logs it to stdout. The admin user can then log in at /auth.
+ *
+ * Default admin: admin@iroom.local (password shown in logs)
+ */
 package database
 
 import (

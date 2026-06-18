@@ -12,11 +12,19 @@ const STATIC_ASSETS = [
 
 const STATIC_EXTENSIONS = /\.(css|js|woff2?|ttf|otf|eot|svg|png|jpg|jpeg|gif|ico|webp)$/;
 
-// Install: pre-cache static assets
+// Install: pre-cache static assets (resilient — one missing file won't break install)
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(STATIC_CACHE)
-      .then((cache) => cache.addAll(STATIC_ASSETS))
+      .then((cache) =>
+        Promise.allSettled(
+          STATIC_ASSETS.map((url) =>
+            cache.add(url).catch((err) => {
+              console.warn(`[SW] Failed to cache ${url}:`, err);
+            })
+          )
+        )
+      )
       .then(() => self.skipWaiting())
   );
 });

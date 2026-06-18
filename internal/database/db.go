@@ -1,3 +1,19 @@
+/**
+ * Database — SQLite initialization, migrations, and seed data.
+ *
+ * This package handles all database setup:
+ *   1. Creates the SQLite file with WAL mode and foreign keys
+ *   2. Runs pending migrations from embedded SQL files
+ *   3. Seeds initial admin user on first run
+ *
+ * Migrations are embedded via go:embed and applied in order.
+ * The schema_migrations table tracks which migrations have been applied.
+ *
+ * Usage:
+ *   db, err := database.New("iroom.db")
+ *   defer db.Close()
+ *   database.Seed(db)
+ */
 package database
 
 import (
