@@ -1,3 +1,16 @@
+/**
+ * Notifications Store — Real-time notification state management.
+ *
+ * Polls the backend for new notifications every 30 seconds.
+ * Provides unread count for badge display.
+ *
+ * Usage:
+ *   import { notifications, unreadCount } from '$lib/stores/notifications';
+ *   notifications.subscribe(list => { ... });
+ *   unreadCount.subscribe(count => { ... });
+ *   notifications.markRead(id);
+ *   notifications.markAllRead();
+ */
 import { writable, derived } from 'svelte/store';
 import { browser } from '$app/environment';
 import { api } from '$lib/api';

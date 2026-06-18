@@ -1,3 +1,15 @@
+/**
+ * Persian Utilities — Formatting functions for Iranian/Persian locale.
+ *
+ * Functions:
+ *   - toPersianNum(n): Convert digits to Persian (e.g. 123 → ۱۲۳)
+ *   - toPersianDate(date): Format as YYYY/MM/DD (e.g. ۱۴۰۳/۰۱/۱۵)
+ *   - toPersianDateTime(date): Format as YYYY/MM/DD HH:MM
+ *   - toPersianDuration(seconds): Format as HH:MM:SS
+ *
+ * Note: These use JS Date formatting, NOT actual Jalali calendar.
+ * For true Jalali conversion, use date-fns-jalali package.
+ */
 const PERSIAN_DIGITS = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
 
 export function toPersianNum(n: number | string): string {

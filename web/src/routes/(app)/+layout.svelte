@@ -1,3 +1,21 @@
+<!--
+  App Layout — Main authenticated layout with sidebar navigation.
+  
+  Responsibilities:
+    - Redirects unauthenticated users to /auth
+    - Renders sidebar with navigation links
+    - Handles real-time notifications via WebSocket
+    - Shows unread notification count badge
+    - Collapsible sidebar (240px → 60px)
+    - Mobile responsive sidebar
+    - Admin section visible only to admin/teacher roles
+  
+  Navigation items:
+    - Dashboard, Classes, Sessions, Files, Support, Profile
+    - Admin: Users, Sessions, Rooms, Tickets, Recordings, Logs, Settings
+  
+  Route: (app)/* — all authenticated pages
+-->
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { auth, isAdmin } from '$lib/stores';

@@ -1,3 +1,18 @@
+/**
+ * API Client — Centralized HTTP request handler for the IRoom frontend.
+ *
+ * Features:
+ *   - Auto-attaches JWT token from localStorage to all requests
+ *   - Returns typed responses via APIResponse<T>
+ *   - Handles 401 by logging out the user
+ *   - Provides convenience methods: api.get(), api.post(), api.put(), api.delete()
+ *
+ * Usage:
+ *   const res = await api.get<User>('/auth/me');
+ *   if (res.success) { console.log(res.data); }
+ *
+ * All requests go to /api/v1/* which is proxied to the Go backend in dev mode.
+ */
 import { browser } from '$app/environment';
 import type { APIResponse } from './types';
 

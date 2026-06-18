@@ -1,3 +1,18 @@
+/**
+ * ClassroomWindow — Manages classroom popup windows.
+ *
+ * Opens classroom sessions in separate browser windows (like Skyroom).
+ * Tracks open windows and detects when they close.
+ *
+ * Usage:
+ *   import { classroomWindow } from '$lib/classroom/ClassroomWindow';
+ *   classroomWindow.open('session-123', 'Math Class');
+ *   classroomWindow.close('session-123');
+ *   const openTabs = classroomWindow.getAll(); // Map of open sessions
+ *
+ * Events:
+ *   Dispatches 'classroom-closed' CustomEvent when a popup window closes.
+ */
 interface OpenedTab {
 	window: Window;
 	sessionId: string;

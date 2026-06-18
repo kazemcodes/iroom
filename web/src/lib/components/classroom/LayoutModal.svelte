@@ -1,3 +1,19 @@
+<!--
+  LayoutModal — Toggle visibility of sidebar panels.
+  
+  Shows toggles for:
+    - کاربران (Users panel)
+    - پیام‌ها (Chat panel)
+  
+  Triggered from the hamburger menu → چیدمان (operator only).
+  
+  Props:
+    showUsers: Whether users panel is currently visible
+    showChat: Whether chat panel is currently visible
+    onToggleUsers: Callback to toggle users panel
+    onToggleChat: Callback to toggle chat panel
+    onClose: Callback to close the modal
+-->
 <script lang="ts">
 	let {
 		showUsers,

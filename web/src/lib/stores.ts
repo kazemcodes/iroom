@@ -1,3 +1,20 @@
+/**
+ * Svelte Stores — Global state management for the IRoom frontend.
+ *
+ * Stores:
+ *   - auth: User authentication state (login/logout/init)
+ *   - isAdmin / isTeacher / isStudent: Derived role checks
+ *   - sidebarOpen: Sidebar toggle state
+ *
+ * Auth flow:
+ *   1. auth.login(user, tokens) — stores tokens in localStorage
+ *   2. auth.init() — restores state from localStorage on page load
+ *   3. auth.logout() — clears tokens and resets state
+ *
+ * Usage:
+ *   import { auth, isAdmin } from '$lib/stores';
+ *   auth.subscribe(state => { if (state.isLoggedIn) ... });
+ */
 import { writable, derived } from 'svelte/store';
 import { browser } from '$app/environment';
 import type { User } from './types';

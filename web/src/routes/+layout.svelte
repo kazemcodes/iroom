@@ -1,3 +1,11 @@
+<!--
+  Root Layout — App entry point.
+  
+  Responsibilities:
+    - Imports global CSS (TailwindCSS)
+    - Initializes auth store from localStorage
+    - Renders child routes
+-->
 <script lang="ts">
 	import '../app.css';
 	import { auth } from '$lib/stores';

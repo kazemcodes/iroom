@@ -1,3 +1,23 @@
+<!--
+  Classroom Popup — Main classroom view (Skyroom-style).
+  
+  Layout (RTL):
+    - Header: Room name + timer
+    - Nav bar: Left (toolbar: speaker/mic/webcam/screen/whiteboard/files/hand) | Right (users/chat/hamburger)
+    - Sidebar (right): Users panel + Chat panel
+    - Mainbar (center): Video content + local video PiP
+  
+  Features:
+    - WebRTC video/audio via PionClient
+    - Real-time chat via WebSocket
+    - Role-based permissions (operator/presenter/student)
+    - Join animation toast
+    - Session status display (scheduled → start → live → join)
+    - Periodic participant refresh
+  
+  Route: /classroom/popup/:sessionId
+  Auth: Requires JWT (from guest login or admin login)
+-->
 <script lang="ts">
 	import { page } from '$app/state';
 	import { auth } from '$lib/stores';

@@ -1,3 +1,20 @@
+<!--
+  AppMenu — Hamburger menu for classroom controls.
+  
+  Shows:
+    - اطلاعات کاربری (User Info)
+    - وضعیت اتصال (Connection Status)
+    - تنظیمات (Settings)
+    - چیدمان (Layout) — operator only
+    - خروج (Leave)
+    - بستن اتاق (Close Room) — operator only
+  
+  Props:
+    userRole: Current user's role in the classroom
+    onUserInfo, onConnectionStatus, onSettings, onLayout: Callbacks for menu items
+    onLeave, onCloseRoom: Callbacks for exit actions
+    onDismiss: Called when menu should close
+-->
 <script lang="ts">
 	import type { UserRole } from '$lib/classroom/types';
 

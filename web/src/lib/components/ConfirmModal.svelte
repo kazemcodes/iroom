@@ -1,3 +1,20 @@
+<!--
+  ConfirmModal — Replaces native confirm() with styled modal.
+  
+  Use instead of window.confirm() for consistent UI.
+  Dark theme matching Skyroom design.
+  
+  Usage:
+    <ConfirmModal bind:show={showConfirm} title="حذف" message="آیا مطمئن هستید؟"
+      onConfirm={() => deleteItem()} onCancel={() => showConfirm = false} />
+  
+  Props:
+    show: Bindable boolean to control visibility
+    title: Modal title text
+    message: Confirmation message
+    onConfirm: Called when user clicks confirm
+    onCancel: Called when user clicks cancel or closes
+-->
 <script lang="ts">
 	let {
 		show = $bindable(false),

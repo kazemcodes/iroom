@@ -1,3 +1,20 @@
+<!--
+  ChatPanel — Real-time chat panel for classroom.
+  
+  Features:
+    - RTL (right-to-left) message alignment
+    - Sender name shown for all messages
+    - Long-press (500ms) or right-click to open context menu with reply
+    - Reply preview bar
+    - Auto-scroll to bottom on new messages
+    - Dark theme matching Skyroom design
+  
+  Props:
+    messages: Array of chat messages to display
+    isAdmin: Whether current user is admin/teacher (affects message styling)
+    onSend: Callback when user sends a message
+    onClose: Callback when panel should close
+-->
 <script lang="ts">
 	import type { ChatMessage } from '$lib/classroom/types';
 

@@ -1,3 +1,18 @@
+<!--
+  Classroom Join Page — Guest login for joining a class session.
+  
+  This is the entry point for students/parents joining a class.
+  Teacher sends this URL to students. Students enter their name and join.
+  
+  Flow:
+    1. Teacher shares /classroom/join/:sessionId with students
+    2. Student enters display name
+    3. Calls POST /auth/guest-login to get JWT token
+    4. Redirects to /classroom/popup/:sessionId
+  
+  Route: /classroom/join/:sessionId
+  Auth: Creates guest account (no existing account needed)
+-->
 <script lang="ts">
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';

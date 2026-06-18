@@ -1,3 +1,21 @@
+/**
+ * Toast Store — Global notification system for the IRoom frontend.
+ *
+ * Shows temporary notification messages (success, error, info, warning).
+ * Auto-dismisses after duration. Can be manually dismissed.
+ *
+ * Usage:
+ *   import { toasts } from '$lib/stores/toast';
+ *   toasts.addToast('ذخیره شد', 'success');
+ *   toasts.addToast('خطا در اتصال', 'error', 6000);
+ *   toasts.removeToast(id);
+ *
+ * Types:
+ *   - success: Green notification
+ *   - error: Red notification
+ *   - info: Blue notification
+ *   - warning: Yellow notification
+ */
 import { writable } from 'svelte/store';
 
 export type ToastType = 'success' | 'error' | 'info' | 'warning';

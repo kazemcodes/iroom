@@ -1,3 +1,17 @@
+/**
+ * Classroom Types — Types for the real-time classroom experience.
+ *
+ * Includes:
+ *   - UserRole: Permission levels in the classroom (owner > admin > operator > presenter > student)
+ *   - Participant: Connected user with media state
+ *   - ChatMessage: Real-time chat message
+ *   - ClassroomState: Full classroom UI state
+ *   - ROLE_PERMISSIONS: What each role can do (mic, webcam, screen share, etc.)
+ *   - ROLE_HIERARCHY: Role ranking for permission checks
+ *   - ROLE_LABELS: Persian labels for roles
+ *   - canMuteUser/canKickUser: Permission check functions
+ */
+
 export type UserRole = 'owner' | 'admin' | 'operator' | 'presenter' | 'teacher' | 'student' | 'user';
 
 export interface Participant {

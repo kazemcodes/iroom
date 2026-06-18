@@ -1,3 +1,12 @@
+<!--
+  UserInfoModal — Displays current user's connection details.
+  
+  Shows: ID, username, display name, role, OS, browser, version, entry time.
+  Triggered from the hamburger menu → اطلاعات کاربری.
+  
+  Props:
+    onClose: Callback to close the modal
+-->
 <script lang="ts">
 	let { onClose }: { onClose: () => void } = $props();
 

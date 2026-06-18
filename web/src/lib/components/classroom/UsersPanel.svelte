@@ -1,3 +1,18 @@
+<!--
+  UsersPanel — Displays connected participants in the classroom.
+  
+  Features:
+    - Groups users by role (owner > admin > teacher > presenter > student)
+    - Shows role-colored avatars
+    - Displays hand-raise indicator
+    - Shows total participant count
+    - Empty state when no one is connected
+  
+  Props:
+    participants: Array of connected participants
+    currentUserRole: Current user's role (for permission checks)
+    onClose: Callback when panel should close
+-->
 <script lang="ts">
 	import type { Participant, UserRole } from '$lib/classroom/types';
 	import { ROLE_LABELS } from '$lib/classroom/types';

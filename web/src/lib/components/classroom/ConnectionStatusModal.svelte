@@ -1,3 +1,13 @@
+<!--
+  ConnectionStatusModal — Displays real-time connection statistics.
+  
+  Shows: duration, streams ↓↑, traffic ↓↑, speed ↓↑, quality, protocol, latency, jitter, packet loss.
+  Timer updates every second while modal is open.
+  Triggered from the hamburger menu → وضعیت اتصال.
+  
+  Props:
+    onClose: Callback to close the modal
+-->
 <script lang="ts">
 	let { onClose }: { onClose: () => void } = $props();
 

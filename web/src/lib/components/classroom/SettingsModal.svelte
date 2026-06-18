@@ -1,3 +1,16 @@
+<!--
+  SettingsModal — Classroom settings with 3 tabs.
+  
+  Tabs:
+    - عمومی (General): Webcam display, mirror, desktop, echo prevention
+    - صدا و تصویر (Audio/Video): Microphone/webcam device selection, quality
+    - اعلان‌ها (Notifications): Toggle notifications for various events
+  
+  Triggered from the hamburger menu → تنظیمات.
+  
+  Props:
+    onClose: Callback to close the modal
+-->
 <script lang="ts">
 	let { onClose }: { onClose: () => void } = $props();
 

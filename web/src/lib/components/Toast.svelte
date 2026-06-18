@@ -1,3 +1,17 @@
+<!--
+  Toast — Renders notification toasts from the toast store.
+  
+  Automatically appears when toasts.addToast() is called.
+  Supports success (green), error (red), info (blue), warning (amber).
+  Slide-up animation, auto-dismiss after duration.
+  
+  Usage (in layout):
+    <Toast />
+  
+  Trigger from anywhere:
+    import { toasts } from '$lib/stores/toast';
+    toasts.addToast('پیام', 'success');
+-->
 <script lang="ts">
 	import { toasts, type Toast } from '$lib/stores/toast';
 

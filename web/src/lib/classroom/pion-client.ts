@@ -1,3 +1,27 @@
+/**
+ * PionClient — WebRTC client for classroom video/audio.
+ *
+ * Handles:
+ *   - Peer connection setup with STUN server
+ *   - Local media stream (camera + microphone)
+ *   - SDP offer/answer exchange via HTTP API
+ *   - ICE candidate exchange
+ *   - Screen sharing
+ *   - Clean disconnect
+ *
+ * Usage:
+ *   const client = new PionClient({ roomId, userId, role, displayName });
+ *   client.onLocalStream = (stream) => { videoEl.srcObject = stream; };
+ *   client.onRemoteStream = (stream, id) => { ... };
+ *   await client.connect();
+ *   // Later:
+ *   client.disconnect();
+ *
+ * API calls made:
+ *   POST /sessions/:id/classroom/offer — Send SDP offer, receive answer
+ *   POST /sessions/:id/classroom/candidate — Send ICE candidate
+ *   DELETE /sessions/:id/classroom/:userId — Leave room
+ */
 export interface PionRoomConfig {
 	roomId: string;
 	userId: string;

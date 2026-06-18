@@ -1,3 +1,17 @@
+<!--
+  Auth Page — Login/Register for admin panel (teachers/admins only).
+  
+  This is NOT for students joining classes. Students use /classroom/join/:id.
+  
+  Features:
+    - Email + password login
+    - Registration with display name and phone
+    - Toggle between login and register
+    - Forgot password link
+    - Standalone dark theme (no sidebar)
+  
+  Route: /auth
+-->
 <script lang="ts">
 	import { auth } from '$lib/stores';
 	import { goto } from '$app/navigation';

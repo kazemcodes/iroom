@@ -1,3 +1,17 @@
+/**
+ * TypeScript Type Definitions — All shared types for the IRoom frontend.
+ *
+ * These types mirror the backend entity models and API response formats.
+ * Used by components, stores, and API calls for type safety.
+ *
+ * Categories:
+ *   - User/Class/Session: Core domain entities
+ *   - Message/File/Recording: Session-related content
+ *   - Ticket/Announcement/Poll: Supporting features
+ *   - APIResponse/PaginatedResponse: Standard response wrappers
+ *   - DashboardStats/ActivityLog: Admin panel types
+ */
+
 export interface User {
 	id: number;
 	email: string;
