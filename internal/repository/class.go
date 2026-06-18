@@ -207,3 +207,40 @@ func (r *ClassRepo) GetByIDWithInvite(id int64) (*models.Class, error) {
 	}
 	return c, nil
 }
+
+func (r *ClassRepo) RemoveStudent(classID, studentID int64) error {
+	_, err := r.db.Exec(`DELETE FROM class_students WHERE class_id = ? AND student_id = ?`, classID, studentID)
+	return err
+}
+
+func (r *ClassRepo) UpdateStudentAccess(classID, studentID int64, access int) error {
+	_, err := r.db.Exec(
+		`INSERT OR REPLACE INTO class_students (class_id, student_id) VALUES (?, ?)`,
+		classID, studentID,
+	)
+	return err
+}
+
+func (r *ClassRepo) GetByUserID(userID int64) ([]models.Class, error) {
+	rows, err := r.db.Query(
+		`SELECT c.id, c.teacher_id, c.name, c.description, c.color, c.max_students, c.created_at, c.updated_at
+		 FROM classes c JOIN class_students cs ON c.id = cs.class_id WHERE cs.student_id = ?
+		 UNION
+		 SELECT c.id, c.teacher_id, c.name, c.description, c.color, c.max_students, c.created_at, c.updated_at
+		 FROM classes c WHERE c.teacher_id = ?`, userID, userID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var classes []models.Class
+	for rows.Next() {
+		var c models.Class
+		if err := rows.Scan(&c.ID, &c.TeacherID, &c.Name, &c.Description, &c.Color, &c.MaxStudents, &c.CreatedAt, &c.UpdatedAt); err != nil {
+			return nil, err
+		}
+		classes = append(classes, c)
+	}
+	return classes, nil
+}

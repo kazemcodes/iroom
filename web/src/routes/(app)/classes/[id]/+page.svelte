@@ -1,5 +1,4 @@
 <script lang="ts">
-	// @ts-nocheck
 	import { page } from '$app/state';
 	import { auth, isAdmin, isTeacher } from '$lib/stores';
 	import { api } from '$lib/api';
@@ -77,7 +76,7 @@
 
 	const persianDays = ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنج‌شنبه', 'جمعه'];
 
-	const classId = $derived(page.params.id);
+	const classId = $derived(page.params.id as string);
 
 	onMount(() => loadData());
 
@@ -142,7 +141,7 @@
 			return;
 		}
 
-		sessions = [res.data!, ...sessions];
+		sessions = [res.data! as Session, ...sessions];
 		showCreateSession = false;
 		sessionTitle = '';
 		sessionDate = '';
@@ -218,7 +217,8 @@
 	async function startSession(id: number) {
 		const res = await api.post(`/sessions/${id}/start`);
 		if (res.success) {
-			sessions = sessions.map(s => s.id === id ? { ...s, status: 'live', livekit_room: res.data!.livekit_room } : s);
+			const data = res.data as any;
+			sessions = sessions.map(s => s.id === id ? { ...s, status: 'live', livekit_room: data?.livekit_room || '' } : s);
 		}
 	}
 
@@ -292,7 +292,7 @@
 			return;
 		}
 
-		announcements = announcements.map(a => a.id === editingAnnouncement.id ? { ...a, title: announcementTitle, content: announcementContent } : a);
+		announcements = announcements.map(a => a.id === editingAnnouncement?.id ? { ...a, title: announcementTitle, content: announcementContent } : a);
 		showEditAnnouncement = false;
 		editingAnnouncement = null;
 		announcementTitle = '';

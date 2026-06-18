@@ -45,7 +45,6 @@ func setup(t *testing.T) *testEnv {
 	if err != nil {
 		t.Fatal(err)
 	}
-	database.Seed(db)
 
 	cfg := config.Default()
 	cfg.External.APIKey = "test-api-key"
@@ -62,7 +61,7 @@ func setup(t *testing.T) *testEnv {
 	resetRepo := repository.NewPasswordResetRepo(db)
 	totpSvc := services.NewTOTPService("IRoom")
 
-	return &testEnv{
+	env := &testEnv{
 		e:              e,
 		api:            api,
 		cfg:            cfg,
@@ -81,6 +80,19 @@ func setup(t *testing.T) *testEnv {
 		healthHandler:  healthHandler,
 		totpSvc:        totpSvc,
 	}
+
+	seedTestUser(t, env)
+
+	return env
+}
+
+func seedTestUser(t *testing.T, env *testEnv) {
+	t.Helper()
+	hashed, _ := hash.Hash("admin123")
+	env.db.Exec(
+		`INSERT OR IGNORE INTO users (email, password_hash, display_name, role, phone) VALUES (?, ?, ?, ?, ?)`,
+		"admin@iroom.local", hashed, "مدیر سیستم", "admin", "09120000000",
+	)
 }
 
 func req(e *echo.Echo, method, path string, body interface{}, token string) *httptest.ResponseRecorder {
@@ -610,5 +622,155 @@ func TestJWTGenerate(t *testing.T) {
 	_, err = jwt.Validate("wrong-secret", tokenStr)
 	if err == nil {
 		t.Error("Validate with wrong secret should return error")
+	}
+}
+
+// ==================== NEW ENDPOINTS ====================
+
+func TestClassRemoveUser(t *testing.T) {
+	env := setup(t)
+	ch := handlers.NewClassHandler(env.classRepo, env.sessionRepo)
+	env.api.POST("/classes", ch.Create)
+	env.api.POST("/classes/:id/enroll", ch.Enroll)
+	env.api.DELETE("/classes/:id/users/:userId", ch.RemoveUser)
+
+	// Create class
+	w := req(env.e, "POST", "/api/v1/classes", map[string]interface{}{
+		"name": "فیزیک", "description": "پایه یازدهم", "color": "#EF4444", "max_students": 25,
+	}, env.token)
+	if w.Code != 201 {
+		t.Fatalf("create class: %d: %s", w.Code, w.Body.String())
+	}
+
+	// Create student
+	env.db.Exec(`INSERT INTO users (email, password_hash, display_name, role) VALUES (?, ?, ?, ?)`,
+		"student@test.com", "hashed", "دانش‌آموز", "student")
+
+	// Enroll
+	w = req(env.e, "POST", "/api/v1/classes/1/enroll", map[string]interface{}{
+		"student_id": 2,
+	}, env.token)
+	if w.Code != 200 {
+		t.Fatalf("enroll: %d: %s", w.Code, w.Body.String())
+	}
+
+	// Remove user
+	w = req(env.e, "DELETE", "/api/v1/classes/1/users/2", nil, env.token)
+	if w.Code != 200 {
+		t.Errorf("remove user: expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestClassGetURL(t *testing.T) {
+	env := setup(t)
+	ch := handlers.NewClassHandler(env.classRepo, env.sessionRepo)
+	env.api.POST("/classes", ch.Create)
+	env.api.GET("/classes/:id/url", ch.GetURL)
+
+	// Create class
+	w := req(env.e, "POST", "/api/v1/classes", map[string]interface{}{
+		"name": "شیمی", "description": "پایه دوازدهم", "color": "#22C55E", "max_students": 20,
+	}, env.token)
+	if w.Code != 201 {
+		t.Fatalf("create class: %d: %s", w.Code, w.Body.String())
+	}
+
+	// Get URL
+	w = req(env.e, "GET", "/api/v1/classes/1/url", nil, env.token)
+	if w.Code != 200 {
+		t.Fatalf("get URL: %d: %s", w.Code, w.Body.String())
+	}
+	resp := jsonBody(t, w)
+	data := resp["data"].(map[string]interface{})
+	if _, ok := data["url"]; !ok {
+		t.Error("response should contain 'url'")
+	}
+}
+
+func TestClassGetUserRooms(t *testing.T) {
+	env := setup(t)
+	ch := handlers.NewClassHandler(env.classRepo, env.sessionRepo)
+	env.api.POST("/classes", ch.Create)
+	env.api.POST("/classes/:id/enroll", ch.Enroll)
+	env.api.GET("/users/:id/rooms", ch.GetUserRooms)
+
+	// Create class
+	w := req(env.e, "POST", "/api/v1/classes", map[string]interface{}{
+		"name": "ادبیات", "description": "پایه نهم", "color": "#F59E0B", "max_students": 30,
+	}, env.token)
+	if w.Code != 201 {
+		t.Fatalf("create class: %d: %s", w.Code, w.Body.String())
+	}
+
+	// Enroll
+	w = req(env.e, "POST", "/api/v1/classes/1/enroll", map[string]interface{}{
+		"student_id": 1,
+	}, env.token)
+	if w.Code != 200 {
+		t.Fatalf("enroll: %d: %s", w.Code, w.Body.String())
+	}
+
+	// Get user rooms
+	w = req(env.e, "GET", "/api/v1/users/1/rooms", nil, env.token)
+	if w.Code != 200 {
+		t.Fatalf("get user rooms: %d: %s", w.Code, w.Body.String())
+	}
+	resp := jsonBody(t, w)
+	rooms := resp["data"].([]interface{})
+	if len(rooms) == 0 {
+		t.Error("user should have at least 1 room")
+	}
+}
+
+func TestAdminBatchDeleteUsers(t *testing.T) {
+	env := setup(t)
+	ah := handlers.NewAdminHandler(env.userRepo, env.classRepo, env.sessionRepo, env.messageRepo, env.recordingRepo, env.logRepo, env.settingsRepo, env.ticketRepo, env.sessionLogRepo, env.cfg.JWT.Secret, env.cfg.JWT.AccessExpiry, env.cfg.JWT.RefreshExpiry)
+	admin := env.api.Group("/admin")
+	admin.Use(middleware.AdminOnly())
+	admin.POST("/users/batch-delete", ah.BatchDeleteUsers)
+
+	// Create test users
+	env.db.Exec(`INSERT INTO users (email, password_hash, display_name, role) VALUES (?, ?, ?, ?)`,
+		"u1@test.com", "hashed", "کاربر۱", "student")
+	env.db.Exec(`INSERT INTO users (email, password_hash, display_name, role) VALUES (?, ?, ?, ?)`,
+		"u2@test.com", "hashed", "کاربر۲", "student")
+
+	// Batch delete
+	w := req(env.e, "POST", "/api/v1/admin/users/batch-delete", map[string]interface{}{
+		"users": []int64{2, 3},
+	}, env.token)
+	if w.Code != 200 {
+		t.Fatalf("batch delete: %d: %s", w.Code, w.Body.String())
+	}
+	resp := jsonBody(t, w)
+	data := resp["data"].(map[string]interface{})
+	if data["success"].(float64) != 2 {
+		t.Errorf("expected 2 success, got %v", data["success"])
+	}
+}
+
+func TestCreateLoginURL(t *testing.T) {
+	env := setup(t)
+	ah := handlers.NewAuthHandler(env.userRepo, env.sessionRepo, env.logRepo, env.resetRepo, "", env.cfg.JWT.Secret, env.cfg.JWT.AccessExpiry, env.cfg.JWT.RefreshExpiry, env.totpSvc)
+	authGroup := env.e.Group("/api/v1/auth")
+	authGroup.POST("/create-login-url", ah.CreateLoginURL)
+
+	// Create login URL
+	w := req(env.e, "POST", "/api/v1/auth/create-login-url", map[string]interface{}{
+		"room_id":   1,
+		"user_id":   "test-student",
+		"nickname":  "دانش‌آموز تست",
+		"access":    1,
+		"concurrent": 1,
+		"language":  "fa",
+		"ttl":       3600,
+	}, "")
+	if w.Code != 200 {
+		t.Fatalf("create login URL: %d: %s", w.Code, w.Body.String())
+	}
+	resp := jsonBody(t, w)
+	data := resp["data"].(map[string]interface{})
+	if _, ok := data["url"]; !ok {
+		t.Error("response should contain 'url'")
 	}
 }

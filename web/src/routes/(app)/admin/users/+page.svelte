@@ -1,5 +1,4 @@
 <script lang="ts">
-	// @ts-nocheck
 	import { api } from '$lib/api';
 	import { onMount } from 'svelte';
 	import type { User } from '$lib/types';
@@ -389,9 +388,9 @@
 				<!-- File Upload Area -->
 				{#if !importFile}
 					<div
-						onDragOver={handleDragOver}
-						onDragLeave={handleDragLeave}
-						onDrop={handleDrop}
+						ondragover={handleDragOver}
+						ondragleave={handleDragLeave}
+						ondrop={handleDrop}
 						onclick={() => fileInput?.click()}
 						class="border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors {isDragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400 bg-gray-50'}"
 					>

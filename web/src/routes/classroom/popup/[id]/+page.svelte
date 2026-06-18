@@ -1,5 +1,4 @@
 <script lang="ts">
-	// @ts-nocheck
 	import { page } from '$app/state';
 	import { auth } from '$lib/stores';
 	import { api } from '$lib/api';
@@ -44,6 +43,7 @@
 	const sessionId = $derived(page.params.id!);
 	const currentUserRole = $derived(($auth.user?.role || 'student') as UserRole);
 	const perms = $derived(ROLE_PERMISSIONS[currentUserRole] || ROLE_PERMISSIONS.student);
+	const isPresenterOrAbove = $derived(['owner', 'admin', 'operator', 'teacher', 'presenter'].includes(currentUserRole));
 
 	const gridCols = $derived.by(() => {
 		const count = participants.length;
@@ -64,7 +64,11 @@
 		const res = await api.get(`/sessions/${sessionId}`);
 		if (res.success) session = res.data!;
 		loading = false;
+		if (session?.status === 'live') {
+			startTimer();
+		}
 		connectChatWs();
+		fetchParticipants();
 	});
 	onDestroy(() => { disconnect(); if (timerInterval) clearInterval(timerInterval); });
 
@@ -96,7 +100,7 @@
 		const joinRes = await api.get(`/sessions/${sessionId}/classroom`);
 		if (!joinRes.success || !joinRes.data) { alert(joinRes.error || 'خطا در دریافت اطلاعات اتاق'); return; }
 
-		const { room_id, user_id, role } = joinRes.data;
+		const { room_id, user_id, role } = joinRes.data as { room_id: string; user_id: string; role: string };
 		try {
 			pion = new PionClient({
 				roomId: String(room_id), userId: String(user_id), role,
@@ -119,6 +123,7 @@
 			await pion.connect();
 			connected = true;
 			startTimer();
+			startParticipantRefresh();
 			showJoinNotification($auth.user?.display_name || 'کاربر');
 		} catch (e: any) {
 			console.error('Join failed:', e);
@@ -130,10 +135,17 @@
 		if (pion) { pion.disconnect(); pion = null; }
 		connected = false;
 		if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+		if (participantInterval) { clearInterval(participantInterval); participantInterval = null; }
 	}
 
 	function startTimer() {
 		timerInterval = setInterval(() => { elapsedSeconds++; }, 1000);
+	}
+
+	let participantInterval: ReturnType<typeof setInterval> | null = null;
+
+	function startParticipantRefresh() {
+		participantInterval = setInterval(() => { fetchParticipants(); }, 5000);
 	}
 
 	function toggleMic() {
@@ -163,13 +175,6 @@
 		if (!perms.canChat) return;
 		if (!chatWs || chatWs.readyState !== WebSocket.OPEN) return;
 		chatWs.send(JSON.stringify({ type: 'message', content: text }));
-		chatMessages = [...chatMessages, {
-			id: String(Date.now()),
-			sender: 'شما',
-			content: text,
-			time: new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' }),
-			isOwn: true
-		}];
 	}
 
 	function leaveRoom() { disconnect(); window.close(); }
@@ -177,6 +182,35 @@
 	function showJoinNotification(name: string) {
 		joinNotification = { name, show: true };
 		setTimeout(() => { joinNotification = { name: '', show: false }; }, 3000);
+	}
+
+	async function fetchParticipants() {
+		if (!session) return;
+		try {
+			const res = await api.get<any[]>(`/sessions/${sessionId}/classroom/participants`);
+			if (res.success && Array.isArray(res.data)) {
+				participants = res.data.map((p: any) => ({
+					id: p.id,
+					name: p.name,
+					role: 'student' as UserRole,
+					isSpeaking: false,
+					hasVideo: false,
+					hasAudio: true,
+					hasScreen: false,
+					hasWhiteboard: false,
+					handRaised: false,
+				}));
+			}
+		} catch (e) {}
+	}
+
+	async function startSession() {
+		if (!session) return;
+		const res = await api.post(`/sessions/${sessionId}/start`);
+		if (res.success) {
+			session = { ...session, status: 'live' };
+			startTimer();
+		}
 	}
 </script>
 
@@ -358,8 +392,17 @@
 							<div style="width:80px;height:80px;border-radius:50%;background:var(--block-bg-light);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(0,0,0,0.3);">
 								<span style="font-size:32px;font-weight:700;color:var(--accent);">{$auth.user?.display_name?.charAt(0) || '?'}</span>
 							</div>
-							<p style="color:var(--text-secondary);font-size:var(--font-size);">آماده پیوستن به کلاس</p>
-							<button onclick={joinRoom} class="skyroom-btn">پیوستن</button>
+							<p style="color:var(--text-secondary);font-size:var(--font-size);">{$auth.user?.display_name || 'کاربر'}</p>
+							{#if session?.status === 'live'}
+								<button onclick={joinRoom} class="skyroom-btn">پیوستن به کلاس</button>
+							{:else if session?.status === 'scheduled'}
+								<p style="color:var(--inactive);font-size:var(--font-size-sm);">جلسه هنوز شروع نشده</p>
+								{#if isPresenterOrAbove}
+									<button onclick={startSession} class="skyroom-btn" style="background:#f59e0b;">شروع جلسه</button>
+								{/if}
+							{:else}
+								<p style="color:var(--danger);font-size:var(--font-size-sm);">جلسه به پایان رسیده</p>
+							{/if}
 						</div>
 					{/if}
 					<div bind:this={remoteContainer} class="absolute inset-0 {gridCols} gap-1 p-1 auto-rows-fr"></div>

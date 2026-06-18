@@ -1,5 +1,4 @@
 <script lang="ts">
-	// @ts-nocheck
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { api } from '$lib/api';

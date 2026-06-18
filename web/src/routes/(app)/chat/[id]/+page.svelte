@@ -1,9 +1,8 @@
 <script lang="ts">
-	// @ts-nocheck
 	import { page } from '$app/state';
 	import { auth } from '$lib/stores';
 	import { api } from '$lib/api';
-	import { onMount, tick } from 'svelte';
+	import { onMount, onDestroy, tick } from 'svelte';
 	import type { Message, Session } from '$lib/types';
 
 	let messages = $state<Message[]>([]);
@@ -18,8 +17,9 @@
 	onMount(async () => {
 		await loadData();
 		connectWS();
-		return () => { ws?.close(); };
 	});
+
+	onDestroy(() => { ws?.close(); });
 
 	async function loadData() {
 		loading = true;

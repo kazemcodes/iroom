@@ -1,5 +1,4 @@
 <script lang="ts">
-	// @ts-nocheck
 	import { api } from '$lib/api';
 	import { onMount } from 'svelte';
 	import type { Class, Session, User } from '$lib/types';
@@ -90,7 +89,7 @@
 		createLoading = true;
 		const res = await api.post('/admin/classes', newRoom);
 		if (res.success && res.data) {
-			classes = [res.data, ...classes];
+			classes = [res.data as Class, ...classes];
 			showCreateModal = false;
 			newRoom = { name: '', description: '', color: '#3B82F6', max_students: 30, teacher_id: 0 };
 		}

@@ -124,6 +124,10 @@ func main() {
 	api.PUT("/auth/me", authHandler.UpdateProfile)
 	api.POST("/auth/change-password", authHandler.ChangePassword)
 	api.POST("/auth/avatar", authHandler.AvatarUpload)
+	api.POST("/auth/create-login-url", authHandler.CreateLoginURL)
+
+	// User rooms
+	api.GET("/users/:id/rooms", classHandler.GetUserRooms)
 
 	// Two-Factor Authentication
 	api.POST("/auth/2fa/setup", authHandler.TOTPSetup)
@@ -138,7 +142,10 @@ func main() {
 	api.PUT("/classes/:id", classHandler.Update)
 	api.DELETE("/classes/:id", classHandler.Delete)
 	api.POST("/classes/:id/enroll", classHandler.Enroll)
+	api.DELETE("/classes/:id/users/:userId", classHandler.RemoveUser)
+	api.PUT("/classes/:id/users/:userId", classHandler.UpdateUserAccess)
 	api.GET("/classes/:id/students", classHandler.GetStudents)
+	api.GET("/classes/:id/url", classHandler.GetURL)
 	api.POST("/classes/:id/regenerate-code", classHandler.RegenerateCode)
 	api.POST("/classes/join/:code", classHandler.JoinByCode)
 
@@ -231,6 +238,7 @@ func main() {
 	admin.GET("/users", adminHandler.ListUsers)
 	admin.POST("/users", adminHandler.CreateUser)
 	admin.POST("/users/import", adminHandler.ImportUsers)
+	admin.POST("/users/batch-delete", adminHandler.BatchDeleteUsers)
 	admin.PUT("/users/:id", adminHandler.UpdateUser)
 	admin.DELETE("/users/:id", adminHandler.DeactivateUser)
 	admin.POST("/users/:id/impersonate", adminHandler.ImpersonateUser)

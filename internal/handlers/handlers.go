@@ -618,6 +618,62 @@ func (h *AuthHandler) TOTPBackup(c echo.Context) error {
 	})
 }
 
+func (h *AuthHandler) CreateLoginURL(c echo.Context) error {
+	var req struct {
+		RoomID     int64  `json:"room_id"`
+		UserID     string `json:"user_id"`
+		Nickname   string `json:"nickname"`
+		Access     int    `json:"access"`
+		Concurrent int    `json:"concurrent"`
+		Language   string `json:"language"`
+		TTL        int    `json:"ttl"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return response.BadRequest(c, "داده‌های نامعتبر")
+	}
+
+	if req.RoomID == 0 {
+		return response.BadRequest(c, "شناسه اتاق الزامی است")
+	}
+
+	if req.Access < 1 || req.Access > 3 {
+		req.Access = 1
+	}
+	if req.Concurrent < 1 {
+		req.Concurrent = 1
+	}
+	if req.TTL < 1 {
+		req.TTL = 3600
+	}
+	if req.Language == "" {
+		req.Language = "fa"
+	}
+	if req.UserID == "" {
+		req.UserID = fmt.Sprintf("guest_%d", time.Now().UnixMilli())
+	}
+	if req.Nickname == "" {
+		req.Nickname = "مهمان"
+	}
+
+	claims := jwt.Claims{
+		UserID: 0,
+		Email:  req.UserID,
+		Role:   "guest",
+	}
+
+	token, err := jwt.Generate(h.jwtCfg.secret, claims, req.TTL)
+	if err != nil {
+		return response.InternalError(c, "خطا در تولید توکن")
+	}
+
+	url := fmt.Sprintf("/classroom/join/%d?token=%s&nickname=%s&access=%d",
+		req.RoomID, token, req.Nickname, req.Access)
+
+	return response.Success(c, map[string]string{
+		"url": url,
+	})
+}
+
 func (h *AuthHandler) generateTokens(user *models.User) (map[string]interface{}, error) {
 	claims := jwt.Claims{
 		UserID: user.ID,
@@ -856,6 +912,39 @@ func (h *AdminHandler) DeactivateUser(c echo.Context) error {
 	}
 
 	return response.Success(c, user)
+}
+
+func (h *AdminHandler) BatchDeleteUsers(c echo.Context) error {
+	var req struct {
+		Users []int64 `json:"users"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return response.BadRequest(c, "داده‌های نامعتبر")
+	}
+
+	if len(req.Users) == 0 {
+		return response.BadRequest(c, "لیست کاربران خالی است")
+	}
+
+	success, failure := 0, 0
+	for _, id := range req.Users {
+		user, err := h.userRepo.GetByID(id)
+		if err != nil || user.Role == "admin" {
+			failure++
+			continue
+		}
+		user.IsActive = false
+		if err := h.userRepo.Update(user); err != nil {
+			failure++
+		} else {
+			success++
+		}
+	}
+
+	return response.Success(c, map[string]int{
+		"success": success,
+		"failure": failure,
+	})
 }
 
 func (h *AdminHandler) ListClasses(c echo.Context) error {
@@ -1416,6 +1505,110 @@ func (h *ClassHandler) Delete(c echo.Context) error {
 	}
 
 	return response.Success(c, map[string]string{"message": "کلاس حذف شد"})
+}
+
+func (h *ClassHandler) RemoveUser(c echo.Context) error {
+	classID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return response.BadRequest(c, "شناسه نامعتبر")
+	}
+	userID, err := strconv.ParseInt(c.Param("userId"), 10, 64)
+	if err != nil {
+		return response.BadRequest(c, "شناسه کاربر نامعتبر")
+	}
+
+	class, err := h.classRepo.GetByID(classID)
+	if err != nil {
+		return response.NotFound(c, "کلاس یافت نشد")
+	}
+
+	actorID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
+	role := getUserRole(c)
+	if class.TeacherID != actorID && role != "admin" {
+		return response.Forbidden(c, "شما اجازه حذف کاربر از این کلاس را ندارید")
+	}
+
+	if err := h.classRepo.RemoveStudent(classID, userID); err != nil {
+		return response.InternalError(c, "خطا در حذف کاربر از کلاس")
+	}
+
+	return response.Success(c, map[string]string{"message": "کاربر از کلاس حذف شد"})
+}
+
+func (h *ClassHandler) UpdateUserAccess(c echo.Context) error {
+	classID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return response.BadRequest(c, "شناسه نامعتبر")
+	}
+	userID, err := strconv.ParseInt(c.Param("userId"), 10, 64)
+	if err != nil {
+		return response.BadRequest(c, "شناسه کاربر نامعتبر")
+	}
+
+	var req struct {
+		Access int `json:"access"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return response.BadRequest(c, "داده‌های نامعتبر")
+	}
+
+	class, err := h.classRepo.GetByID(classID)
+	if err != nil {
+		return response.NotFound(c, "کلاس یافت نشد")
+	}
+
+	actorID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
+	role := getUserRole(c)
+	if class.TeacherID != actorID && role != "admin" {
+		return response.Forbidden(c, "شما اجازه تغییر دسترسی در این کلاس را ندارید")
+	}
+
+	if err := h.classRepo.UpdateStudentAccess(classID, userID, req.Access); err != nil {
+		return response.InternalError(c, "خطا در بروزرسانی دسترسی")
+	}
+
+	return response.Success(c, map[string]int{"access": req.Access})
+}
+
+func (h *ClassHandler) GetURL(c echo.Context) error {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return response.BadRequest(c, "شناسه نامعتبر")
+	}
+
+	class, err := h.classRepo.GetByID(id)
+	if err != nil {
+		return response.NotFound(c, "کلاس یافت نشد")
+	}
+
+	_ = class
+
+	return response.Success(c, map[string]string{
+		"url": "/classroom/join/" + strconv.FormatInt(id, 10),
+	})
+}
+
+func (h *ClassHandler) GetUserRooms(c echo.Context) error {
+	userID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return response.BadRequest(c, "شناسه نامعتبر")
+	}
+
+	rooms, err := h.classRepo.GetByUserID(userID)
+	if err != nil {
+		return response.InternalError(c, "خطا در دریافت اتاق‌ها")
+	}
+	if rooms == nil {
+		rooms = []models.Class{}
+	}
+
+	return response.Success(c, rooms)
 }
 
 // Session handlers

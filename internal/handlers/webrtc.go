@@ -66,7 +66,7 @@ func (h *WebRTCHandler) HandleRoomInfo(c echo.Context) error {
 }
 
 func (h *WebRTCHandler) GetParticipants(c echo.Context) error {
-	roomID := c.Param("roomId")
+	roomID := c.Param("id")
 	if roomID == "" {
 		return response.BadRequest(c, "شناسه اتاق نامعتبر")
 	}
@@ -80,7 +80,7 @@ func (h *WebRTCHandler) GetParticipants(c echo.Context) error {
 }
 
 func (h *WebRTCHandler) MuteParticipant(c echo.Context) error {
-	roomID := c.Param("roomId")
+	roomID := c.Param("id")
 	participantID := c.Param("participantId")
 
 	if roomID == "" || participantID == "" {
@@ -105,7 +105,7 @@ func (h *WebRTCHandler) MuteParticipant(c echo.Context) error {
 }
 
 func (h *WebRTCHandler) KickParticipant(c echo.Context) error {
-	roomID := c.Param("roomId")
+	roomID := c.Param("id")
 	participantID := c.Param("participantId")
 
 	if roomID == "" || participantID == "" {

@@ -1,7 +1,6 @@
 <script lang="ts">
 	import type { Participant, UserRole } from '$lib/classroom/types';
 	import { ROLE_LABELS } from '$lib/classroom/types';
-	import UserRow from './UserRow.svelte';
 
 	let {
 		participants = [],
@@ -23,70 +22,79 @@
 
 	const groupedParticipants = $derived.by(() => {
 		const groups: Record<string, Participant[]> = {
-			owner: [],
-			admin: [],
-			teacher: [],
-			presenter: [],
-			user: [],
+			owner: [], admin: [], teacher: [], presenter: [], user: [],
 		};
-
 		for (const p of participants) {
 			const role = p.role as UserRole;
-			if (role === 'owner') groups.owner.push(p);
-			else if (role === 'admin') groups.admin.push(p);
-			else if (role === 'teacher') groups.teacher.push(p);
-			else if (role === 'presenter') groups.presenter.push(p);
+			if (groups[role]) groups[role].push(p);
 			else groups.user.push(p);
 		}
-
 		return groups;
 	});
 
 	const roleOrder: UserRole[] = ['owner', 'admin', 'teacher', 'presenter', 'user'];
-
 	const isAdmin = $derived(currentUserRole === 'admin' || currentUserRole === 'owner');
-	const isOwner = $derived(currentUserRole === 'owner');
 </script>
 
-<div class="flex flex-col h-full" style="background-color: #252540;">
-	<!-- Block Header -->
-	<div class="flex items-center justify-between px-3 py-2.5 shrink-0" style="border-bottom: 1px solid #3a3a5a;">
+<div class="users-panel">
+	<div class="users-header">
 		<div class="flex items-center gap-2">
-			<svg class="w-4 h-4 text-[#94a3b8]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-			<span class="text-xs font-medium text-[#94a3b8]">کاربران</span>
-			<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-[#3a3a5a] text-[#e2e8f0] font-medium">{participants.length}</span>
+			<svg width="16" height="16" style="fill:#8a8a96;"><use xlink:href="#shape_group"></use></svg>
+			<span style="font-size:0.75rem;color:#8a8a96;">کاربران</span>
+			<span style="font-size:0.65rem;padding:1px 6px;border-radius:10px;background:rgba(255,255,255,0.06);color:#e0e0e6;">{participants.length}</span>
 			{#if handsRaisedCount > 0}
-				<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-[#d7911d]/20 text-[#d7911d] font-medium">✋ {handsRaisedCount}</span>
+				<span style="font-size:0.65rem;padding:1px 6px;border-radius:10px;background:rgba(245,158,11,0.2);color:#f59e0b;">✋ {handsRaisedCount}</span>
 			{/if}
 		</div>
-		<button onclick={onClose} class="text-[#94a3b8] hover:text-[#e2e8f0] p-1" aria-label="بستن">
-			<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+		<button onclick={onClose} class="close-btn" aria-label="بستن">
+			<svg width="14" height="14"><use xlink:href="#shape_clear"></use></svg>
 		</button>
 	</div>
 
-	<!-- User List -->
-	<div class="flex-1 overflow-y-auto">
+	<div class="users-list">
 		{#each roleOrder as role}
 			{#if groupedParticipants[role].length > 0}
-				<div>
-					{#each groupedParticipants[role] as participant (participant.id)}
-						<UserRow
-							{participant}
-							{isAdmin}
-							{isOwner}
-							{onMuteAudio}
-							{onMuteVideo}
-							{onKick}
-						/>
-					{/each}
-				</div>
+				{#each groupedParticipants[role] as p (p.id)}
+					<div class="user-row">
+						<div class="user-avatar" class:role-owner={role === 'owner'} class:role-admin={role === 'admin'} class:role-teacher={role === 'teacher'} class:role-presenter={role === 'presenter'}>
+							<svg width="14" height="14" style="fill:currentColor;"><use xlink:href="#shape_person"></use></svg>
+						</div>
+						<div class="user-info">
+							<span class="user-name">{p.name}</span>
+							<span class="user-role">{ROLE_LABELS[role as UserRole] || role}</span>
+						</div>
+						{#if p.handRaised}
+							<span style="font-size:0.7rem;">✋</span>
+						{/if}
+					</div>
+				{/each}
 			{/if}
 		{/each}
 
 		{#if participants.length === 0}
-			<div class="px-4 py-8 text-center">
-				<p class="text-xs text-[#94a3b8]">هنوز کسی متصل نیست</p>
+			<div style="padding:24px;text-align:center;">
+				<p style="font-size:0.7rem;color:#8a8a96;">هنوز کسی متصل نیست</p>
 			</div>
 		{/if}
 	</div>
 </div>
+
+<style>
+	.users-panel { display: flex; flex-direction: column; height: 100%; }
+	.users-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+	.close-btn { background: none; border: none; cursor: pointer; padding: 4px; display: flex; align-items: center; justify-content: center; border-radius: 4px; }
+	.close-btn svg { fill: #8a8a96; }
+	.close-btn:hover { background: rgba(255,255,255,0.06); }
+	.close-btn:hover svg { fill: #e0e0e6; }
+	.users-list { flex: 1; overflow-y: auto; padding: 4px; }
+	.user-row { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; transition: background 0.12s; }
+	.user-row:hover { background: rgba(255,255,255,0.04); }
+	.user-avatar { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.08); color: #8a8a96; flex-shrink: 0; }
+	.role-owner { background: rgba(245,158,11,0.2); color: #f59e0b; }
+	.role-admin { background: rgba(239,68,68,0.2); color: #ef4444; }
+	.role-teacher { background: rgba(139,92,246,0.2); color: #8b5cf6; }
+	.role-presenter { background: rgba(35,185,215,0.2); color: #23b9d7; }
+	.user-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+	.user-name { font-size: 0.75rem; font-weight: 600; color: #e0e0e6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.user-role { font-size: 0.65rem; color: #8a8a96; }
+</style>

@@ -1,5 +1,4 @@
 <script lang="ts">
-	// @ts-nocheck
 	import { api } from '$lib/api';
 	import { onMount } from 'svelte';
 	import type { User, Class, Session, DashboardStats, ActivityLog } from '$lib/types';
@@ -151,7 +150,7 @@
 			createUserLoading = false;
 			return;
 		}
-		users = [res.data!, ...users];
+		users = [res.data! as User, ...users];
 		showCreateUser = false;
 		newUser = { email: '', password: '', display_name: '', phone: '', role: 'student' };
 		createUserLoading = false;
@@ -179,7 +178,7 @@
 	async function createClass() {
 		const res = await api.post('/admin/classes', newClass);
 		if (res.success) {
-			classes = [res.data!, ...classes];
+			classes = [res.data! as Class, ...classes];
 			showCreateClass = false;
 			newClass = { name: '', description: '', color: '#3B82F6', max_students: 30, teacher_id: 0 };
 		}
