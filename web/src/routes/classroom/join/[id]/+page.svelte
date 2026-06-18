@@ -61,8 +61,8 @@
 	<div class="w-full max-w-[400px] rounded-2xl p-6" style="background: #16213e; border: 1px solid #2a2a4a; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);">
 		<!-- Logo -->
 		<div class="text-center mb-6">
-			<div class="w-14 h-14 rounded-xl mx-auto mb-3 flex items-center justify-center text-white font-bold text-xl" style="background: linear-gradient(135deg, #23b9d7, #004ff2);">
-				آ
+			<div class="w-14 h-14 rounded-xl mx-auto mb-3 flex items-center justify-center" style="background: var(--color-crystal-clear);">
+				<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14"/><rect x="2" y="6" width="13" height="12" rx="2"/></svg>
 			</div>
 			<h1 class="text-xl font-bold" style="color: #eaeaea;">آی‌روم</h1>
 		</div>

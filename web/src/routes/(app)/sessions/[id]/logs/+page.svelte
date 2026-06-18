@@ -165,36 +165,32 @@
 <div class="space-y-6">
 	<div class="flex items-center justify-between">
 		<div class="flex items-center gap-3">
-			<a href="/sessions" class="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-				<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15.75 19.5L8.25 12l7.5-7.5" /></svg>
+			<a href="/sessions" class="sky-btn-icon">
+				<svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 6l6 6-6 6"/></svg>
 			</a>
 			<div>
-				<h1 class="text-xl font-bold text-gray-900">گزارش جلسه</h1>
+				<h1 class="sky-page-title">گزارش جلسه</h1>
 				{#if session}
-					<p class="text-sm text-gray-500 mt-0.5">{session.title} • {formatDate(session.scheduled_at)}</p>
+					<p class="sky-page-subtitle">{session.title} • {formatDate(session.scheduled_at)}</p>
 				{/if}
 			</div>
 		</div>
 		{#if !loading && logs.length > 0}
-			<button onclick={exportCSV} class="px-4 py-2 text-sm text-blue-600 border border-blue-200 rounded-xl hover:bg-blue-50 transition-colors font-medium flex items-center gap-2">
-				<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+			<button onclick={exportCSV} class="sky-btn sky-btn-outline flex items-center gap-2">
+				<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
 				خروجی CSV
 			</button>
 		{/if}
 	</div>
 
 	{#if loading}
-		<div class="flex items-center justify-center py-20">
-			<div class="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full"></div>
-		</div>
+		<div class="flex items-center justify-center py-16"><svg class="sky-spinner lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--color-crystal-clear);"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg></div>
 	{:else if logs.length === 0}
-		<div class="text-center py-20 bg-white rounded-xl">
-			<p class="text-gray-500">لاگی ثبت نشده است</p>
-		</div>
+		<div class="sky-card"><div class="sky-empty"><p class="sky-empty-desc">لاگی ثبت نشده است</p></div></div>
 	{:else}
 		<!-- Session Summary -->
-		<div class="bg-white border border-gray-200 rounded-xl p-5">
-			<h2 class="text-sm font-semibold text-gray-700 mb-4">خلاصه جلسه</h2>
+		<div class="sky-card p-5">
+			<h2 class="text-sm font-bold mb-4" style="color: var(--color-midnight-sky);">خلاصه جلسه</h2>
 			<div class="grid grid-cols-2 md:grid-cols-4 gap-4">
 				<div class="text-center p-3 bg-blue-50 rounded-lg">
 					<p class="text-xs text-blue-600 mb-1">تعداد شرکت‌کنندگان</p>
@@ -216,8 +212,8 @@
 		</div>
 
 		<!-- Visual Timeline -->
-		<div class="bg-white border border-gray-200 rounded-xl p-5">
-			<h2 class="text-sm font-semibold text-gray-700 mb-4">زمان‌بندی بصری شرکت‌کنندگان</h2>
+		<div class="sky-card p-5">
+			<h2 class="text-sm font-bold mb-4" style="color: var(--color-midnight-sky);">زمان‌بندی بصری شرکت‌کنندگان</h2>
 			{#if timelineBars().length > 0 && sessionDurationMs() > 0}
 				<div class="space-y-3">
 					{#each timelineBars() as bar}
@@ -256,10 +252,10 @@
 
 		<!-- Participant Summary Cards -->
 		<div>
-			<h2 class="text-sm font-semibold text-gray-700 mb-3">خلاصه شرکت‌کنندگان</h2>
+			<h2 class="text-sm font-bold mb-3" style="color: var(--color-midnight-sky);">خلاصه شرکت‌کنندگان</h2>
 			<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
 				{#each participantStats() as stat}
-					<div class="bg-white border border-gray-200 rounded-xl p-4">
+					<div class="sky-card p-4">
 						<div class="flex items-center gap-3 mb-3">
 							<div class="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-sm font-bold">
 								{stat.name.charAt(0)}
@@ -290,8 +286,8 @@
 
 		<!-- Event Timeline -->
 		<div>
-			<h2 class="text-sm font-semibold text-gray-700 mb-3">زمان‌بندی ورود و خروج</h2>
-			<div class="bg-white border border-gray-200 rounded-xl p-5">
+			<h2 class="text-sm font-bold mb-3" style="color: var(--color-midnight-sky);">زمان‌بندی ورود و خروج</h2>
+			<div class="sky-card p-5">
 				<div class="relative">
 					<div class="absolute right-[15px] top-0 bottom-0 w-0.5 bg-gray-200"></div>
 					<div class="space-y-4">
@@ -334,33 +330,22 @@
 		</div>
 
 		<!-- Detailed Table -->
-		<div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
-			<table class="w-full">
+		<div class="sky-card overflow-hidden">
+			<table class="sky-table">
 				<thead>
-					<tr class="border-b border-gray-100">
-						<th class="text-right px-5 py-3 text-xs font-semibold text-gray-500">#</th>
-						<th class="text-right px-5 py-3 text-xs font-semibold text-gray-500">شرکت‌کننده</th>
-						<th class="text-right px-5 py-3 text-xs font-semibold text-gray-500">زمان ورود</th>
-						<th class="text-right px-5 py-3 text-xs font-semibold text-gray-500">زمان خروج</th>
-						<th class="text-right px-5 py-3 text-xs font-semibold text-gray-500">مدت</th>
-						<th class="text-right px-5 py-3 text-xs font-semibold text-gray-500">آی‌پی</th>
-					</tr>
+					<tr><th>#</th><th>شرکت‌کننده</th><th>زمان ورود</th><th>زمان خروج</th><th>مدت</th><th>آی‌پی</th></tr>
 				</thead>
 				<tbody>
 					{#each logs as log, i}
-						<tr class="border-b border-gray-50 hover:bg-gray-50 transition-colors">
-							<td class="px-5 py-3.5 text-sm text-gray-400">{toPersianNum(i + 1)}</td>
-							<td class="px-5 py-3.5 text-sm font-medium text-gray-800">{log.user_display_name}</td>
-							<td class="px-5 py-3.5 text-sm text-gray-500">{formatTime(log.joined_at)}</td>
-							<td class="px-5 py-3.5 text-sm text-gray-500">
-								{#if log.left_at}
-									{formatTime(log.left_at)}
-								{:else}
-									<span class="text-green-600 font-medium">همچنان حاضر</span>
-								{/if}
+						<tr>
+							<td style="color: var(--color-moonlit-mist);">{toPersianNum(i + 1)}</td>
+							<td class="font-semibold">{log.user_display_name}</td>
+							<td style="color: var(--color-mystic-sea);">{formatTime(log.joined_at)}</td>
+							<td style="color: var(--color-mystic-sea);">
+								{#if log.left_at}{formatTime(log.left_at)}{:else}<span class="font-medium" style="color: var(--color-lush-meadow);">همچنان حاضر</span>{/if}
 							</td>
-							<td class="px-5 py-3.5 text-sm text-gray-500">{formatDuration(log.duration)}</td>
-							<td class="px-5 py-3.5 text-sm text-gray-400 font-mono">{log.ip_address}</td>
+							<td style="color: var(--color-mystic-sea);">{formatDuration(log.duration)}</td>
+							<td class="font-mono" style="color: var(--color-moonlit-mist);">{log.ip_address}</td>
 						</tr>
 					{/each}
 				</tbody>

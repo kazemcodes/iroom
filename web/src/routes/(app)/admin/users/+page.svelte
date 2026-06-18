@@ -244,7 +244,7 @@
 	}
 
 	const roleLabels: Record<string, string> = { admin: 'مدیر', teacher: 'مدرس', student: 'دانش‌آموز' };
-	const roleColors: Record<string, string> = { admin: 'bg-red-100 text-red-700', teacher: 'bg-purple-100 text-purple-700', student: 'bg-blue-100 text-blue-700' };
+	const roleBadge: Record<string, string> = { admin: 'sky-badge sky-badge-danger', teacher: 'sky-badge badge-purple', student: 'sky-badge sky-badge-info' };
 </script>
 
 <div class="space-y-6">
@@ -271,8 +271,11 @@
 
 	<!-- Filters -->
 	<div class="flex items-center gap-3 flex-wrap">
-		<input type="text" bind:value={search} onkeydown={(e) => e.key === 'Enter' && searchUsers()} class="flex-1 min-w-[200px] px-4 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white" placeholder="جستجوی نام یا ایمیل..." />
-		<select bind:value={roleFilter} onchange={() => { currentPage = 1; loadUsers(); }} class="px-4 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+		<div class="sky-search flex-1 min-w-[200px]">
+			<div class="sky-search-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
+			<input type="text" bind:value={search} onkeydown={(e) => e.key === 'Enter' && searchUsers()} class="sky-input" placeholder="جستجوی نام یا ایمیل..." style="padding-right: 2.5rem;" />
+		</div>
+		<select bind:value={roleFilter} onchange={() => { currentPage = 1; loadUsers(); }} class="sky-input" style="width:auto;">
 			<option value="all">همه نقش‌ها</option>
 			<option value="admin">مدیر</option>
 			<option value="teacher">مدرس</option>
@@ -283,43 +286,33 @@
 	{#if loading}
 		<TableSkeleton rows={5} cols={5} />
 	{:else if users.length === 0}
-		<div style="text-align:center;padding:80px 0;background:var(--color-pure);border-radius:12px;">
-			<div style="width:64px;height:64px;margin:0 auto 16px;border-radius:12px;background:var(--color-secret-glow);display:flex;align-items:center;justify-content:center;">
-				<svg width="32" height="32" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:var(--color-moonlit-mist);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg>
+		<div class="sky-card">
+			<div class="sky-empty">
+				<div class="sky-empty-icon"><svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24" style="color:var(--color-muted-mountain);"><path stroke-linecap="round" stroke-linejoin="round" d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg></div>
+				<p class="sky-empty-title">کاربری یافت نشد</p>
+				<p class="sky-empty-desc">اولین کاربر خود را ایجاد کنید</p>
 			</div>
-			<p style="color:var(--color-mystic-sea);font-weight:500;">کاربری یافت نشد</p>
-			<p style="font-size:0.875rem;color:var(--color-moonlit-mist);margin-top:4px;">اولین کاربر خود را ایجاد کنید</p>
 		</div>
 	{:else}
-		<div class="bg-white rounded-xl overflow-hidden">
-			<table class="w-full text-sm">
-				<thead class="bg-gray-50 border-b">
-					<tr>
-						<th class="px-5 py-3 text-right font-medium text-gray-600">نام</th>
-						<th class="px-5 py-3 text-right font-medium text-gray-600">ایمیل</th>
-						<th class="px-5 py-3 text-right font-medium text-gray-600">نقش</th>
-						<th class="px-5 py-3 text-right font-medium text-gray-600">وضعیت</th>
-						<th class="px-5 py-3 text-right font-medium text-gray-600">عملیات</th>
-					</tr>
+		<div class="sky-card overflow-hidden">
+			<table class="sky-table">
+				<thead>
+					<tr><th>نام</th><th>ایمیل</th><th>نقش</th><th>وضعیت</th><th>عملیات</th></tr>
 				</thead>
-				<tbody class="divide-y">
+				<tbody>
 					{#each users as user}
-						<tr class="hover:bg-gray-50">
-							<td class="px-5 py-3 font-medium">{user.display_name}</td>
-							<td class="px-5 py-3 text-gray-500" dir="ltr">{user.email}</td>
-							<td class="px-5 py-3"><span class="text-xs px-2 py-1 rounded-full font-medium {roleColors[user.role]}">{roleLabels[user.role]}</span></td>
-							<td class="px-5 py-3">
-								<span class="text-xs px-2 py-1 rounded-full font-medium {user.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
-									{user.is_active ? 'فعال' : 'غیرفعال'}
-								</span>
-							</td>
-							<td class="px-5 py-3">
+						<tr>
+							<td class="font-semibold">{user.display_name}</td>
+							<td dir="ltr" style="color: var(--color-mystic-sea);">{user.email}</td>
+							<td><span class="{roleBadge[user.role]}">{roleLabels[user.role]}</span></td>
+							<td><span class="sky-badge {user.is_active ? 'sky-badge-success' : 'sky-badge-danger'}">{user.is_active ? 'فعال' : 'غیرفعال'}</span></td>
+							<td>
 								<div class="flex items-center gap-1">
-									<button onclick={() => openEdit(user)} class="px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded">ویرایش</button>
-									<button onclick={() => toggleActive(user)} class="px-2 py-1 text-xs rounded {user.is_active ? 'text-orange-600 hover:bg-orange-50' : 'text-green-600 hover:bg-green-50'}">
+									<button onclick={() => openEdit(user)} class="sky-btn sky-btn-ghost" style="padding:0.2rem 0.6rem;font-size:12px;">ویرایش</button>
+									<button onclick={() => toggleActive(user)} class="sky-btn sky-btn-ghost" style="padding:0.2rem 0.6rem;font-size:12px;color:{user.is_active ? 'var(--color-dawn-warm)' : 'var(--color-lush-meadow)'};">
 										{user.is_active ? 'غیرفعال' : 'فعال'}
 									</button>
-									<button onclick={() => confirmDelete(user.id)} class="px-2 py-1 text-xs text-red-600 hover:bg-red-50 rounded">حذف</button>
+									<button onclick={() => confirmDelete(user.id)} class="sky-btn sky-btn-ghost" style="padding:0.2rem 0.6rem;font-size:12px;color:var(--color-fiery-passion);">حذف</button>
 								</div>
 							</td>
 						</tr>
@@ -327,12 +320,12 @@
 				</tbody>
 			</table>
 			{#if total > perPage}
-				<div class="px-5 py-3 border-t flex items-center justify-between text-sm text-gray-500">
+				<div class="px-5 py-3 flex items-center justify-between text-sm" style="border-top:1px solid var(--color-zen-garden);color:var(--color-mystic-sea);">
 					<span>{toPersian(total)} کاربر</span>
-					<div class="flex gap-1">
-						<button disabled={currentPage <= 1} onclick={() => { currentPage--; loadUsers(); }} class="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50">قبلی</button>
-						<span class="px-3 py-1">صفحه {toPersian(currentPage)} از {toPersian(Math.ceil(total / perPage))}</span>
-						<button disabled={currentPage >= Math.ceil(total / perPage)} onclick={() => { currentPage++; loadUsers(); }} class="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50">بعدی</button>
+					<div class="sky-pagination">
+						<button class="sky-page-btn" disabled={currentPage <= 1} onclick={() => { currentPage--; loadUsers(); }}>قبلی</button>
+						<span class="sky-page-btn" style="cursor:default;">{toPersian(currentPage)}/{toPersian(Math.ceil(total / perPage))}</span>
+						<button class="sky-page-btn" disabled={currentPage >= Math.ceil(total / perPage)} onclick={() => { currentPage++; loadUsers(); }}>بعدی</button>
 					</div>
 				</div>
 			{/if}
@@ -342,43 +335,30 @@
 
 <!-- Create User Modal -->
 {#if showCreateModal}
-	<div class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onclick={() => showCreateModal = false}>
-		<div class="bg-white rounded-2xl w-full max-w-md shadow-xl" onclick={(e) => e.stopPropagation()}>
-			<div class="px-6 py-4 border-b"><h2 class="font-bold text-lg">ایجاد کاربر جدید</h2></div>
-			<div class="px-6 py-4 space-y-4">
+	<div class="modal-overlay" onclick={() => showCreateModal = false} role="button" tabindex="-1">
+		<div class="modal-content" onclick={(e) => e.stopPropagation()}>
+			<div class="sky-modal-header">
+				<h2>ایجاد کاربر جدید</h2>
+				<button onclick={() => showCreateModal = false} class="sky-btn-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+			</div>
+			<div class="sky-modal-body space-y-4">
 				{#if createError}
-					<div class="p-3 bg-red-50 text-red-600 rounded-lg text-sm">{createError}</div>
+					<div class="p-3 rounded-lg text-sm" style="background: rgba(224,82,82,0.1); color: var(--color-fiery-passion);">{createError}</div>
 				{/if}
-				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-1">نام نمایشی</label>
-					<input type="text" bind:value={newUser.display_name} class="input-field" required />
-				</div>
-				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-1">ایمیل</label>
-					<input type="email" bind:value={newUser.email} class="input-field" dir="ltr" required />
-				</div>
-				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-1">رمز عبور</label>
-					<input type="password" bind:value={newUser.password} class="input-field" dir="ltr" required />
-				</div>
+				<div><label class="sky-label">نام نمایشی</label><input type="text" bind:value={newUser.display_name} class="sky-input" required /></div>
+				<div><label class="sky-label">ایمیل</label><input type="email" bind:value={newUser.email} class="sky-input" dir="ltr" required /></div>
+				<div><label class="sky-label">رمز عبور</label><input type="password" bind:value={newUser.password} class="sky-input" dir="ltr" required /></div>
 				<div class="grid grid-cols-2 gap-3">
 					<div>
-						<label class="block text-sm font-medium text-gray-700 mb-1">نقش</label>
-						<select bind:value={newUser.role} class="input-field bg-white">
-							<option value="student">دانش‌آموز</option>
-							<option value="teacher">مدرس</option>
-							<option value="admin">مدیر</option>
-						</select>
+						<label class="sky-label">نقش</label>
+						<select bind:value={newUser.role} class="sky-input"><option value="student">دانش‌آموز</option><option value="teacher">مدرس</option><option value="admin">مدیر</option></select>
 					</div>
-					<div>
-						<label class="block text-sm font-medium text-gray-700 mb-1">تلفن</label>
-						<input type="tel" bind:value={newUser.phone} class="input-field" dir="ltr" />
-					</div>
+					<div><label class="sky-label">تلفن</label><input type="tel" bind:value={newUser.phone} class="sky-input" dir="ltr" /></div>
 				</div>
 			</div>
-			<div class="px-6 py-4 border-t flex justify-end gap-3">
-				<button onclick={() => showCreateModal = false} class="btn-ghost">انصراف</button>
-				<button onclick={createUser} disabled={createLoading || !newUser.email || !newUser.password || !newUser.display_name} class="btn-primary disabled:opacity-50">
+			<div class="sky-modal-footer">
+				<button onclick={() => showCreateModal = false} class="sky-btn sky-btn-secondary">انصراف</button>
+				<button onclick={createUser} disabled={createLoading || !newUser.email || !newUser.password || !newUser.display_name} class="sky-btn sky-btn-primary">
 					{createLoading ? 'در حال ایجاد...' : 'ایجاد کاربر'}
 				</button>
 			</div>
@@ -388,29 +368,28 @@
 
 <!-- Edit User Modal -->
 {#if showEditModal && editingUser}
-	<div class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onclick={() => showEditModal = false}>
-		<div class="bg-white rounded-2xl w-full max-w-md shadow-xl" onclick={(e) => e.stopPropagation()}>
-			<div class="px-6 py-4 border-b"><h2 class="font-bold text-lg">ویرایش کاربر</h2></div>
-			<div class="px-6 py-4 space-y-4">
-				<p class="text-sm text-gray-500">{editingUser.display_name} — {editingUser.email}</p>
+	<div class="modal-overlay" onclick={() => showEditModal = false} role="button" tabindex="-1">
+		<div class="modal-content" onclick={(e) => e.stopPropagation()}>
+			<div class="sky-modal-header">
+				<h2>ویرایش کاربر</h2>
+				<button onclick={() => showEditModal = false} class="sky-btn-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+			</div>
+			<div class="sky-modal-body space-y-4">
+				<p class="text-sm" style="color: var(--color-mystic-sea);">{editingUser.display_name} — {editingUser.email}</p>
 				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-1">نقش</label>
-					<select bind:value={editForm.role} class="input-field bg-white">
-						<option value="student">دانش‌آموز</option>
-						<option value="teacher">مدرس</option>
-						<option value="admin">مدیر</option>
-					</select>
+					<label class="sky-label">نقش</label>
+					<select bind:value={editForm.role} class="sky-input"><option value="student">دانش‌آموز</option><option value="teacher">مدرس</option><option value="admin">مدیر</option></select>
 				</div>
 				<div class="flex items-center justify-between">
-					<span class="text-sm font-medium text-gray-700">وضعیت فعال</span>
-					<button onclick={() => editForm.is_active = !editForm.is_active} class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors {editForm.is_active ? 'bg-blue-600' : 'bg-gray-300'}">
+					<span class="text-sm font-medium" style="color: var(--color-ocean-wave);">وضعیت فعال</span>
+					<button onclick={() => editForm.is_active = !editForm.is_active} class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors" style="background: {editForm.is_active ? 'var(--color-crystal-clear)' : 'var(--color-muted-mountain)'};">
 						<span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform {editForm.is_active ? 'translate-x-6' : 'translate-x-1'}"></span>
 					</button>
 				</div>
 			</div>
-			<div class="px-6 py-4 border-t flex justify-end gap-3">
-				<button onclick={() => showEditModal = false} class="btn-ghost">انصراف</button>
-				<button onclick={saveEdit} class="btn-primary">ذخیره</button>
+			<div class="sky-modal-footer">
+				<button onclick={() => showEditModal = false} class="sky-btn sky-btn-secondary">انصراف</button>
+				<button onclick={saveEdit} class="sky-btn sky-btn-primary">ذخیره</button>
 			</div>
 		</div>
 	</div>
@@ -420,18 +399,18 @@
 
 <!-- Bulk Import Modal -->
 {#if showImportModal}
-	<div class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onclick={closeImportModal}>
-		<div class="bg-white rounded-2xl w-full max-w-2xl shadow-xl max-h-[90vh] overflow-y-auto" onclick={(e) => e.stopPropagation()}>
-			<div class="px-6 py-4 border-b flex items-center justify-between">
-				<h2 class="font-bold text-lg">وارد کردن گروهی کاربران</h2>
-				<button onclick={closeImportModal} class="text-gray-400 hover:text-gray-600">
-					<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+	<div class="modal-overlay" onclick={closeImportModal} role="button" tabindex="-1">
+		<div class="modal-content" style="max-width: 42rem;" onclick={(e) => e.stopPropagation()}>
+			<div class="sky-modal-header">
+				<h2>وارد کردن گروهی کاربران</h2>
+				<button onclick={closeImportModal} class="sky-btn-icon">
+					<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
 				</button>
 			</div>
 
-			<div class="px-6 py-4 space-y-4">
+			<div class="sky-modal-body space-y-4">
 				<!-- Download Template -->
-				<button onclick={downloadTemplate} class="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1">
+				<button onclick={downloadTemplate} class="text-sm flex items-center gap-1" style="color: var(--color-crystal-clear);">
 					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
 					دانلود قالب CSV
 				</button>
@@ -528,12 +507,12 @@
 				{/if}
 			</div>
 
-			<div class="px-6 py-4 border-t flex justify-end gap-3">
-				<button onclick={closeImportModal} class="btn-ghost">
+			<div class="sky-modal-footer">
+				<button onclick={closeImportModal} class="sky-btn sky-btn-secondary">
 					{importResult ? 'انجام شد' : 'انصراف'}
 				</button>
 				{#if importFile && !importResult}
-					<button onclick={runImport} disabled={importLoading} class="btn-primary disabled:opacity-50 flex items-center gap-2">
+					<button onclick={runImport} disabled={importLoading} class="sky-btn sky-btn-primary flex items-center gap-2">
 						{#if importLoading}
 							<div class="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
 							در حال وارد کردن...

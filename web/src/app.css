@@ -763,3 +763,204 @@ input, textarea, select {
 .sky-input { width: 100%; padding: 0.625rem 0.875rem; border: 2px solid var(--color-zen-garden); border-radius: 8px; font-size: 14px; background: var(--color-pure); color: var(--color-midnight-sky); transition: border-color 0.15s; outline: none; font-family: 'Vazirmatn', system-ui, sans-serif; }
 .sky-input:focus { border-color: var(--color-crystal-clear); }
 .sky-input::placeholder { color: var(--color-moonlit-mist); }
+
+/* ============================================
+   Modal Overlay (backward compat class names)
+   ============================================ */
+.modal-overlay {
+	position: fixed;
+	inset: 0;
+	background: rgba(0,0,0,0.5);
+	backdrop-filter: blur(4px);
+	z-index: 50;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 1rem;
+	animation: fadeIn 0.15s ease;
+}
+.modal-content {
+	background: var(--color-pure);
+	border-radius: 16px;
+	box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+	width: 100%;
+	max-width: 520px;
+	max-height: 90vh;
+	overflow-y: auto;
+	animation: slideUp 0.2s ease;
+}
+
+/* ============================================
+   Skyroom Sidebar — Exact Skyroom Look
+   ============================================ */
+.sky-sidebar-section-title {
+	padding: 0.5rem 1rem 0.25rem;
+	font-size: 10px;
+	font-weight: 700;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--color-mystic-sea);
+	user-select: none;
+}
+
+/* ============================================
+   Page Header (Skyroom style)
+   ============================================ */
+.sky-page-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 1.5rem;
+}
+.sky-page-title {
+	font-size: 1.25rem;
+	font-weight: 800;
+	color: var(--color-midnight-sky);
+	line-height: 1.2;
+}
+.sky-page-subtitle {
+	font-size: 13px;
+	color: var(--color-mystic-sea);
+	margin-top: 2px;
+}
+
+/* ============================================
+   Skyroom Form Label
+   ============================================ */
+.sky-label {
+	display: block;
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--color-velvet-evening, var(--color-ocean-wave));
+	margin-bottom: 0.375rem;
+}
+
+/* ============================================
+   Skyroom Filter Bar
+   ============================================ */
+.sky-filter-bar {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	background: var(--color-secret-glow);
+	border-radius: 10px;
+	padding: 4px;
+}
+.sky-filter-btn {
+	padding: 0.375rem 0.875rem;
+	border-radius: 7px;
+	font-size: 13px;
+	font-weight: 500;
+	border: none;
+	cursor: pointer;
+	transition: all 0.15s ease;
+	background: transparent;
+	color: var(--color-mystic-sea);
+	font-family: 'Vazirmatn', system-ui, sans-serif;
+}
+.sky-filter-btn:hover { color: var(--color-midnight-sky); }
+.sky-filter-btn.active {
+	background: var(--color-pure);
+	color: var(--color-crystal-clear);
+	font-weight: 600;
+	box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+
+/* ============================================
+   Skyroom Session / Class Card (list style)
+   ============================================ */
+.sky-list-card {
+	background: var(--color-pure);
+	border-radius: 12px;
+	border: 1px solid var(--color-zen-garden);
+	transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.sky-list-card:hover {
+	box-shadow: 0 4px 12px rgba(0,0,0,0.07);
+	border-color: var(--color-muted-mountain);
+}
+
+/* ============================================
+   Skyroom Breadcrumb
+   ============================================ */
+.sky-breadcrumb {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	font-size: 13px;
+	color: var(--color-moonlit-mist);
+	margin-bottom: 1.5rem;
+}
+.sky-breadcrumb a { color: var(--color-crystal-clear); text-decoration: none; }
+.sky-breadcrumb a:hover { text-decoration: underline; }
+.sky-breadcrumb-sep { color: var(--color-muted-mountain); }
+
+/* ============================================
+   Skyroom Avatar
+   ============================================ */
+.sky-avatar {
+	width: 36px;
+	height: 36px;
+	border-radius: 50%;
+	background: var(--color-crystal-clear);
+	color: white;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-weight: 700;
+	font-size: 14px;
+	flex-shrink: 0;
+}
+.sky-avatar-lg {
+	width: 56px;
+	height: 56px;
+	border-radius: 14px;
+	font-size: 20px;
+}
+
+/* ============================================
+   Skyroom Live Indicator
+   ============================================ */
+.sky-live-dot {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	font-size: 11px;
+	font-weight: 700;
+	color: var(--color-lush-meadow);
+}
+.sky-live-dot::before {
+	content: '';
+	display: inline-block;
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	background: var(--color-lush-meadow);
+	animation: pulse-recording 1.5s ease-in-out infinite;
+}
+
+/* ============================================
+   Skyroom Status Rows (session list items)
+   ============================================ */
+.sky-session-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 0.875rem 1.25rem;
+	border-bottom: 1px solid var(--color-zen-garden);
+	transition: background 0.12s ease;
+	cursor: default;
+}
+.sky-session-row:last-child { border-bottom: none; }
+.sky-session-row:hover { background: var(--color-deep-heaven); }
+
+/* ============================================
+   Responsive App Shell (mobile sidebar)
+   ============================================ */
+.app-content { transition: margin-right 0.25s ease; }
+@media (max-width: 1023px) {
+	.sky-sidebar { transform: translateX(100%); box-shadow: none; }
+	.sky-sidebar.mobile-open { transform: translateX(0); box-shadow: -8px 0 24px rgba(0,0,0,0.25); }
+	.app-content { margin-right: 0 !important; }
+}

@@ -85,85 +85,70 @@
 	}
 
 	const statusLabels: Record<string, string> = { open: 'باز', answered: 'پاسخ داده شده', closed: 'بسته شده' };
-	const statusColors: Record<string, string> = { open: 'bg-green-100 text-green-700', answered: 'bg-blue-100 text-blue-700', closed: 'bg-gray-100 text-gray-500' };
+	const statusBadge: Record<string, string> = { open: 'sky-badge sky-badge-success', answered: 'sky-badge sky-badge-info', closed: 'sky-badge sky-badge-default' };
 	const priorityLabels: Record<string, string> = { low: 'کم', normal: 'عادی', high: 'زیاد', urgent: 'فوری' };
-	const priorityColors: Record<string, string> = { low: 'bg-gray-100 text-gray-500', normal: 'bg-blue-100 text-blue-700', high: 'bg-orange-100 text-orange-700', urgent: 'bg-red-100 text-red-700' };
-	const priorityDotColors: Record<string, string> = { low: 'bg-gray-400', normal: 'bg-blue-500', high: 'bg-orange-500', urgent: 'bg-red-500' };
+	const priorityBadge: Record<string, string> = { low: 'sky-badge sky-badge-default', normal: 'sky-badge sky-badge-info', high: 'sky-badge sky-badge-warning', urgent: 'sky-badge sky-badge-danger' };
 	const categoryLabels: Record<string, string> = { 'عمومی': 'عمومی', 'فنی': 'فنی', 'مالی': 'مالی' };
 </script>
 
-<div class="space-y-6">
+<div class="space-y-5">
 	<div class="flex items-center justify-between">
 		<div class="flex items-center gap-3">
-			<a href="/support" class="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-				<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15.75 19.5L8.25 12l7.5-7.5" /></svg>
+			<a href="/support" class="sky-btn-icon">
+				<svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 6l6 6-6 6"/></svg>
 			</a>
 			{#if ticket}
 				<div>
-					<h1 class="text-xl font-bold text-gray-900">{ticket.title}</h1>
+					<h1 class="sky-page-title">{ticket.title}</h1>
 					<div class="flex items-center gap-2 mt-1">
-						<span class="text-xs px-2.5 py-1 rounded-full font-medium {statusColors[ticket.status]}">{statusLabels[ticket.status]}</span>
-						<span class="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium {priorityColors[ticket.priority]}">
-							<span class="w-2 h-2 rounded-full {priorityDotColors[ticket.priority]}"></span>
-							{priorityLabels[ticket.priority]}
-						</span>
-						<span class="text-xs text-gray-400">{formatDate(ticket.created_at)}</span>
+						<span class="{statusBadge[ticket.status]}">{statusLabels[ticket.status]}</span>
+						<span class="{priorityBadge[ticket.priority]}"><span class="dot"></span>{priorityLabels[ticket.priority]}</span>
+						<span class="text-xs" style="color: var(--color-moonlit-mist);">{formatDate(ticket.created_at)}</span>
 					</div>
 				</div>
 			{/if}
 		</div>
 		{#if ticket && ticket.status !== 'closed'}
-			<button onclick={closeTicket} class="px-4 py-2 text-sm text-red-600 border border-red-200 rounded-xl hover:bg-red-50 transition-colors font-medium">
-				بستن تیکت
-			</button>
+			<button onclick={closeTicket} class="sky-btn sky-btn-outline" style="color: var(--color-fiery-passion); border-color: rgba(224,82,82,0.3);">بستن تیکت</button>
 		{/if}
 	</div>
 
 	<!-- Ticket Metadata Card -->
 	{#if ticket}
-		<div class="bg-white border border-gray-200 rounded-xl p-4">
+		<div class="sky-card p-4">
 			<div class="grid grid-cols-3 gap-4">
 				<div>
-					<p class="text-xs text-gray-400 mb-1">وضعیت</p>
-					<span class="text-xs px-2.5 py-1 rounded-full font-medium {statusColors[ticket.status]}">{statusLabels[ticket.status]}</span>
+					<p class="text-xs mb-1" style="color: var(--color-moonlit-mist);">وضعیت</p>
+					<span class="{statusBadge[ticket.status]}">{statusLabels[ticket.status]}</span>
 				</div>
 				<div>
-					<p class="text-xs text-gray-400 mb-1">اولویت</p>
-					<span class="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium {priorityColors[ticket.priority]}">
-						<span class="w-2 h-2 rounded-full {priorityDotColors[ticket.priority]}"></span>
-						{priorityLabels[ticket.priority]}
-					</span>
+					<p class="text-xs mb-1" style="color: var(--color-moonlit-mist);">اولویت</p>
+					<span class="{priorityBadge[ticket.priority]}"><span class="dot"></span>{priorityLabels[ticket.priority]}</span>
 				</div>
 				<div>
-					<p class="text-xs text-gray-400 mb-1">دسته‌بندی</p>
-					<span class="text-xs px-2.5 py-1 rounded-full font-medium bg-purple-100 text-purple-700">{categoryLabels[ticket.category] || ticket.category}</span>
+					<p class="text-xs mb-1" style="color: var(--color-moonlit-mist);">دسته‌بندی</p>
+					<span class="sky-badge sky-badge-info">{categoryLabels[ticket.category] || ticket.category}</span>
 				</div>
 			</div>
 		</div>
 	{/if}
 
 	{#if loading}
-		<div class="flex items-center justify-center py-20">
-			<div class="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full"></div>
-		</div>
+		<div class="flex items-center justify-center py-16"><svg class="sky-spinner lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--color-crystal-clear);"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg></div>
 	{:else if !ticket}
-		<div class="text-center py-20 bg-white rounded-xl">
-			<p class="text-gray-500">تیکت یافت نشد</p>
-		</div>
+		<div class="sky-card"><div class="sky-empty"><p class="sky-empty-desc">تیکت یافت نشد</p></div></div>
 	{:else}
 		<!-- Messages Thread -->
 		<div class="space-y-3">
 			{#each ticket.messages || [] as msg}
 				<div class="flex {msg.is_admin ? 'justify-end' : 'justify-start'}">
-					<div class="max-w-[70%] {msg.is_admin ? 'bg-blue-50 border border-blue-100' : 'bg-white border border-gray-200'} rounded-xl p-4">
+					<div class="max-w-[70%] rounded-xl p-4" style="background: {msg.is_admin ? 'var(--color-polar-ice)' : 'var(--color-pure)'}; border: 1px solid var(--color-zen-garden);">
 						<div class="flex items-center gap-2 mb-1.5">
-							<span class="text-xs font-bold {msg.is_admin ? 'text-blue-700' : 'text-gray-700'}">{msg.user_display_name}</span>
-							{#if msg.is_admin}
-								<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-600 font-medium">ادمین</span>
-							{/if}
-							<span class="text-[10px] text-gray-400">{formatDate(msg.created_at)}</span>
+							<span class="text-xs font-bold" style="color: {msg.is_admin ? 'var(--color-crystal-clear)' : 'var(--color-midnight-sky)'};">{msg.user_display_name}</span>
+							{#if msg.is_admin}<span class="sky-badge sky-badge-info" style="font-size:10px;padding:1px 8px;">ادمین</span>{/if}
+							<span class="text-[10px]" style="color: var(--color-moonlit-mist);">{formatDate(msg.created_at)}</span>
 						</div>
-						<p class="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+						<p class="text-sm leading-relaxed whitespace-pre-wrap" style="color: var(--color-ocean-wave);">{msg.content}</p>
 					</div>
 				</div>
 			{/each}
@@ -171,38 +156,27 @@
 
 		<!-- Reply Form -->
 		{#if ticket.status !== 'closed'}
-			<div class="bg-white border border-gray-200 rounded-xl p-4">
-				<textarea
-					bind:value={replyText}
-					class="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none bg-gray-50"
-					rows="3"
-					placeholder="پاسخ خود را بنویسید..."
-				></textarea>
-				
-				<!-- File Attachment -->
-				<input
-					bind:this={fileInput}
-					type="file"
-					class="hidden"
-					onchange={handleFileSelect}
-				/>
-				
+			<div class="sky-card p-4">
+				<textarea bind:value={replyText} class="sky-input resize-none" rows="3" placeholder="پاسخ خود را بنویسید..."></textarea>
+
+				<input bind:this={fileInput} type="file" class="hidden" onchange={handleFileSelect} />
+
 				{#if selectedFile}
-					<div class="mt-3 flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg">
-						<svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
-						<span class="text-xs text-blue-700 flex-1 truncate">{selectedFile.name}</span>
-						<span class="text-xs text-blue-500">{formatFileSize(selectedFile.size)}</span>
-						<button onclick={removeSelectedFile} class="p-1 hover:bg-blue-100 rounded transition-colors">
-							<svg class="w-3 h-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+					<div class="mt-3 flex items-center gap-2 px-3 py-2 rounded-lg" style="background: var(--color-polar-ice); border: 1px solid rgba(35,185,215,0.3);">
+						<svg width="16" height="16" fill="none" stroke="var(--color-crystal-clear)" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
+						<span class="text-xs flex-1 truncate" style="color: var(--color-crystal-clear);">{selectedFile.name}</span>
+						<span class="text-xs" style="color: var(--color-mystic-sea);">{formatFileSize(selectedFile.size)}</span>
+						<button onclick={removeSelectedFile} class="p-1 rounded transition-colors hover:bg-white/50">
+							<svg width="12" height="12" fill="none" stroke="var(--color-crystal-clear)" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
 						</button>
 					</div>
 				{/if}
-				
+
 				<div class="flex justify-between items-center mt-3">
-					<button onclick={triggerFilePicker} class="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="پیوست فایل">
-						<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
+					<button onclick={triggerFilePicker} class="sky-btn-icon" title="پیوست فایل">
+						<svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
 					</button>
-					<button onclick={sendReply} disabled={(!replyText.trim() && !selectedFile) || replying} class="px-5 py-2 bg-blue-600 text-white text-sm rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors font-medium">
+					<button onclick={sendReply} disabled={(!replyText.trim() && !selectedFile) || replying} class="sky-btn sky-btn-primary">
 						{replying ? 'در حال ارسال...' : 'ارسال پاسخ'}
 					</button>
 				</div>

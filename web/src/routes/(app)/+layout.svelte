@@ -90,24 +90,39 @@
 		};
 	});
 
+	const icons = {
+		dashboard: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>`,
+		classes: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>`,
+		sessions: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14"/><rect x="2" y="6" width="13" height="12" rx="2"/></svg>`,
+		files: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`,
+		support: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>`,
+		profile: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`,
+		adminHome: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>`,
+		users: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>`,
+		rooms: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>`,
+		recordings: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>`,
+		logs: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>`,
+		settings: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>`
+	};
+
 	const navItems = $derived.by(() => [
-		{ href: '/dashboard', label: 'داشبورد', icon: '📊' },
-		{ href: '/classes', label: 'کلاس‌ها', icon: '📚' },
-		{ href: '/sessions', label: 'جلسات', icon: '🎥' },
-		{ href: '/files', label: 'فایل‌ها', icon: '📁' },
-		{ href: '/support', label: 'پشتیبانی', icon: '🎧' },
-		{ href: '/profile', label: 'حساب کاربری', icon: '👤' },
+		{ href: '/dashboard', label: 'داشبورد', icon: icons.dashboard },
+		{ href: '/classes', label: 'کلاس‌ها', icon: icons.classes },
+		{ href: '/sessions', label: 'جلسات', icon: icons.sessions },
+		{ href: '/files', label: 'فایل‌ها', icon: icons.files },
+		{ href: '/support', label: 'پشتیبانی', icon: icons.support },
+		{ href: '/profile', label: 'حساب کاربری', icon: icons.profile },
 	]);
 
 	const adminNavItems = $derived.by(() => {
 		if (!$isAdmin) return [];
 		return [
-			{ href: '/admin', label: 'داشبورد مدیریت', icon: '📈' },
-			{ href: '/admin/users', label: 'کاربران', icon: '👥' },
-			{ href: '/admin/rooms', label: 'اتاق‌ها', icon: '🏢' },
-			{ href: '/admin/recordings', label: 'ضبط‌ها', icon: '⏺' },
-			{ href: '/admin/logs', label: 'لاگ‌ها', icon: '📋' },
-			{ href: '/admin/settings', label: 'تنظیمات', icon: '⚙️' },
+			{ href: '/admin', label: 'داشبورد مدیریت', icon: icons.adminHome },
+			{ href: '/admin/users', label: 'کاربران', icon: icons.users },
+			{ href: '/admin/rooms', label: 'اتاق‌ها', icon: icons.rooms },
+			{ href: '/admin/recordings', label: 'ضبط‌ها', icon: icons.recordings },
+			{ href: '/admin/logs', label: 'لاگ‌ها', icon: icons.logs },
+			{ href: '/admin/settings', label: 'تنظیمات', icon: icons.settings },
 		];
 	});
 
@@ -126,10 +141,12 @@
 
 <div class="flex min-h-screen" style="background: var(--color-eternal-snow);">
 	<!-- Skyroom Sidebar -->
-	<aside class="sky-sidebar" class:collapsed={sidebarCollapsed}>
+	<aside class="sky-sidebar" class:collapsed={sidebarCollapsed} class:mobile-open={mobileOpen}>
 		<!-- Logo -->
 		<div class="sky-sidebar-logo">
-			<div class="logo-icon">آ</div>
+			<div class="logo-icon">
+				<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14"/><rect x="2" y="6" width="13" height="12" rx="2"/></svg>
+			</div>
 			{#if !sidebarCollapsed}
 				<div class="logo-text">آی‌روم</div>
 			{/if}
@@ -143,7 +160,7 @@
 					onclick={() => mobileOpen = false}
 					title={sidebarCollapsed ? item.label : undefined}
 				>
-					<span>{item.icon}</span>
+					{@html item.icon}
 					{#if !sidebarCollapsed}
 						<span>{item.label}</span>
 					{/if}
@@ -153,7 +170,7 @@
 			{#if $isAdmin && adminNavItems.length > 0}
 				<div class="pt-2 mt-2" style="border-top: 1px solid rgba(255,255,255,0.08);">
 					{#if !sidebarCollapsed}
-						<p class="px-4 mb-1 text-[10px] font-bold uppercase tracking-wider" style="color: var(--color-mystic-sea);">مدیریت</p>
+						<p class="sky-sidebar-section-title">مدیریت</p>
 					{/if}
 					{#each adminNavItems as item}
 						<a href={item.href}
@@ -161,7 +178,7 @@
 							onclick={() => mobileOpen = false}
 							title={sidebarCollapsed ? item.label : undefined}
 						>
-							<span>{item.icon}</span>
+							{@html item.icon}
 							{#if !sidebarCollapsed}
 								<span>{item.label}</span>
 							{/if}
@@ -188,8 +205,9 @@
 			<button onclick={confirmLogout}
 				class="w-full flex items-center gap-2 px-3 py-2 text-xs rounded-lg transition-all duration-150 font-medium hover:bg-white/5"
 				style="color: var(--color-fiery-passion);"
+				title={sidebarCollapsed ? 'خروج' : undefined}
 			>
-				<span>🚪</span>
+				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
 				{#if !sidebarCollapsed}
 					خروج
 				{/if}
@@ -203,7 +221,7 @@
 	{/if}
 
 	<!-- Main content -->
-	<div class="flex-1 min-w-0" style="margin-right: {sidebarCollapsed ? '60px' : '260px'};">
+	<div class="flex-1 min-w-0 app-content" style="margin-right: {sidebarCollapsed ? '60px' : '260px'};">
 		<!-- Skyroom Header -->
 		<header class="sky-header">
 			<div class="flex items-center gap-3">
@@ -248,8 +266,8 @@
 											style="border-bottom: 1px solid var(--color-zen-garden);"
 											onclick={() => notifications.markRead(notification.id)}>
 											<div class="flex items-start gap-3">
-												<div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style="background: var(--color-secret-glow);">
-													<span class="text-sm">🔔</span>
+												<div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style="background: var(--color-polar-ice);">
+													<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-crystal-clear)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
 												</div>
 												<div class="flex-1 min-w-0">
 													<p class="text-sm font-medium" style="color: var(--color-midnight-sky);">{notification.title}</p>
@@ -294,7 +312,7 @@
 		</header>
 
 		<!-- Page Content -->
-		<main class="p-4 lg:p-6" style="max-width: 1200px; margin: 0 auto;">
+		<main class="p-4 lg:p-6" style="max-width: 1226px; margin: 0 auto;">
 			{@render children()}
 		</main>
 	</div>

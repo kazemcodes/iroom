@@ -85,20 +85,20 @@
 	}
 </script>
 
-<div class="flex flex-col h-[calc(100vh-8rem)] bg-white rounded-xl overflow-hidden">
+<div class="flex flex-col h-[calc(100vh-8rem)] sky-card overflow-hidden">
 	<!-- Header -->
-	<div class="px-5 py-3 border-b flex items-center justify-between shrink-0">
+	<div class="px-5 py-3 flex items-center justify-between shrink-0" style="border-bottom: 1px solid var(--color-zen-garden);">
 		<div class="flex items-center gap-3">
-			<a href="/classes" class="text-gray-400 hover:text-gray-600">
-				<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5l7 7-7 7" /></svg>
+			<a href="/classes" class="sky-btn-icon">
+				<svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 6l-6 6 6 6"/></svg>
 			</a>
 			<div>
-				<h2 class="font-bold text-gray-900">{session?.title || 'چت'}</h2>
-				<p class="text-xs text-gray-500">{messages.length} پیام</p>
+				<h2 class="font-bold" style="color: var(--color-midnight-sky);">{session?.title || 'چت'}</h2>
+				<p class="text-xs" style="color: var(--color-mystic-sea);">{messages.length} پیام</p>
 			</div>
 		</div>
 		{#if session?.status === 'live'}
-			<a href="/classroom/{session?.id}" class="px-3 py-1.5 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700 flex items-center gap-1">
+			<a href="/classroom/{session?.id}" class="sky-btn flex items-center gap-1.5" style="background: var(--color-lush-meadow); color: white; padding: 0.4rem 0.85rem; font-size: 12px;">
 				<span class="w-2 h-2 bg-white rounded-full animate-pulse"></span>
 				کلاس زنده
 			</a>
@@ -106,22 +106,20 @@
 	</div>
 
 	{#if loading}
-		<div class="flex-1 flex items-center justify-center">
-			<div class="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full"></div>
-		</div>
+		<div class="flex-1 flex items-center justify-center"><svg class="sky-spinner lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--color-crystal-clear);"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg></div>
 	{:else}
 		<!-- Messages -->
 		<div bind:this={chatContainer} class="flex-1 overflow-y-auto px-5 py-4 space-y-4">
 			{#if messages.length === 0}
-				<div class="flex items-center justify-center h-full text-gray-400">
+				<div class="flex items-center justify-center h-full" style="color: var(--color-moonlit-mist);">
 					<p>هنوز پیامی ارسال نشده</p>
 				</div>
 			{:else}
 				{#each messages as msg}
 					<div class="flex {isOwnMessage(msg) ? 'justify-end' : 'justify-start'}">
-						<div class="max-w-[70%] {isOwnMessage(msg) ? 'bg-blue-50 text-blue-900' : 'bg-gray-100 text-gray-900'} rounded-2xl px-4 py-2.5">
-							<p class="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
-							<p class="text-[10px] mt-1 {isOwnMessage(msg) ? 'text-blue-600' : 'text-gray-500'}">{formatTime(msg.created_at)}</p>
+						<div class="max-w-[70%] rounded-2xl px-4 py-2.5" style="background: {isOwnMessage(msg) ? 'var(--color-polar-ice)' : 'var(--color-secret-glow)'};">
+							<p class="text-sm whitespace-pre-wrap break-words" style="color: {isOwnMessage(msg) ? 'var(--color-ocean-wave)' : 'var(--color-midnight-sky)'};">{msg.content}</p>
+							<p class="text-[10px] mt-1" style="color: {isOwnMessage(msg) ? 'var(--color-crystal-clear)' : 'var(--color-moonlit-mist)'};">{formatTime(msg.created_at)}</p>
 						</div>
 					</div>
 				{/each}
@@ -129,20 +127,11 @@
 		</div>
 
 		<!-- Input -->
-		<div class="px-5 py-3 border-t shrink-0">
+		<div class="px-5 py-3 shrink-0" style="border-top: 1px solid var(--color-zen-garden);">
 			<form onsubmit={(e) => { e.preventDefault(); sendMessage(); }} class="flex gap-3">
-				<input
-					type="text"
-					bind:value={newMessage}
-					class="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-gray-50 focus:bg-white"
-					placeholder="پیام بنویسید..."
-				/>
-				<button
-					type="submit"
-					disabled={!newMessage.trim()}
-					class="px-4 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-				>
-					<svg class="w-4 h-4 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
+				<input type="text" bind:value={newMessage} class="sky-input flex-1" placeholder="پیام بنویسید..." />
+				<button type="submit" disabled={!newMessage.trim()} class="sky-btn sky-btn-primary flex items-center gap-2">
+					<svg width="16" height="16" class="rotate-180" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
 					ارسال
 				</button>
 			</form>

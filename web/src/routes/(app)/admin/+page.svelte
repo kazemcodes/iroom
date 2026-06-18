@@ -304,90 +304,84 @@
 		</div>
 
 		<!-- System Health -->
-		<div class="bg-white rounded-xl p-5">
-			<h2 class="font-bold text-gray-900 mb-4">وضعیت سیستم</h2>
-			{#if healthLoading}
-				<div class="flex items-center justify-center py-4"><div class="animate-spin h-6 w-6 border-4 border-blue-600 border-t-transparent rounded-full"></div></div>
-			{:else}
-				<div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-					<div class="text-center p-3 bg-gray-50 rounded-lg">
-						<p class="text-xs text-gray-500 mb-1">آپتایم سرور</p>
-						<p class="text-sm font-bold text-gray-900">{healthData.serverUptime || '—'}</p>
-					</div>
-					<div class="text-center p-3 bg-gray-50 rounded-lg">
-						<p class="text-xs text-gray-500 mb-1">وضعیت WebRTC</p>
-						<p class="text-sm font-bold text-green-600">
-							فعال (Pion)
-						</p>
-					</div>
-					<div class="text-center p-3 bg-gray-50 rounded-lg">
-						<p class="text-xs text-gray-500 mb-1">حجم پایگاه داده</p>
-						<p class="text-sm font-bold text-gray-900">{healthData.dbSize || '—'}</p>
-					</div>
-					<div class="text-center p-3 bg-gray-50 rounded-lg">
-						<p class="text-xs text-gray-500 mb-1">اتاق‌های فعال</p>
-						<p class="text-sm font-bold text-gray-900">{toPersian(healthData.activeRooms)}</p>
-					</div>
-				</div>
-			{/if}
-		</div>
-
-		<!-- Live Rooms + Activity Feed -->
-		<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-			<!-- Live Rooms -->
-			<div class="lg:col-span-2">
-				<div class="flex items-center justify-between mb-4">
-					<h2 class="font-bold text-gray-900">اتاق‌های فعال</h2>
-					<button onclick={() => goto('/admin/rooms')} class="text-sm text-blue-600 hover:text-blue-700 font-medium">مشاهده همه</button>
-				</div>
-				{#if liveRooms.length === 0}
-					<div class="bg-white rounded-xl p-8 text-center">
-						<div class="w-12 h-12 mx-auto mb-3 rounded-full bg-gray-100 flex items-center justify-center">
-							<svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
-						</div>
-						<p class="text-sm text-gray-500">اتاق فعالی وجود ندارد</p>
+		<div class="sky-card">
+			<div class="sky-card-header">
+				<h2>وضعیت سیستم</h2>
+			</div>
+			<div class="sky-card-body">
+				{#if healthLoading}
+					<div class="flex items-center justify-center py-4">
+						<svg class="sky-spinner md" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--color-crystal-clear);"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
 					</div>
 				{:else}
-					<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-						{#each liveRooms as room}
-							<div class="bg-white rounded-xl p-4 hover:shadow-sm transition-shadow">
-								<div class="flex items-start justify-between">
-									<div class="flex items-center gap-3">
-										<div class="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-sm" style="background: {room.color || '#3b82f6'}">
-											{room.name.charAt(0)}
-										</div>
-										<div>
-											<h3 class="font-bold text-sm text-gray-900">{room.name}</h3>
-											<p class="text-xs text-gray-500">{room.teacherName}</p>
-										</div>
-									</div>
-									<div class="flex items-center gap-1.5">
-										<span class="relative flex h-2.5 w-2.5">
-											<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-											<span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
-										</span>
-										<span class="text-xs font-medium text-green-600">{toPersian(room.activeSessions)} زنده</span>
-									</div>
-								</div>
+					<div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+						{#each [
+							{ label: 'آپتایم سرور', value: healthData.serverUptime || '—', color: 'var(--color-midnight-sky)' },
+							{ label: 'WebRTC', value: 'فعال (Pion)', color: 'var(--color-lush-meadow)' },
+							{ label: 'حجم پایگاه داده', value: healthData.dbSize || '—', color: 'var(--color-midnight-sky)' },
+							{ label: 'اتاق‌های فعال', value: toPersian(healthData.activeRooms), color: 'var(--color-midnight-sky)' },
+						] as item}
+							<div class="text-center p-3 rounded-lg" style="background: var(--color-secret-glow);">
+								<p class="text-xs mb-1" style="color: var(--color-moonlit-mist);">{item.label}</p>
+								<p class="text-sm font-bold" style="color: {item.color};">{item.value}</p>
 							</div>
 						{/each}
 					</div>
 				{/if}
 			</div>
+		</div>
+
+		<!-- Live Rooms + Activity Feed -->
+		<div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+			<!-- Live Rooms -->
+			<div class="lg:col-span-2">
+				<div class="sky-card">
+					<div class="sky-card-header">
+						<h2>اتاق‌های فعال</h2>
+						<button onclick={() => goto('/admin/rooms')} class="sky-btn sky-btn-ghost" style="padding: 0.25rem 0.75rem; font-size: 12px;">مشاهده همه</button>
+					</div>
+					<div class="sky-card-body">
+						{#if liveRooms.length === 0}
+							<div class="sky-empty" style="padding: 2rem;">
+								<p class="sky-empty-desc">اتاق فعالی وجود ندارد</p>
+							</div>
+						{:else}
+							<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+								{#each liveRooms as room}
+									<div class="flex items-center justify-between p-3 rounded-xl" style="background: var(--color-secret-glow);">
+										<div class="flex items-center gap-3">
+											<div class="w-9 h-9 rounded-lg flex items-center justify-center text-white font-bold text-sm shrink-0" style="background: {room.color || 'var(--color-crystal-clear)'}">
+												{room.name.charAt(0)}
+											</div>
+											<div>
+												<p class="font-bold text-sm" style="color: var(--color-midnight-sky);">{room.name}</p>
+												<p class="text-xs" style="color: var(--color-moonlit-mist);">{room.teacherName}</p>
+											</div>
+										</div>
+										<span class="sky-live-dot">{toPersian(room.activeSessions)} زنده</span>
+									</div>
+								{/each}
+							</div>
+						{/if}
+					</div>
+				</div>
+			</div>
 
 			<!-- Activity Feed -->
-			<div>
-				<h2 class="font-bold text-gray-900 mb-4">آخرین فعالیت‌ها</h2>
-				<div class="bg-white rounded-xl divide-y max-h-[320px] overflow-y-auto">
+			<div class="sky-card">
+				<div class="sky-card-header"><h2>آخرین فعالیت‌ها</h2></div>
+				<div class="overflow-y-auto" style="max-height: 320px;">
 					{#if activityLogs.length === 0}
-						<div class="p-6 text-center text-sm text-gray-400">فعالیتی ثبت نشده</div>
+						<div class="sky-empty" style="padding: 2rem;">
+							<p class="sky-empty-desc">فعالیتی ثبت نشده</p>
+						</div>
 					{:else}
 						{#each activityLogs as log}
-							<div class="px-4 py-3 flex items-start gap-3">
-								<div class="mt-1 w-2 h-2 rounded-full shrink-0 {actionColor(log.action)}"></div>
+							<div class="px-4 py-3 flex items-start gap-3" style="border-bottom: 1px solid var(--color-zen-garden);">
+								<div class="mt-1.5 w-2 h-2 rounded-full shrink-0 {actionColor(log.action)}"></div>
 								<div class="flex-1 min-w-0">
-									<p class="text-sm text-gray-700 truncate">{actionLabel(log.action)}</p>
-									<p class="text-xs text-gray-400 mt-0.5">{formatTime(log.created_at)} · {formatDate(log.created_at)}</p>
+									<p class="text-sm truncate" style="color: var(--color-midnight-sky);">{actionLabel(log.action)}</p>
+									<p class="text-xs mt-0.5" style="color: var(--color-moonlit-mist);">{formatTime(log.created_at)} · {formatDate(log.created_at)}</p>
 								</div>
 							</div>
 						{/each}
@@ -398,66 +392,57 @@
 	{/if}
 
 	<!-- Tabs -->
-	<div class="flex items-center gap-3 flex-wrap">
-		<div class="flex gap-1 bg-gray-100 p-1 rounded-lg w-fit">
-			<button class="px-4 py-2 rounded-md text-sm font-medium transition-all {activeTab === 'users' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500'}" onclick={() => activeTab = 'users'}>کاربران</button>
-			<button class="px-4 py-2 rounded-md text-sm font-medium transition-all {activeTab === 'classes' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500'}" onclick={() => activeTab = 'classes'}>کلاس‌ها</button>
-			<button class="px-4 py-2 rounded-md text-sm font-medium transition-all {activeTab === 'sessions' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500'}" onclick={() => activeTab = 'sessions'}>جلسات</button>
-		</div>
+	<div class="sky-filter-bar w-fit">
+		<button class="sky-filter-btn {activeTab === 'users' ? 'active' : ''}" onclick={() => activeTab = 'users'}>کاربران</button>
+		<button class="sky-filter-btn {activeTab === 'classes' ? 'active' : ''}" onclick={() => activeTab = 'classes'}>کلاس‌ها</button>
+		<button class="sky-filter-btn {activeTab === 'sessions' ? 'active' : ''}" onclick={() => activeTab = 'sessions'}>جلسات</button>
 	</div>
 
 	{#if activeTab === 'users'}
-		<div class="flex items-center justify-between gap-3">
-			<input type="text" bind:value={userSearch} onkeydown={(e) => e.key === 'Enter' && (userPage = 1, loadUsers())} class="flex-1 px-4 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white" placeholder="جستجوی کاربر..." />
-			<button onclick={() => { showCreateUser = true; }} class="px-4 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 flex items-center gap-2 shrink-0">
-				<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+		<div class="flex items-center gap-3">
+			<div class="sky-search flex-1">
+				<div class="sky-search-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
+				<input type="text" bind:value={userSearch} onkeydown={(e) => e.key === 'Enter' && (userPage = 1, loadUsers())} class="sky-input" placeholder="جستجوی کاربر..." style="padding-right: 2.5rem;" />
+			</div>
+			<button onclick={() => { showCreateUser = true; }} class="sky-btn sky-btn-primary flex items-center gap-2 shrink-0">
+				<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
 				کاربر جدید
 			</button>
 		</div>
 
 		{#if userLoading}
-			<div class="flex items-center justify-center py-12"><div class="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full"></div></div>
+			<div class="flex items-center justify-center py-12"><svg class="sky-spinner lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--color-crystal-clear);"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg></div>
 		{:else}
-			<div class="bg-white rounded-xl overflow-hidden">
-				<table class="w-full text-sm">
-					<thead class="bg-gray-50 border-b">
+			<div class="sky-card overflow-hidden">
+				<table class="sky-table">
+					<thead>
 						<tr>
-							<th class="px-5 py-3 text-right font-medium text-gray-600">نام</th>
-							<th class="px-5 py-3 text-right font-medium text-gray-600">ایمیل</th>
-							<th class="px-5 py-3 text-right font-medium text-gray-600">نقش</th>
-							<th class="px-5 py-3 text-right font-medium text-gray-600">وضعیت</th>
-							<th class="px-5 py-3 text-right font-medium text-gray-600">عملیات</th>
+							<th>نام</th><th>ایمیل</th><th>نقش</th><th>وضعیت</th><th>عملیات</th>
 						</tr>
 					</thead>
-					<tbody class="divide-y">
+					<tbody>
 						{#each users as user}
-							<tr class="hover:bg-gray-50">
-								<td class="px-5 py-3 font-medium">{user.display_name}</td>
-								<td class="px-5 py-3 text-gray-500" dir="ltr">{user.email}</td>
-								<td class="px-5 py-3"><span class="text-xs px-2 py-1 rounded-full font-medium {roleColors[user.role]}">{roleLabels[user.role]}</span></td>
-								<td class="px-5 py-3">
-									<span class="text-xs px-2 py-1 rounded-full font-medium {user.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
-										{user.is_active ? 'فعال' : 'غیرفعال'}
-									</span>
-								</td>
-								<td class="px-5 py-3">
-									<div class="flex items-center gap-1">
-										<button onclick={() => toggleUserActive(user)} class="px-2 py-1 text-xs rounded {user.is_active ? 'text-orange-600 hover:bg-orange-50' : 'text-green-600 hover:bg-green-50'}">
-											{user.is_active ? 'غیرفعال' : 'فعال'}
-										</button>
-									</div>
+							<tr>
+								<td class="font-semibold">{user.display_name}</td>
+								<td dir="ltr" style="color: var(--color-mystic-sea);">{user.email}</td>
+								<td><span class="sky-badge {user.role === 'admin' ? 'sky-badge-danger' : user.role === 'teacher' ? 'sky-badge-info' : 'sky-badge-default'}">{roleLabels[user.role]}</span></td>
+								<td><span class="sky-badge {user.is_active ? 'sky-badge-success' : 'sky-badge-danger'}">{user.is_active ? 'فعال' : 'غیرفعال'}</span></td>
+								<td>
+									<button onclick={() => toggleUserActive(user)} class="sky-btn sky-btn-ghost" style="padding: 0.2rem 0.6rem; font-size: 12px; color: {user.is_active ? 'var(--color-dawn-warm)' : 'var(--color-lush-meadow)'};">
+										{user.is_active ? 'غیرفعال‌سازی' : 'فعال‌سازی'}
+									</button>
 								</td>
 							</tr>
 						{/each}
 					</tbody>
 				</table>
 				{#if userTotal > perPage}
-					<div class="px-5 py-3 border-t flex items-center justify-between text-sm text-gray-500">
+					<div class="px-5 py-3 flex items-center justify-between text-sm" style="border-top: 1px solid var(--color-zen-garden); color: var(--color-mystic-sea);">
 						<span>{toPersian(userTotal)} کاربر</span>
 						<div class="flex gap-1">
-							<button disabled={userPage <= 1} onclick={() => { userPage--; loadUsers(); }} class="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50">قبلی</button>
-							<span class="px-3 py-1">صفحه {toPersian(userPage)} از {toPersian(Math.ceil(userTotal / perPage))}</span>
-							<button disabled={userPage >= Math.ceil(userTotal / perPage)} onclick={() => { userPage++; loadUsers(); }} class="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50">بعدی</button>
+							<button disabled={userPage <= 1} onclick={() => { userPage--; loadUsers(); }} class="sky-page-btn">قبلی</button>
+							<span class="sky-page-btn" style="cursor:default;">{toPersian(userPage)}/{toPersian(Math.ceil(userTotal / perPage))}</span>
+							<button disabled={userPage >= Math.ceil(userTotal / perPage)} onclick={() => { userPage++; loadUsers(); }} class="sky-page-btn">بعدی</button>
 						</div>
 					</div>
 				{/if}
@@ -465,39 +450,35 @@
 		{/if}
 
 	{:else if activeTab === 'classes'}
-		<div class="flex items-center justify-between gap-3">
-			<input type="text" bind:value={classSearch} onkeydown={(e) => e.key === 'Enter' && (classPage = 1, loadClasses())} class="flex-1 px-4 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white" placeholder="جستجوی کلاس..." />
-			<button onclick={() => { showCreateClass = true; loadTeachers(); }} class="px-4 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 flex items-center gap-2 shrink-0">
-				<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+		<div class="flex items-center gap-3">
+			<div class="sky-search flex-1">
+				<div class="sky-search-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
+				<input type="text" bind:value={classSearch} onkeydown={(e) => e.key === 'Enter' && (classPage = 1, loadClasses())} class="sky-input" placeholder="جستجوی کلاس..." style="padding-right: 2.5rem;" />
+			</div>
+			<button onclick={() => { showCreateClass = true; loadTeachers(); }} class="sky-btn sky-btn-primary flex items-center gap-2 shrink-0">
+				<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
 				کلاس جدید
 			</button>
 		</div>
 
 		{#if classLoading}
-			<div class="flex items-center justify-center py-12"><div class="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full"></div></div>
+			<div class="flex items-center justify-center py-12"><svg class="sky-spinner lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--color-crystal-clear);"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg></div>
 		{:else}
-			<div class="bg-white rounded-xl overflow-hidden">
-				<table class="w-full text-sm">
-					<thead class="bg-gray-50 border-b">
-						<tr>
-							<th class="px-5 py-3 text-right font-medium text-gray-600">نام</th>
-							<th class="px-5 py-3 text-right font-medium text-gray-600">توضیحات</th>
-							<th class="px-5 py-3 text-right font-medium text-gray-600">حداکثر</th>
-							<th class="px-5 py-3 text-right font-medium text-gray-600">تاریخ ایجاد</th>
-						</tr>
-					</thead>
-					<tbody class="divide-y">
+			<div class="sky-card overflow-hidden">
+				<table class="sky-table">
+					<thead><tr><th>نام</th><th>توضیحات</th><th>حداکثر</th><th>تاریخ ایجاد</th></tr></thead>
+					<tbody>
 						{#each classes as cls}
-							<tr class="hover:bg-gray-50">
-								<td class="px-5 py-3 font-medium">
+							<tr>
+								<td>
 									<div class="flex items-center gap-2">
-										<div class="w-3 h-3 rounded-full" style="background-color: {cls.color}"></div>
-										{cls.name}
+										<div class="w-3 h-3 rounded-full shrink-0" style="background-color: {cls.color}"></div>
+										<span class="font-semibold">{cls.name}</span>
 									</div>
 								</td>
-								<td class="px-5 py-3 text-gray-500 max-w-[200px] truncate">{cls.description || '-'}</td>
-								<td class="px-5 py-3">{toPersian(cls.max_students)}</td>
-								<td class="px-5 py-3 text-gray-500">{formatDate(cls.created_at)}</td>
+								<td style="color: var(--color-mystic-sea); max-width: 200px;" class="truncate">{cls.description || '—'}</td>
+								<td>{toPersian(cls.max_students)}</td>
+								<td style="color: var(--color-mystic-sea);">{formatDate(cls.created_at)}</td>
 							</tr>
 						{/each}
 					</tbody>
@@ -506,31 +487,25 @@
 		{/if}
 
 	{:else if activeTab === 'sessions'}
-		<div class="flex items-center justify-between gap-3">
-			<input type="text" bind:value={sessionSearch} onkeydown={(e) => e.key === 'Enter' && (sessionPage = 1, loadSessions())} class="flex-1 px-4 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white" placeholder="جستجوی جلسه..." />
+		<div class="sky-search">
+			<div class="sky-search-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
+			<input type="text" bind:value={sessionSearch} onkeydown={(e) => e.key === 'Enter' && (sessionPage = 1, loadSessions())} class="sky-input" placeholder="جستجوی جلسه..." style="padding-right: 2.5rem;" />
 		</div>
 
 		{#if sessionLoading}
-			<div class="flex items-center justify-center py-12"><div class="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full"></div></div>
+			<div class="flex items-center justify-center py-12"><svg class="sky-spinner lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--color-crystal-clear);"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg></div>
 		{:else}
-			<div class="bg-white rounded-xl overflow-hidden">
-				<table class="w-full text-sm">
-					<thead class="bg-gray-50 border-b">
-						<tr>
-							<th class="px-5 py-3 text-right font-medium text-gray-600">عنوان</th>
-							<th class="px-5 py-3 text-right font-medium text-gray-600">تاریخ</th>
-							<th class="px-5 py-3 text-right font-medium text-gray-600">مدت</th>
-							<th class="px-5 py-3 text-right font-medium text-gray-600">وضعیت</th>
-						</tr>
-					</thead>
-					<tbody class="divide-y">
+			<div class="sky-card overflow-hidden">
+				<table class="sky-table">
+					<thead><tr><th>عنوان</th><th>تاریخ</th><th>مدت</th><th>وضعیت</th></tr></thead>
+					<tbody>
 						{#each sessions as s}
-							<tr class="hover:bg-gray-50">
-								<td class="px-5 py-3 font-medium">{s.title}</td>
-								<td class="px-5 py-3 text-gray-500">{formatDate(s.scheduled_at)}</td>
-								<td class="px-5 py-3">{toPersian(s.duration)} دقیقه</td>
-								<td class="px-5 py-3">
-									<span class="text-xs px-2 py-1 rounded-full font-medium {s.status === 'live' ? 'bg-green-100 text-green-700' : s.status === 'scheduled' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}">
+							<tr>
+								<td class="font-semibold">{s.title}</td>
+								<td style="color: var(--color-mystic-sea);">{formatDate(s.scheduled_at)}</td>
+								<td>{toPersian(s.duration)} دقیقه</td>
+								<td>
+									<span class="sky-badge {s.status === 'live' ? 'sky-badge-success' : s.status === 'scheduled' ? 'sky-badge-info' : 'sky-badge-default'}">
 										{s.status === 'live' ? 'در حال برگزاری' : s.status === 'scheduled' ? 'برنامه‌ریزی شده' : 'پایان یافته'}
 									</span>
 								</td>
@@ -545,43 +520,34 @@
 
 <!-- Create User Modal -->
 {#if showCreateUser}
-	<div class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onclick={() => showCreateUser = false}>
-		<div class="bg-white rounded-2xl w-full max-w-md shadow-xl" onclick={(e) => e.stopPropagation()}>
-			<div class="px-6 py-4 border-b"><h2 class="font-bold text-lg">ایجاد کاربر جدید</h2></div>
-			<div class="px-6 py-4 space-y-4">
+	<div class="modal-overlay" onclick={() => showCreateUser = false} role="button" tabindex="-1">
+		<div class="modal-content" onclick={(e) => e.stopPropagation()}>
+			<div class="sky-modal-header">
+				<h2>ایجاد کاربر جدید</h2>
+				<button onclick={() => showCreateUser = false} class="sky-btn-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+			</div>
+			<div class="sky-modal-body space-y-4">
 				{#if createUserError}
-					<div class="p-3 bg-red-50 text-red-600 rounded-lg text-sm">{createUserError}</div>
+					<div class="p-3 rounded-lg text-sm" style="background: rgba(224,82,82,0.1); color: var(--color-fiery-passion);">{createUserError}</div>
 				{/if}
-				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-1">نام نمایشی</label>
-					<input type="text" bind:value={newUser.display_name} class="w-full px-4 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" required />
-				</div>
-				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-1">ایمیل</label>
-					<input type="email" bind:value={newUser.email} class="w-full px-4 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" dir="ltr" required />
-				</div>
-				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-1">رمز عبور</label>
-					<input type="password" bind:value={newUser.password} class="w-full px-4 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" dir="ltr" required />
-				</div>
+				<div><label class="sky-label">نام نمایشی</label><input type="text" bind:value={newUser.display_name} class="sky-input" required /></div>
+				<div><label class="sky-label">ایمیل</label><input type="email" bind:value={newUser.email} class="sky-input" dir="ltr" required /></div>
+				<div><label class="sky-label">رمز عبور</label><input type="password" bind:value={newUser.password} class="sky-input" dir="ltr" required /></div>
 				<div class="grid grid-cols-2 gap-3">
 					<div>
-						<label class="block text-sm font-medium text-gray-700 mb-1">نقش</label>
-						<select bind:value={newUser.role} class="w-full px-4 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+						<label class="sky-label">نقش</label>
+						<select bind:value={newUser.role} class="sky-input">
 							<option value="student">دانش‌آموز</option>
 							<option value="teacher">مدرس</option>
 							<option value="admin">مدیر</option>
 						</select>
 					</div>
-					<div>
-						<label class="block text-sm font-medium text-gray-700 mb-1">تلفن</label>
-						<input type="tel" bind:value={newUser.phone} class="w-full px-4 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" dir="ltr" />
-					</div>
+					<div><label class="sky-label">تلفن</label><input type="tel" bind:value={newUser.phone} class="sky-input" dir="ltr" /></div>
 				</div>
 			</div>
-			<div class="px-6 py-4 border-t flex justify-end gap-3">
-				<button onclick={() => showCreateUser = false} class="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">انصراف</button>
-				<button onclick={createUser} disabled={createUserLoading || !newUser.email || !newUser.password || !newUser.display_name} class="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50">
+			<div class="sky-modal-footer">
+				<button onclick={() => showCreateUser = false} class="sky-btn sky-btn-secondary">انصراف</button>
+				<button onclick={createUser} disabled={createUserLoading || !newUser.email || !newUser.password || !newUser.display_name} class="sky-btn sky-btn-primary">
 					{createUserLoading ? 'در حال ایجاد...' : 'ایجاد کاربر'}
 				</button>
 			</div>
@@ -591,26 +557,20 @@
 
 <!-- Create Class Modal -->
 {#if showCreateClass}
-	<div class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onclick={() => showCreateClass = false}>
-		<div class="bg-white rounded-2xl w-full max-w-md shadow-xl" onclick={(e) => e.stopPropagation()}>
-			<div class="px-6 py-4 border-b"><h2 class="font-bold text-lg">ایجاد کلاس جدید</h2></div>
-			<div class="px-6 py-4 space-y-4">
-				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-1">نام کلاس</label>
-					<input type="text" bind:value={newClass.name} class="w-full px-4 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" required />
-				</div>
-				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-1">توضیحات</label>
-					<textarea bind:value={newClass.description} class="w-full px-4 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none resize-none" rows="2"></textarea>
-				</div>
-				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-1">حداکثر دانش‌آموز</label>
-					<input type="number" bind:value={newClass.max_students} class="w-full px-4 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" min="1" />
-				</div>
+	<div class="modal-overlay" onclick={() => showCreateClass = false} role="button" tabindex="-1">
+		<div class="modal-content" onclick={(e) => e.stopPropagation()}>
+			<div class="sky-modal-header">
+				<h2>ایجاد کلاس جدید</h2>
+				<button onclick={() => showCreateClass = false} class="sky-btn-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
 			</div>
-			<div class="px-6 py-4 border-t flex justify-end gap-3">
-				<button onclick={() => showCreateClass = false} class="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">انصراف</button>
-				<button onclick={createClass} disabled={!newClass.name} class="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50">ایجاد کلاس</button>
+			<div class="sky-modal-body space-y-4">
+				<div><label class="sky-label">نام کلاس</label><input type="text" bind:value={newClass.name} class="sky-input" required /></div>
+				<div><label class="sky-label">توضیحات</label><textarea bind:value={newClass.description} class="sky-input resize-none" rows="2"></textarea></div>
+				<div><label class="sky-label">حداکثر دانش‌آموز</label><input type="number" bind:value={newClass.max_students} class="sky-input" min="1" /></div>
+			</div>
+			<div class="sky-modal-footer">
+				<button onclick={() => showCreateClass = false} class="sky-btn sky-btn-secondary">انصراف</button>
+				<button onclick={createClass} disabled={!newClass.name} class="sky-btn sky-btn-primary">ایجاد کلاس</button>
 			</div>
 		</div>
 	</div>

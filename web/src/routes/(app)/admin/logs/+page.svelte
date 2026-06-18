@@ -52,16 +52,16 @@
 	};
 
 	const actionColors: Record<string, string> = {
-		login: 'bg-green-100 text-green-700',
-		register: 'bg-blue-100 text-blue-700',
-		create_class: 'bg-purple-100 text-purple-700',
-		delete_class: 'bg-red-100 text-red-700',
-		create_session: 'bg-amber-100 text-amber-700',
-		start_session: 'bg-green-100 text-green-700',
-		end_session: 'bg-gray-100 text-gray-600',
-		upload_file: 'bg-cyan-100 text-cyan-700',
-		upload_recording: 'bg-pink-100 text-pink-700',
-		update_settings: 'bg-orange-100 text-orange-700',
+		login: 'sky-badge-success',
+		register: 'sky-badge-info',
+		create_class: 'badge-purple',
+		delete_class: 'sky-badge-danger',
+		create_session: 'sky-badge-warning',
+		start_session: 'sky-badge-success',
+		end_session: 'sky-badge-default',
+		upload_file: 'sky-badge-info',
+		upload_recording: 'badge-purple',
+		update_settings: 'sky-badge-warning',
 	};
 
 	async function exportCSV() {
@@ -77,61 +77,47 @@
 	}
 </script>
 
-<div class="space-y-6">
+<div class="space-y-5">
 	<div class="flex items-center justify-between">
 		<div>
-			<h1 style="font-size:1.5rem;font-weight:700;color:var(--color-midnight-sky);">لاگ فعالیت‌ها</h1>
-			<p class="text-gray-500 mt-1">{toPersianNum(total)} رویداد</p>
+			<h1 class="sky-page-title">لاگ فعالیت‌ها</h1>
+			<p class="sky-page-subtitle">{toPersianNum(total)} رویداد</p>
 		</div>
 		{#if !loading && logs.length > 0}
-			<button onclick={exportCSV} class="px-4 py-2.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 flex items-center gap-2">
-				<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+			<button onclick={exportCSV} class="sky-btn sky-btn-primary flex items-center gap-2" style="background: var(--color-lush-meadow);">
+				<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
 				دانلود CSV
 			</button>
 		{/if}
 	</div>
 
 	{#if loading}
-		<div class="flex items-center justify-center py-12"><div class="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full"></div></div>
+		<div class="flex items-center justify-center py-16"><svg class="sky-spinner lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--color-crystal-clear);"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg></div>
 	{:else if logs.length === 0}
-		<div class="text-center py-20 bg-white rounded-xl">
-			<p class="text-gray-500">لاگی ثبت نشده</p>
-		</div>
+		<div class="sky-card"><div class="sky-empty"><p class="sky-empty-desc">لاگی ثبت نشده</p></div></div>
 	{:else}
-		<div class="bg-white rounded-xl overflow-hidden">
-			<table class="w-full text-sm">
-				<thead class="bg-gray-50 border-b">
-					<tr>
-						<th class="px-5 py-3 text-right font-medium text-gray-600">عملیات</th>
-						<th class="px-5 py-3 text-right font-medium text-gray-600">نوع</th>
-						<th class="px-5 py-3 text-right font-medium text-gray-600">شناسه</th>
-						<th class="px-5 py-3 text-right font-medium text-gray-600">جزئیات</th>
-						<th class="px-5 py-3 text-right font-medium text-gray-600">تاریخ</th>
-					</tr>
-				</thead>
-				<tbody class="divide-y">
+		<div class="sky-card overflow-hidden">
+			<table class="sky-table">
+				<thead><tr><th>عملیات</th><th>نوع</th><th>شناسه</th><th>جزئیات</th><th>تاریخ</th></tr></thead>
+				<tbody>
 					{#each logs as log}
-						<tr class="hover:bg-gray-50">
-							<td class="px-5 py-3">
-								<span class="text-xs px-2 py-1 rounded-full font-medium {actionColors[log.action] || 'bg-gray-100 text-gray-600'}">
-									{actionLabels[log.action] || log.action}
-								</span>
-							</td>
-							<td class="px-5 py-3 text-gray-500">{log.entity_type}</td>
-							<td class="px-5 py-3 text-gray-500">#{toPersianNum(log.entity_id)}</td>
-							<td class="px-5 py-3 text-gray-500 max-w-[200px] truncate">{log.details || '-'}</td>
-							<td class="px-5 py-3 text-gray-500">{toPersianDateTime(log.created_at)}</td>
+						<tr>
+							<td><span class="sky-badge {actionColors[log.action] || 'sky-badge-default'}">{actionLabels[log.action] || log.action}</span></td>
+							<td style="color: var(--color-mystic-sea);">{log.entity_type}</td>
+							<td style="color: var(--color-mystic-sea);">#{toPersianNum(log.entity_id)}</td>
+							<td style="color: var(--color-mystic-sea); max-width: 200px;" class="truncate">{log.details || '-'}</td>
+							<td style="color: var(--color-mystic-sea);">{toPersianDateTime(log.created_at)}</td>
 						</tr>
 					{/each}
 				</tbody>
 			</table>
 			{#if total > perPage}
-				<div class="px-5 py-3 border-t flex items-center justify-between text-sm text-gray-500">
+				<div class="px-5 py-3 flex items-center justify-between text-sm" style="border-top: 1px solid var(--color-zen-garden); color: var(--color-mystic-sea);">
 					<span>{toPersianNum(total)} رویداد</span>
-					<div class="flex gap-1">
-						<button disabled={page <= 1} onclick={() => { page--; loadLogs(); }} class="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50">قبلی</button>
-						<span class="px-3 py-1">صفحه {toPersianNum(page)} از {toPersianNum(Math.ceil(total / perPage))}</span>
-						<button disabled={page >= Math.ceil(total / perPage)} onclick={() => { page++; loadLogs(); }} class="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50">بعدی</button>
+					<div class="sky-pagination">
+						<button class="sky-page-btn" disabled={page <= 1} onclick={() => { page--; loadLogs(); }}>قبلی</button>
+						<span class="sky-page-btn" style="cursor:default;">{toPersianNum(page)}/{toPersianNum(Math.ceil(total / perPage))}</span>
+						<button class="sky-page-btn" disabled={page >= Math.ceil(total / perPage)} onclick={() => { page++; loadLogs(); }}>بعدی</button>
 					</div>
 				</div>
 			{/if}

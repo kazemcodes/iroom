@@ -135,29 +135,21 @@
 
 	<!-- Search & Filter -->
 	<div class="flex items-center gap-3 flex-wrap">
-		<div style="position:relative;flex:1;min-width:200px;">
-			<svg style="position:absolute;right:12px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--color-moonlit-mist);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>
-			<input type="text" bind:value={searchQuery} class="sky-input" style="padding-right:36px;" placeholder="جستجو بر اساس نام اتاق یا مدرس..." />
+		<div class="sky-search flex-1 min-w-[200px]">
+			<div class="sky-search-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
+			<input type="text" bind:value={searchQuery} class="sky-input" style="padding-right: 2.5rem;" placeholder="جستجو بر اساس نام اتاق یا مدرس..." />
 		</div>
-		<div style="display:flex;gap:4px;background:var(--color-secret-glow);padding:4px;border-radius:10px;">
-			<button style="padding:6px 12px;border-radius:8px;font-size:0.75rem;font-weight:500;transition:all 0.15s;background:{statusFilter === 'all' ? 'var(--color-pure)' : 'transparent'};color:{statusFilter === 'all' ? 'var(--color-crystal-clear)' : 'var(--color-mystic-sea)'};box-shadow:{statusFilter === 'all' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'};" onclick={() => statusFilter = 'all'}>همه</button>
-			<button style="padding:6px 12px;border-radius:8px;font-size:0.75rem;font-weight:500;transition:all 0.15s;background:{statusFilter === 'active' ? 'var(--color-pure)' : 'transparent'};color:{statusFilter === 'active' ? 'var(--color-lush-meadow)' : 'var(--color-mystic-sea)'};box-shadow:{statusFilter === 'active' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'};" onclick={() => statusFilter = 'active'}>فعال</button>
-			<button style="padding:6px 12px;border-radius:8px;font-size:0.75rem;font-weight:500;transition:all 0.15s;background:{statusFilter === 'inactive' ? 'var(--color-pure)' : 'transparent'};color:{statusFilter === 'inactive' ? 'var(--color-moonlit-mist)' : 'var(--color-mystic-sea)'};box-shadow:{statusFilter === 'inactive' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'};" onclick={() => statusFilter = 'inactive'}>غیرفعال</button>
+		<div class="sky-filter-bar">
+			<button class="sky-filter-btn {statusFilter === 'all' ? 'active' : ''}" onclick={() => statusFilter = 'all'}>همه</button>
+			<button class="sky-filter-btn {statusFilter === 'active' ? 'active' : ''}" onclick={() => statusFilter = 'active'}>فعال</button>
+			<button class="sky-filter-btn {statusFilter === 'inactive' ? 'active' : ''}" onclick={() => statusFilter = 'inactive'}>غیرفعال</button>
 		</div>
 	</div>
 
 	{#if loading}
-		<div class="flex items-center justify-center py-20">
-			<div class="animate-spin h-8 w-8 border-4 border-[#23b9d7] border-t-transparent rounded-full"></div>
-		</div>
+		<div class="flex items-center justify-center py-16"><svg class="sky-spinner lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--color-crystal-clear);"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg></div>
 	{:else if filteredClasses.length === 0}
-		<div style="text-align:center;padding:80px 0;background:var(--color-pure);border-radius:12px;">
-			<div style="width:64px;height:64px;margin:0 auto 16px;border-radius:12px;background:var(--color-secret-glow);display:flex;align-items:center;justify-content:center;">
-				<svg width="32" height="32" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:var(--color-moonlit-mist);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21" /></svg>
-			</div>
-			<p style="color:var(--color-mystic-sea);font-weight:500;">اتاقی یافت نشد</p>
-			<p style="font-size:0.875rem;color:var(--color-moonlit-mist);margin-top:4px;">اولین اتاق خود را ایجاد کنید</p>
-		</div>
+		<div class="sky-card"><div class="sky-empty"><div class="sky-empty-icon"><svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24" style="color: var(--color-muted-mountain);"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg></div><p class="sky-empty-title">اتاقی یافت نشد</p><p class="sky-empty-desc">اولین اتاق خود را ایجاد کنید</p></div></div>
 	{:else}
 		<div style="display:grid;gap:16px;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));">
 			{#each filteredClasses as cls}
@@ -205,15 +197,11 @@
 
 					<div class="flex items-center gap-2">
 						{#if active}
-							<a href="/classes/{cls.id}" class="flex-1 px-3 py-2 bg-green-50 text-green-700 text-xs font-medium rounded-lg hover:bg-green-100 transition-colors text-center">
-								ورود
-							</a>
+							<a href="/classes/{cls.id}" class="sky-btn flex-1" style="background: rgba(64,191,127,0.12); color: var(--color-lush-meadow); font-size: 12px; padding: 0.45rem;">ورود</a>
 						{/if}
-						<a href="/classes/{cls.id}" class="flex-1 px-3 py-2 bg-gray-50 text-gray-600 text-xs font-medium rounded-lg hover:bg-gray-100 transition-colors text-center">
-							جلسات
-						</a>
-						<button onclick={() => confirmDeleteRoom(cls.id)} class="px-3 py-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="حذف">
-							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+						<a href="/classes/{cls.id}" class="sky-btn sky-btn-secondary flex-1" style="font-size: 12px; padding: 0.45rem;">جلسات</a>
+						<button onclick={() => confirmDeleteRoom(cls.id)} class="sky-btn-icon" style="width:34px;height:34px;" title="حذف">
+							<svg width="16" height="16" fill="none" stroke="var(--color-fiery-passion)" stroke-width="1.75" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
 						</button>
 					</div>
 				</div>
@@ -224,49 +212,37 @@
 
 <!-- Create Room Modal -->
 {#if showCreateModal}
-	<div class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onclick={() => showCreateModal = false}>
-		<div class="bg-white rounded-2xl w-full max-w-md shadow-xl" onclick={(e) => e.stopPropagation()}>
-			<div class="px-6 py-4 border-b"><h2 class="font-bold text-lg">ایجاد اتاق جدید</h2></div>
-			<div class="px-6 py-4 space-y-4">
-				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-1">نام اتاق</label>
-					<input type="text" bind:value={newRoom.name} class="w-full px-4 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" required />
-				</div>
-				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-1">توضیحات</label>
-					<textarea bind:value={newRoom.description} class="w-full px-4 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none resize-none" rows="2"></textarea>
-				</div>
+	<div class="modal-overlay" onclick={() => showCreateModal = false} role="button" tabindex="-1">
+		<div class="modal-content" onclick={(e) => e.stopPropagation()}>
+			<div class="sky-modal-header">
+				<h2>ایجاد اتاق جدید</h2>
+				<button onclick={() => showCreateModal = false} class="sky-btn-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+			</div>
+			<div class="sky-modal-body space-y-4">
+				<div><label class="sky-label">نام اتاق</label><input type="text" bind:value={newRoom.name} class="sky-input" required /></div>
+				<div><label class="sky-label">توضیحات</label><textarea bind:value={newRoom.description} class="sky-input resize-none" rows="2"></textarea></div>
 				<div class="grid grid-cols-2 gap-3">
 					<div>
-						<label class="block text-sm font-medium text-gray-700 mb-1">مدرس</label>
-						<select bind:value={newRoom.teacher_id} class="w-full px-4 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+						<label class="sky-label">مدرس</label>
+						<select bind:value={newRoom.teacher_id} class="sky-input">
 							<option value={0}>انتخاب مدرس</option>
-							{#each teacherList as t}
-								<option value={t.id}>{t.display_name}</option>
-							{/each}
+							{#each teacherList as t}<option value={t.id}>{t.display_name}</option>{/each}
 						</select>
 					</div>
-					<div>
-						<label class="block text-sm font-medium text-gray-700 mb-1">حداکثر ظرفیت</label>
-						<input type="number" bind:value={newRoom.max_students} class="w-full px-4 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" min="1" />
-					</div>
+					<div><label class="sky-label">حداکثر ظرفیت</label><input type="number" bind:value={newRoom.max_students} class="sky-input" min="1" /></div>
 				</div>
 				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-2">رنگ</label>
+					<label class="sky-label">رنگ</label>
 					<div class="flex gap-2 flex-wrap">
 						{#each colorOptions as color}
-							<button
-								class="w-8 h-8 rounded-full border-2 transition-all {newRoom.color === color ? 'border-gray-700 scale-110' : 'border-transparent hover:scale-105'}"
-								style="background-color: {color}"
-								onclick={() => newRoom.color = color}
-							></button>
+							<button type="button" class="w-8 h-8 rounded-full transition-all" style="background: {color}; outline: {newRoom.color === color ? '3px solid var(--color-zen-garden)' : 'none'}; outline-offset: 2px; transform: scale({newRoom.color === color ? 1.15 : 1});" onclick={() => newRoom.color = color}></button>
 						{/each}
 					</div>
 				</div>
 			</div>
-			<div class="px-6 py-4 border-t flex justify-end gap-3">
-				<button onclick={() => showCreateModal = false} class="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">انصراف</button>
-				<button onclick={createRoom} disabled={createLoading || !newRoom.name} class="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50">
+			<div class="sky-modal-footer">
+				<button onclick={() => showCreateModal = false} class="sky-btn sky-btn-secondary">انصراف</button>
+				<button onclick={createRoom} disabled={createLoading || !newRoom.name} class="sky-btn sky-btn-primary">
 					{createLoading ? 'در حال ایجاد...' : 'ایجاد اتاق'}
 				</button>
 			</div>

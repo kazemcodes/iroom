@@ -40,9 +40,9 @@
 <div class="min-h-screen flex items-center justify-center px-4 py-12" style="background: var(--sr-bg);">
 	<div class="w-full max-w-md">
 		<div class="text-center mb-8">
-			<div class="w-16 h-16 rounded-2xl flex items-center justify-center text-white font-extrabold text-2xl mx-auto mb-4"
-				style="background: linear-gradient(135deg, #1a56db, #2563eb); box-shadow: 0 4px 20px rgba(26, 86, 219, 0.4);">
-				آ
+			<div class="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
+				style="background: var(--color-crystal-clear); box-shadow: 0 4px 20px rgba(35, 185, 215, 0.35);">
+				<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14"/><rect x="2" y="6" width="13" height="12" rx="2"/></svg>
 			</div>
 			<h1 class="text-3xl font-extrabold" style="color: var(--sr-text);">بازنشانی رمز عبور</h1>
 			<p class="mt-2 font-medium" style="color: var(--sr-text-secondary);">آی‌روم — کلاس آنلاین هوشمند</p>

@@ -682,8 +682,8 @@
 
 	<!-- Create Session Modal -->
 	{#if showCreateSession}
-		<div class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onclick={() => showCreateSession = false}>
-			<div class="bg-white rounded-2xl w-full max-w-md shadow-xl" onclick={(e) => e.stopPropagation()}>
+		<div class="modal-overlay" role="button" tabindex="-1" onclick={() => showCreateSession = false}>
+			<div class="modal-content" onclick={(e) => e.stopPropagation()}>
 				<div class="px-6 py-4 border-b"><h2 class="font-bold text-lg">جلسه جدید</h2></div>
 				<div class="px-6 py-4 space-y-4">
 					{#if sessionError}
@@ -719,8 +719,8 @@
 
 	<!-- Create Recurring Session Modal -->
 	{#if showCreateRecurring}
-		<div class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onclick={() => showCreateRecurring = false}>
-			<div class="bg-white rounded-2xl w-full max-w-md shadow-xl" onclick={(e) => e.stopPropagation()}>
+		<div class="modal-overlay" role="button" tabindex="-1" onclick={() => showCreateRecurring = false}>
+			<div class="modal-content" onclick={(e) => e.stopPropagation()}>
 				<div class="px-6 py-4 border-b"><h2 class="font-bold text-lg">جلسه تکرارشونده</h2></div>
 				<div class="px-6 py-4 space-y-4">
 					{#if recurringError}
@@ -774,8 +774,8 @@
 
 	<!-- Enroll Modal -->
 	{#if showEnroll}
-		<div class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onclick={() => showEnroll = false}>
-			<div class="bg-white rounded-2xl w-full max-w-md shadow-xl" onclick={(e) => e.stopPropagation()}>
+		<div class="modal-overlay" role="button" tabindex="-1" onclick={() => showEnroll = false}>
+			<div class="modal-content" onclick={(e) => e.stopPropagation()}>
 				<div class="px-6 py-4 border-b"><h2 class="font-bold text-lg">افزودن دانش‌آموز</h2></div>
 				<div class="px-6 py-4">
 					<div class="flex gap-2 mb-4">
@@ -809,8 +809,8 @@
 
 	<!-- Edit Class Modal -->
 	{#if showEdit}
-		<div class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onclick={() => showEdit = false}>
-			<div class="bg-white rounded-2xl w-full max-w-md shadow-xl" onclick={(e) => e.stopPropagation()}>
+		<div class="modal-overlay" role="button" tabindex="-1" onclick={() => showEdit = false}>
+			<div class="modal-content" onclick={(e) => e.stopPropagation()}>
 				<div class="px-6 py-4 border-b"><h2 class="font-bold text-lg">ویرایش کلاس</h2></div>
 				<div class="px-6 py-4 space-y-4">
 					<div>
@@ -852,8 +852,8 @@
 
 	<!-- Create Announcement Modal -->
 	{#if showCreateAnnouncement}
-		<div class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onclick={() => showCreateAnnouncement = false}>
-			<div class="bg-white rounded-2xl w-full max-w-md shadow-xl" onclick={(e) => e.stopPropagation()}>
+		<div class="modal-overlay" role="button" tabindex="-1" onclick={() => showCreateAnnouncement = false}>
+			<div class="modal-content" onclick={(e) => e.stopPropagation()}>
 				<div class="px-6 py-4 border-b"><h2 class="font-bold text-lg">اعلان جدید</h2></div>
 				<div class="px-6 py-4 space-y-4">
 					{#if announcementError}
@@ -884,8 +884,8 @@
 
 	<!-- Edit Announcement Modal -->
 	{#if showEditAnnouncement}
-		<div class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onclick={() => showEditAnnouncement = false}>
-			<div class="bg-white rounded-2xl w-full max-w-md shadow-xl" onclick={(e) => e.stopPropagation()}>
+		<div class="modal-overlay" role="button" tabindex="-1" onclick={() => showEditAnnouncement = false}>
+			<div class="modal-content" onclick={(e) => e.stopPropagation()}>
 				<div class="px-6 py-4 border-b"><h2 class="font-bold text-lg">ویرایش اعلان</h2></div>
 				<div class="px-6 py-4 space-y-4">
 					{#if announcementError}

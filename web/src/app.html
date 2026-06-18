@@ -17,18 +17,8 @@
 	</head>
 	<body data-sveltekit-preload-data="hover">
 		<div style="display: contents">%sveltekit.body%</div>
-		<script>
-			if ('serviceWorker' in navigator) {
-				window.addEventListener('load', function() {
-					navigator.serviceWorker.register('/sw.js', { scope: '/' })
-						.then(function(registration) {
-							console.log('[PWA] ServiceWorker registered:', registration.scope);
-						})
-						.catch(function(err) {
-							console.log('[PWA] ServiceWorker registration failed:', err);
-						});
-				});
-			}
-		</script>
+		<!-- Service worker registration is handled in src/routes/+layout.svelte
+		     so it can be disabled in development (otherwise stale cached assets
+		     hide live changes during `npm run dev`). -->
 	</body>
 </html>

@@ -242,15 +242,13 @@
 	});
 </script>
 
-<div class="space-y-6">
+<div class="space-y-5">
 	<div class="flex items-center justify-between">
 		<div>
-			<h1 class="text-2xl font-bold" style="color: var(--sr-text);">فایل‌ها</h1>
-			<p style="color: var(--sr-text-secondary);">{toPersianNum(totalFiles)} فایل</p>
+			<h1 class="sky-page-title">فایل‌ها</h1>
+			<p class="sky-page-subtitle">{toPersianNum(totalFiles)} فایل</p>
 		</div>
-		<div class="flex items-center gap-3">
-			<input type="file" multiple bind:this={fileInput} onchange={handleUpload} class="hidden" />
-		</div>
+		<input type="file" multiple bind:this={fileInput} onchange={handleUpload} class="hidden" />
 	</div>
 
 	<!-- Drag and Drop Upload Zone -->
@@ -260,57 +258,34 @@
 		ondragleave={handleDragLeave}
 		ondrop={handleDrop}
 		onclick={() => fileInput?.click()}
-		class="relative border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all duration-200"
-		style={isDragging
-			? 'border-color: var(--sr-primary); background: rgba(35, 185, 215, 0.1);'
-			: 'border-color: var(--sr-border); background: var(--sr-pure);'}
+		role="button" tabindex="-1"
+		class="relative rounded-xl p-8 text-center cursor-pointer transition-all duration-200"
+		style="border: 2px dashed {isDragging ? 'var(--color-crystal-clear)' : 'var(--color-zen-garden)'}; background: {isDragging ? 'rgba(35,185,215,0.08)' : 'var(--color-pure)'};"
 	>
-		{#if isDragging}
-			<div class="pointer-events-none">
-				<svg class="w-12 h-12 text-blue-500 mx-auto mb-3 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
-				<p class="text-blue-600 font-medium text-lg">فایل‌ها را اینجا رها کنید</p>
-			</div>
-		{:else}
-			<div class="pointer-events-none">
-				<svg class="w-12 h-12 text-gray-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
-				<p class="text-gray-600 font-medium">فایل‌ها را بکشید و اینجا رها کنید</p>
-				<p class="text-gray-400 text-sm mt-1">یا کلیک کنید تا فایل انتخاب شود</p>
-			</div>
-		{/if}
+		<div class="pointer-events-none">
+			<svg class="mx-auto mb-3 {isDragging ? 'animate-bounce' : ''}" width="44" height="44" fill="none" stroke="{isDragging ? 'var(--color-crystal-clear)' : 'var(--color-moonlit-mist)'}" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+			{#if isDragging}
+				<p class="font-medium text-lg" style="color: var(--color-crystal-clear);">فایل‌ها را اینجا رها کنید</p>
+			{:else}
+				<p class="font-medium" style="color: var(--color-midnight-sky);">فایل‌ها را بکشید و اینجا رها کنید</p>
+				<p class="text-sm mt-1" style="color: var(--color-moonlit-mist);">یا کلیک کنید تا فایل انتخاب شود</p>
+			{/if}
+		</div>
 	</div>
 
 	<!-- Upload Progress -->
 	{#if uploads.length > 0}
-		<div class="card p-4 space-y-3">
-			{#each uploads as upload, i}
-				<div class="flex items-center gap-3">
-					<div class="flex-1 min-w-0">
-						<div class="flex items-center justify-between mb-1">
-							<span class="text-sm truncate" style="color: var(--sr-text);">{upload.filename}</span>
-							<span class="text-sm font-medium" style="color: {upload.status === 'success'
-								? 'var(--sr-success)'
-								: upload.status === 'error'
-									? 'var(--sr-danger)'
-									: 'var(--sr-primary)'};">
-								{#if upload.status === 'success'}
-									✓ آپلود شد
-								{:else if upload.status === 'error'}
-									✗ {upload.errorMsg || 'خطا'}
-								{:else}
-									{toPersianNum(upload.progress)}%
-								{/if}
-							</span>
-						</div>
-						<div class="w-full bg-gray-200 rounded-full h-2">
-							<div
-								class="h-2 rounded-full transition-all duration-300 {upload.status === 'success'
-									? 'bg-green-500'
-									: upload.status === 'error'
-										? 'bg-red-500'
-										: 'bg-blue-600'}"
-								style="width: {upload.progress}%"
-							></div>
-						</div>
+		<div class="sky-card p-4 space-y-3">
+			{#each uploads as upload}
+				<div class="flex-1 min-w-0">
+					<div class="flex items-center justify-between mb-1">
+						<span class="text-sm truncate" style="color: var(--color-midnight-sky);">{upload.filename}</span>
+						<span class="text-sm font-medium" style="color: {upload.status === 'success' ? 'var(--color-lush-meadow)' : upload.status === 'error' ? 'var(--color-fiery-passion)' : 'var(--color-crystal-clear)'};">
+							{#if upload.status === 'success'}آپلود شد{:else if upload.status === 'error'}{upload.errorMsg || 'خطا'}{:else}{toPersianNum(upload.progress)}٪{/if}
+						</span>
+					</div>
+					<div class="w-full rounded-full h-2" style="background: var(--color-zen-garden);">
+						<div class="h-2 rounded-full transition-all duration-300" style="width: {upload.progress}%; background: {upload.status === 'success' ? 'var(--color-lush-meadow)' : upload.status === 'error' ? 'var(--color-fiery-passion)' : 'var(--color-crystal-clear)'};"></div>
 					</div>
 				</div>
 			{/each}
@@ -318,93 +293,63 @@
 	{/if}
 
 	<!-- Session Selector -->
-	<div class="card p-5">
+	<div class="sky-card p-4">
 		<div class="flex items-center gap-3">
-			<label class="text-sm font-medium" style="color: var(--sr-text-secondary);">جلسه:</label>
-			<select
-				bind:value={selectedSessionId}
-				onchange={() => { currentPage = 1; activeFilter = 'all'; loadFiles(); }}
-				class="input-field flex-1"
-			>
+			<label class="text-sm font-medium shrink-0" style="color: var(--color-mystic-sea);">جلسه:</label>
+			<select bind:value={selectedSessionId} onchange={() => { currentPage = 1; activeFilter = 'all'; loadFiles(); }} class="sky-input flex-1">
 				{#if sessions.length === 0}
 					<option value={null}>جلسه‌ای موجود نیست</option>
 				{:else}
-					{#each sessions as s}
-						<option value={s.id}>{s.title} ({s.status})</option>
-					{/each}
+					{#each sessions as s}<option value={s.id}>{s.title} ({s.status})</option>{/each}
 				{/if}
 			</select>
 		</div>
 	</div>
 
 	<!-- File Type Filters -->
-	<div class="flex items-center gap-2 flex-wrap">
+	<div class="sky-filter-bar w-fit flex-wrap">
 		{#each filters as filter}
-			<button
-				onclick={() => { activeFilter = filter.key; }}
-				class="px-4 py-2 text-sm rounded-xl font-medium transition-colors"
-				style={activeFilter === filter.key
-					? 'background: var(--sr-primary); color: white;'
-					: 'background: var(--sr-pure); color: var(--sr-text-secondary); border: 1px solid var(--sr-border);'}
-			>
+			<button onclick={() => { activeFilter = filter.key; }} class="sky-filter-btn {activeFilter === filter.key ? 'active' : ''}">
 				{filter.label}
-				{#if filter.key !== 'all'}
-					<span class="mr-1 text-xs opacity-75">
-						({toPersianNum(files.filter((f) => getFileCategory(f.filename) === filter.key).length)})
-					</span>
-				{:else}
-					<span class="mr-1 text-xs opacity-75">({toPersianNum(files.length)})</span>
-				{/if}
+				<span class="text-xs opacity-70">({toPersianNum(filter.key === 'all' ? files.length : files.filter((f) => getFileCategory(f.filename) === filter.key).length)})</span>
 			</button>
 		{/each}
 	</div>
 
 	{#if loading}
-		<div class="flex items-center justify-center py-20">
-			<div class="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full"></div>
-		</div>
+		<div class="flex items-center justify-center py-16"><svg class="sky-spinner lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--color-crystal-clear);"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg></div>
 	{:else if filteredFiles.length === 0}
-		<div class="text-center py-20 card">
-			<svg class="w-12 h-12 mx-auto mb-3" style="color: var(--sr-text-secondary);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m6.75 12H9.75m0-3h6m-6 6h6M3.375 6.75h17.25a.375.375 0 01.375.375v11.25a.375.375 0 01-.375.375H3.375a.375.375 0 01-.375-.375V7.125a.375.375 0 01.375-.375z" /></svg>
-			<p style="color: var(--sr-text-secondary);">فایلی وجود ندارد</p>
+		<div class="sky-card">
+			<div class="sky-empty">
+				<div class="sky-empty-icon"><svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24" style="color: var(--color-muted-mountain);"><path stroke-linecap="round" stroke-linejoin="round" d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+				<p class="sky-empty-title">فایلی وجود ندارد</p>
+				<p class="sky-empty-desc">فایل‌ها را بالا بکشید تا آپلود شوند</p>
+			</div>
 		</div>
 	{:else}
-		<div class="overflow-hidden" style="background: var(--sr-pure); border: 1px solid var(--sr-border); border-radius: 0.75rem;">
-			<table class="w-full">
-				<thead>
-					<tr style="border-bottom: 1px solid var(--sr-border);">
-						<th class="text-right px-5 py-3 text-xs font-semibold" style="color: var(--sr-text-secondary);">فایل</th>
-						<th class="text-right px-5 py-3 text-xs font-semibold" style="color: var(--sr-text-secondary);">اندازه</th>
-						<th class="text-right px-5 py-3 text-xs font-semibold" style="color: var(--sr-text-secondary);">تاریخ</th>
-						<th class="text-right px-5 py-3 text-xs font-semibold" style="color: var(--sr-text-secondary);">عملیات</th>
-					</tr>
-				</thead>
+		<div class="sky-card overflow-hidden">
+			<table class="sky-table">
+				<thead><tr><th>فایل</th><th>اندازه</th><th>تاریخ</th><th>عملیات</th></tr></thead>
 				<tbody>
 					{#each filteredFiles as file}
-						<tr class="table-row" style="border-bottom: 1px solid var(--sr-border);">
-							<td class="px-5 py-3.5">
+						<tr>
+							<td>
 								<div class="flex items-center gap-3">
 									<span class="text-xl">{getFileIcon(file.filename)}</span>
-									<span class="text-sm font-medium truncate max-w-[300px]" style="color: var(--sr-text);">{file.filename}</span>
+									<span class="text-sm font-medium truncate max-w-[300px]" style="color: var(--color-midnight-sky);">{file.filename}</span>
 								</div>
 							</td>
-							<td class="px-5 py-3.5 text-sm" style="color: var(--sr-text-secondary);">{formatSize(file.filesize)}</td>
-							<td class="px-5 py-3.5 text-sm" style="color: var(--sr-text-secondary);">{toPersianDateTime(file.created_at)}</td>
-							<td class="px-5 py-3.5">
-								<a href="{api.getBaseUrl()}/files/{file.id}/download" 
-									class="p-2 rounded-lg transition-colors inline-flex"
-									style="color: var(--sr-text-secondary);"
-									title="دانلود" download>
-									<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-								</a>
-								<button
-									onclick={() => confirmDelete(file)}
-									class="p-2 rounded-lg transition-colors"
-									style="color: var(--sr-text-secondary);"
-									title="حذف فایل"
-								>
-									<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-								</button>
+							<td style="color: var(--color-mystic-sea);">{formatSize(file.filesize)}</td>
+							<td style="color: var(--color-mystic-sea);">{toPersianDateTime(file.created_at)}</td>
+							<td>
+								<div class="flex items-center gap-1">
+									<a href="{api.getBaseUrl()}/files/{file.id}/download" class="sky-btn-icon" style="width:32px;height:32px;" title="دانلود" download>
+										<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+									</a>
+									<button onclick={() => confirmDelete(file)} class="sky-btn-icon" style="width:32px;height:32px;" title="حذف فایل">
+										<svg width="16" height="16" fill="none" stroke="var(--color-fiery-passion)" stroke-width="1.75" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+									</button>
+								</div>
 							</td>
 						</tr>
 					{/each}
@@ -415,66 +360,20 @@
 
 	<!-- Pagination -->
 	{#if totalPages > 1}
-		<div class="flex items-center justify-between text-sm text-gray-500">
+		<div class="flex items-center justify-between text-sm" style="color: var(--color-mystic-sea);">
 			<span>{toPersianNum(totalFiles)} فایل</span>
-			<div class="flex items-center gap-1">
-				<!-- Previous button -->
-				<button
-					disabled={currentPage <= 1}
-					onclick={() => goToPage(currentPage - 1)}
-					class="px-3 py-1.5 border rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-				>
-					قبلی
+			<div class="sky-pagination">
+				<button class="sky-page-btn" disabled={currentPage <= 1} onclick={() => goToPage(currentPage - 1)}>
+					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
 				</button>
-
-				<!-- First page + ellipsis -->
-				{#if pageNumbers()[0] > 1}
-					<button
-						onclick={() => goToPage(1)}
-						class="px-3 py-1.5 border rounded-lg hover:bg-gray-50 transition-colors"
-					>
-						{toPersianNum(1)}
-					</button>
-					{#if pageNumbers()[0] > 2}
-						<span class="px-2 text-gray-400">...</span>
-					{/if}
-				{/if}
-
-				<!-- Page numbers -->
 				{#each pageNumbers() as p}
-					<button
-						onclick={() => goToPage(p)}
-						class="px-3 py-1.5 border rounded-lg transition-colors {p === currentPage
-							? 'bg-blue-600 text-white border-blue-600'
-							: 'hover:bg-gray-50'}"
-					>
-						{toPersianNum(p)}
-					</button>
+					<button class="sky-page-btn {p === currentPage ? 'active' : ''}" onclick={() => goToPage(p)}>{toPersianNum(p)}</button>
 				{/each}
-
-				<!-- Last page + ellipsis -->
-				{#if pageNumbers()[pageNumbers().length - 1] < totalPages}
-					{#if pageNumbers()[pageNumbers().length - 1] < totalPages - 1}
-						<span class="px-2 text-gray-400">...</span>
-					{/if}
-					<button
-						onclick={() => goToPage(totalPages)}
-						class="px-3 py-1.5 border rounded-lg hover:bg-gray-50 transition-colors"
-					>
-						{toPersianNum(totalPages)}
-					</button>
-				{/if}
-
-				<!-- Next button -->
-				<button
-					disabled={currentPage >= totalPages}
-					onclick={() => goToPage(currentPage + 1)}
-					class="px-3 py-1.5 border rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-				>
-					بعدی
+				<button class="sky-page-btn" disabled={currentPage >= totalPages} onclick={() => goToPage(currentPage + 1)}>
+					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
 				</button>
 			</div>
-			<span>صفحه {toPersianNum(currentPage)} از {toPersianNum(totalPages)}</span>
+			<span class="text-xs">صفحه {toPersianNum(currentPage)} از {toPersianNum(totalPages)}</span>
 		</div>
 	{/if}
 </div>
