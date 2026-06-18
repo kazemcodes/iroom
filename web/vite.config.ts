@@ -1,6 +1,6 @@
 import { sveltekit } from '@sveltejs/kit/vite';
 import tailwindcss from '@tailwindcss/vite';
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
 	plugins: [
@@ -21,5 +21,9 @@ export default defineConfig({
 			},
 			'/recordings': 'http://localhost:8080'
 		}
+	},
+	test: {
+		environment: 'jsdom',
+		include: ['src/**/*.{test,spec}.{js,ts}']
 	}
 });
