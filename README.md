@@ -1,4 +1,5 @@
 # آی‌روم — IRoom
+## EXPERIMENTAL (dont use it)
 
 Open-source online classroom platform with live video/audio, chat, whiteboard, screen sharing, polls, recordings, and a full admin panel.
 
