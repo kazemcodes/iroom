@@ -227,19 +227,19 @@
 	}
 </script>
 
-<div class="max-w-4xl mx-auto space-y-6">
+<div style="max-width:800px;margin:0 auto;">
 	<div>
-		<h1 class="text-2xl font-bold text-gray-900">تنظیمات سیستم</h1>
-		<p class="text-gray-500 mt-1">تنظیمات کلی پلتفرم کلاس آنلاین</p>
-</div>
+		<h1 style="font-size:1.5rem;font-weight:700;color:var(--color-midnight-sky);">تنظیمات سیستم</h1>
+		<p style="font-size:0.875rem;color:var(--color-mystic-sea);margin-top:4px;">تنظیمات کلی پلتفرم کلاس آنلاین</p>
+	</div>
 
 	<!-- Tabs -->
-	<div class="bg-white rounded-xl overflow-hidden">
-		<div class="flex border-b overflow-x-auto">
+	<div style="background:var(--color-pure);border-radius:12px;overflow:hidden;">
+		<div style="display:flex;border-bottom:1px solid var(--color-zen-garden);overflow-x:auto;">
 			{#each tabs as tab}
 				<button
 					onclick={() => activeTab = tab.id}
-					class="px-6 py-3 text-sm font-medium whitespace-nowrap transition-colors {activeTab === tab.id ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}"
+					style="padding:12px 24px;font-size:0.875rem;font-weight:500;white-space:nowrap;transition:all 0.15s;border-bottom:2px solid {activeTab === tab.id ? 'var(--color-crystal-clear)' : 'transparent'};color:{activeTab === tab.id ? 'var(--color-crystal-clear)' : 'var(--color-mystic-sea)'};background:{activeTab === tab.id ? 'rgba(35,185,215,0.05)' : 'transparent'};"
 				>
 					{tab.label}
 				</button>

@@ -16,8 +16,8 @@ func NewClassRepo(db *sql.DB) *ClassRepo {
 
 func (r *ClassRepo) Create(c *entity.Class) error {
 	result, err := r.db.Exec(
-		`INSERT INTO classes (teacher_id, name, description, color, max_students) VALUES (?, ?, ?, ?, ?)`,
-		c.TeacherID, c.Name, c.Description, c.Color, c.MaxStudents,
+		`INSERT INTO classes (teacher_id, name, description, color, max_students, slug) VALUES (?, ?, ?, ?, ?, ?)`,
+		c.TeacherID, c.Name, c.Description, c.Color, c.MaxStudents, c.Slug,
 	)
 	if err != nil {
 		return err
@@ -33,8 +33,8 @@ func (r *ClassRepo) Create(c *entity.Class) error {
 func (r *ClassRepo) GetByID(id int64) (*entity.Class, error) {
 	c := &entity.Class{}
 	err := r.db.QueryRow(
-		`SELECT id, teacher_id, name, description, color, max_students, created_at, updated_at FROM classes WHERE id = ?`, id,
-	).Scan(&c.ID, &c.TeacherID, &c.Name, &c.Description, &c.Color, &c.MaxStudents, &c.CreatedAt, &c.UpdatedAt)
+		`SELECT id, teacher_id, name, description, color, max_students, slug, created_at, updated_at FROM classes WHERE id = ?`, id,
+	).Scan(&c.ID, &c.TeacherID, &c.Name, &c.Description, &c.Color, &c.MaxStudents, &c.Slug, &c.CreatedAt, &c.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +43,7 @@ func (r *ClassRepo) GetByID(id int64) (*entity.Class, error) {
 
 func (r *ClassRepo) ListByTeacher(teacherID int64) ([]entity.Class, error) {
 	rows, err := r.db.Query(
-		`SELECT id, teacher_id, name, description, color, max_students, created_at, updated_at FROM classes WHERE teacher_id = ? ORDER BY id DESC`, teacherID,
+		`SELECT id, teacher_id, name, description, color, max_students, slug, created_at, updated_at FROM classes WHERE teacher_id = ? ORDER BY id DESC`, teacherID,
 	)
 	if err != nil {
 		return nil, err
@@ -53,7 +53,7 @@ func (r *ClassRepo) ListByTeacher(teacherID int64) ([]entity.Class, error) {
 	var classes []entity.Class
 	for rows.Next() {
 		var c entity.Class
-		if err := rows.Scan(&c.ID, &c.TeacherID, &c.Name, &c.Description, &c.Color, &c.MaxStudents, &c.CreatedAt, &c.UpdatedAt); err != nil {
+		if err := rows.Scan(&c.ID, &c.TeacherID, &c.Name, &c.Description, &c.Color, &c.MaxStudents, &c.Slug, &c.CreatedAt, &c.UpdatedAt); err != nil {
 			return nil, err
 		}
 		classes = append(classes, c)
@@ -74,7 +74,7 @@ func (r *ClassRepo) ListByStudent(studentID int64) ([]entity.Class, error) {
 	var classes []entity.Class
 	for rows.Next() {
 		var c entity.Class
-		if err := rows.Scan(&c.ID, &c.TeacherID, &c.Name, &c.Description, &c.Color, &c.MaxStudents, &c.CreatedAt, &c.UpdatedAt); err != nil {
+		if err := rows.Scan(&c.ID, &c.TeacherID, &c.Name, &c.Description, &c.Color, &c.MaxStudents, &c.Slug, &c.CreatedAt, &c.UpdatedAt); err != nil {
 			return nil, err
 		}
 		classes = append(classes, c)
@@ -98,7 +98,7 @@ func (r *ClassRepo) ListAll(page, perPage int, search string) ([]entity.Class, i
 	}
 
 	offset := (page - 1) * perPage
-	query := `SELECT id, teacher_id, name, description, color, max_students, created_at, updated_at FROM classes WHERE 1=1`
+	query := `SELECT id, teacher_id, name, description, color, max_students, slug, created_at, updated_at FROM classes WHERE 1=1`
 	if search != "" {
 		query += ` AND (name LIKE ? OR description LIKE ?)`
 	}
@@ -114,7 +114,7 @@ func (r *ClassRepo) ListAll(page, perPage int, search string) ([]entity.Class, i
 	var classes []entity.Class
 	for rows.Next() {
 		var c entity.Class
-		if err := rows.Scan(&c.ID, &c.TeacherID, &c.Name, &c.Description, &c.Color, &c.MaxStudents, &c.CreatedAt, &c.UpdatedAt); err != nil {
+		if err := rows.Scan(&c.ID, &c.TeacherID, &c.Name, &c.Description, &c.Color, &c.MaxStudents, &c.Slug, &c.CreatedAt, &c.UpdatedAt); err != nil {
 			return nil, 0, err
 		}
 		classes = append(classes, c)
@@ -223,10 +223,10 @@ func (r *ClassRepo) UpdateStudentAccess(classID, studentID int64, access int) er
 
 func (r *ClassRepo) GetByUserID(userID int64) ([]entity.Class, error) {
 	rows, err := r.db.Query(
-		`SELECT c.id, c.teacher_id, c.name, c.description, c.color, c.max_students, c.created_at, c.updated_at
+		`SELECT c.id, c.teacher_id, c.name, c.description, c.color, c.max_students, c.slug, c.created_at, c.updated_at
 		 FROM classes c JOIN class_students cs ON c.id = cs.class_id WHERE cs.student_id = ?
 		 UNION
-		 SELECT c.id, c.teacher_id, c.name, c.description, c.color, c.max_students, c.created_at, c.updated_at
+		 SELECT c.id, c.teacher_id, c.name, c.description, c.color, c.max_students, c.slug, c.created_at, c.updated_at
 		 FROM classes c WHERE c.teacher_id = ?`, userID, userID,
 	)
 	if err != nil {
@@ -237,10 +237,29 @@ func (r *ClassRepo) GetByUserID(userID int64) ([]entity.Class, error) {
 	var classes []entity.Class
 	for rows.Next() {
 		var c entity.Class
-		if err := rows.Scan(&c.ID, &c.TeacherID, &c.Name, &c.Description, &c.Color, &c.MaxStudents, &c.CreatedAt, &c.UpdatedAt); err != nil {
+		if err := rows.Scan(&c.ID, &c.TeacherID, &c.Name, &c.Description, &c.Color, &c.MaxStudents, &c.Slug, &c.CreatedAt, &c.UpdatedAt); err != nil {
 			return nil, err
 		}
 		classes = append(classes, c)
 	}
 	return classes, nil
+}
+
+func (r *ClassRepo) GetBySlug(slug string) (*entity.Class, error) {
+	c := &entity.Class{}
+	err := r.db.QueryRow(
+		`SELECT id, teacher_id, name, description, color, max_students, slug, created_at, updated_at FROM classes WHERE slug = ?`, slug,
+	).Scan(&c.ID, &c.TeacherID, &c.Name, &c.Description, &c.Color, &c.MaxStudents, &c.Slug, &c.CreatedAt, &c.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
+func (r *ClassRepo) UpdateSlug(classID int64, slug string) error {
+	_, err := r.db.Exec(
+		`UPDATE classes SET slug = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+		slug, classID,
+	)
+	return err
 }

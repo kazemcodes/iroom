@@ -156,6 +156,10 @@ func main() {
 	// Public session info
 	e.GET("/api/v1/sessions/:id/info", sessionHandler.GetPublicInfo)
 
+	// Class URL resolution (Skyroom-style /ch-{org}/{slug}/)
+	classURLHandler := handler.NewClassURLHandler(classUC)
+	e.GET("/api/v1/classes/slug/:slug", classURLHandler.ResolveSlug)
+
 	// Auth (with stricter rate limit)
 	authGroup := e.Group("/api/v1/auth")
 	authGroup.Use(middleware.AuthRateLimit())

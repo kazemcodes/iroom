@@ -13,13 +13,14 @@ import "time"
 //   - isArchived=true hides the class from active listings
 type Class struct {
 	ID          int64     `json:"id" db:"id"`
-	TeacherID   int64     `json:"teacher_id" db:"teacher_id"` // Owner of the class
-	Name        string    `json:"name" db:"name"`             // Class name (e.g. "ریاضی پایه دهم")
+	TeacherID   int64     `json:"teacher_id" db:"teacher_id"`
+	Name        string    `json:"name" db:"name"`
 	Description string    `json:"description" db:"description"`
-	Color       string    `json:"color" db:"color"`             // UI accent color (hex)
-	MaxStudents int       `json:"max_students" db:"max_students"` // Enrollment limit
-	InviteCode  string    `json:"invite_code,omitempty" db:"invite_code"` // Unique join code
-	IsArchived  bool      `json:"is_archived" db:"is_archived"` // Soft-delete flag
+	Color       string    `json:"color" db:"color"`
+	MaxStudents int       `json:"max_students" db:"max_students"`
+	InviteCode  string    `json:"invite_code,omitempty" db:"invite_code"`
+	Slug        string    `json:"slug,omitempty" db:"slug"` // URL-friendly name for /ch-{org}/{slug}/
+	IsArchived  bool      `json:"is_archived" db:"is_archived"`
 	CreatedAt   time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at" db:"updated_at"`
 }

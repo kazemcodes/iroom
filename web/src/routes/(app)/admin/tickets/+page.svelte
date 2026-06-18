@@ -86,14 +86,14 @@
 <div class="space-y-6">
 	<div class="flex items-center justify-between">
 		<div>
-			<h1 class="text-2xl font-bold text-gray-900">مدیریت تیکت‌ها</h1>
-			<p class="text-gray-500 mt-1">{toPersian(total)} تیکت</p>
+			<h1 style="font-size:1.5rem;font-weight:700;color:var(--color-midnight-sky);">مدیریت تیکت‌ها</h1>
+			<p style="font-size:0.875rem;color:var(--color-mystic-sea);margin-top:4px;">{toPersian(total)} تیکت</p>
 		</div>
 	</div>
 
-	<div class="flex items-center gap-3 flex-wrap">
-		<input type="text" bind:value={search} onkeydown={(e) => e.key === 'Enter' && searchTickets()} class="flex-1 min-w-[200px] px-4 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white" placeholder="جستجوی عنوان تیکت..." />
-		<select bind:value={statusFilter} onchange={() => { currentPage = 1; loadTickets(); }} class="px-4 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+	<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+		<input type="text" bind:value={search} onkeydown={(e) => e.key === 'Enter' && searchTickets()} class="sky-input" style="flex:1;min-width:200px;" placeholder="جستجوی عنوان تیکت..." />
+		<select bind:value={statusFilter} onchange={() => { currentPage = 1; loadTickets(); }} class="sky-input" style="width:auto;min-width:140px;">
 			<option value="all">همه وضعیت‌ها</option>
 			<option value="open">باز</option>
 			<option value="answered">پاسخ داده شده</option>

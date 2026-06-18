@@ -163,3 +163,7 @@ func (uc *ClassUseCase) RegenerateCode(classID, teacherID int64, role string) (s
 	}
 	return code, nil
 }
+
+func (uc *ClassUseCase) GetBySlug(slug string) (*entity.Class, error) {
+	return uc.classRepo.GetBySlug(slug)
+}

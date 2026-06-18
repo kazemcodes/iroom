@@ -80,7 +80,7 @@
 <div class="space-y-6">
 	<div class="flex items-center justify-between">
 		<div>
-			<h1 class="text-2xl font-bold text-gray-900">لاگ فعالیت‌ها</h1>
+			<h1 style="font-size:1.5rem;font-weight:700;color:var(--color-midnight-sky);">لاگ فعالیت‌ها</h1>
 			<p class="text-gray-500 mt-1">{toPersianNum(total)} رویداد</p>
 		</div>
 		{#if !loading && logs.length > 0}

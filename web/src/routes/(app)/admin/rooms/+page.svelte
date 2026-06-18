@@ -114,78 +114,75 @@
 <div class="space-y-6">
 	<div class="flex items-center justify-between">
 		<div>
-			<h1 class="text-2xl font-bold text-gray-900">مدیریت اتاق‌ها</h1>
-			<p class="text-gray-500 mt-1">{toPersian(classes.length)} اتاق</p>
+			<h1 style="font-size:1.5rem;font-weight:700;color:var(--color-midnight-sky);">مدیریت اتاق‌ها</h1>
+			<p style="font-size:0.875rem;color:var(--color-mystic-sea);margin-top:4px;">{toPersian(classes.length)} اتاق</p>
 		</div>
-		<button onclick={() => { showCreateModal = true; loadTeachersForModal(); }} class="px-4 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 flex items-center gap-2 shadow-sm shadow-blue-500/25">
-			<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+		<button onclick={() => { showCreateModal = true; loadTeachersForModal(); }} class="sky-btn sky-btn-primary">
+			<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
 			اتاق جدید
 		</button>
 	</div>
 
 	<!-- Search & Filter -->
 	<div class="flex items-center gap-3 flex-wrap">
-		<div class="relative flex-1 min-w-[200px]">
-			<svg class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>
-			<input type="text" bind:value={searchQuery} class="w-full pr-10 pl-4 py-2.5 border rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white" placeholder="جستجو بر اساس نام اتاق یا مدرس..." />
+		<div style="position:relative;flex:1;min-width:200px;">
+			<svg style="position:absolute;right:12px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--color-moonlit-mist);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>
+			<input type="text" bind:value={searchQuery} class="sky-input" style="padding-right:36px;" placeholder="جستجو بر اساس نام اتاق یا مدرس..." />
 		</div>
-		<div class="flex gap-1 bg-gray-100 p-1 rounded-xl">
-			<button class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all {statusFilter === 'all' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500'}" onclick={() => statusFilter = 'all'}>همه</button>
-			<button class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all {statusFilter === 'active' ? 'bg-white text-green-600 shadow-sm' : 'text-gray-500'}" onclick={() => statusFilter = 'active'}>فعال</button>
-			<button class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all {statusFilter === 'inactive' ? 'bg-white text-gray-600 shadow-sm' : 'text-gray-500'}" onclick={() => statusFilter = 'inactive'}>غیرفعال</button>
+		<div style="display:flex;gap:4px;background:var(--color-secret-glow);padding:4px;border-radius:10px;">
+			<button style="padding:6px 12px;border-radius:8px;font-size:0.75rem;font-weight:500;transition:all 0.15s;background:{statusFilter === 'all' ? 'var(--color-pure)' : 'transparent'};color:{statusFilter === 'all' ? 'var(--color-crystal-clear)' : 'var(--color-mystic-sea)'};box-shadow:{statusFilter === 'all' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'};" onclick={() => statusFilter = 'all'}>همه</button>
+			<button style="padding:6px 12px;border-radius:8px;font-size:0.75rem;font-weight:500;transition:all 0.15s;background:{statusFilter === 'active' ? 'var(--color-pure)' : 'transparent'};color:{statusFilter === 'active' ? 'var(--color-lush-meadow)' : 'var(--color-mystic-sea)'};box-shadow:{statusFilter === 'active' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'};" onclick={() => statusFilter = 'active'}>فعال</button>
+			<button style="padding:6px 12px;border-radius:8px;font-size:0.75rem;font-weight:500;transition:all 0.15s;background:{statusFilter === 'inactive' ? 'var(--color-pure)' : 'transparent'};color:{statusFilter === 'inactive' ? 'var(--color-moonlit-mist)' : 'var(--color-mystic-sea)'};box-shadow:{statusFilter === 'inactive' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'};" onclick={() => statusFilter = 'inactive'}>غیرفعال</button>
 		</div>
 	</div>
 
 	{#if loading}
 		<div class="flex items-center justify-center py-20">
-			<div class="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full"></div>
+			<div class="animate-spin h-8 w-8 border-4 border-[#23b9d7] border-t-transparent rounded-full"></div>
 		</div>
 	{:else if filteredClasses.length === 0}
-		<div class="text-center py-20 bg-white rounded-2xl">
-			<div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gray-100 flex items-center justify-center">
-				<svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21" /></svg>
+		<div style="text-align:center;padding:80px 0;background:var(--color-pure);border-radius:12px;">
+			<div style="width:64px;height:64px;margin:0 auto 16px;border-radius:12px;background:var(--color-secret-glow);display:flex;align-items:center;justify-content:center;">
+				<svg width="32" height="32" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:var(--color-moonlit-mist);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21" /></svg>
 			</div>
-			<p class="text-gray-500 font-medium">اتاقی یافت نشد</p>
-			<p class="text-sm text-gray-400 mt-1">اولین اتاق خود را ایجاد کنید</p>
+			<p style="color:var(--color-mystic-sea);font-weight:500;">اتاقی یافت نشد</p>
+			<p style="font-size:0.875rem;color:var(--color-moonlit-mist);margin-top:4px;">اولین اتاق خود را ایجاد کنید</p>
 		</div>
 	{:else}
-		<div class="grid gap-4 sm:grid-cols-2">
+		<div style="display:grid;gap:16px;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));">
 			{#each filteredClasses as cls}
 				{@const activeSessions = getActiveSessions(cls.id)}
 				{@const sessionCount = getSessionsCount(cls.id)}
 				{@const studentCount = getStudentsCount(cls.id)}
 				{@const active = isRoomActive(cls.id)}
-				<div class="bg-white border border-gray-200 rounded-2xl p-5 hover:shadow-md transition-all group">
-					<div class="flex items-start justify-between mb-4">
-						<div class="flex items-center gap-3">
-							<div class="relative">
-								<div class="w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-lg" style="background: {cls.color || 'linear-gradient(135deg, #1a56db, #7c3aed)'}">
+				<div style="background:var(--color-pure);border:1px solid var(--color-zen-garden);border-radius:12px;padding:20px;transition:box-shadow 0.2s;">
+					<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;">
+						<div style="display:flex;align-items:center;gap:12px;">
+							<div style="position:relative;">
+								<div style="width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:18px;background:{cls.color || 'var(--color-crystal-clear)'};">
 									{cls.name.charAt(0)}
 								</div>
 								{#if active}
-									<span class="absolute -top-1 -left-1 flex h-3 w-3">
-										<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-										<span class="relative inline-flex rounded-full h-3 w-3 bg-green-500 border-2 border-white"></span>
-									</span>
+									<span style="position:absolute;top:-4px;left:-4px;width:12px;height:12px;border-radius:50%;background:var(--color-lush-meadow);border:2px solid var(--color-pure);"></span>
 								{/if}
 							</div>
 							<div>
-								<h3 class="font-bold text-gray-900">{cls.name}</h3>
-								<p class="text-xs text-gray-500 mt-0.5">{teachers[cls.teacher_id]?.display_name || 'بدون مدرس'}</p>
+								<h3 style="font-weight:700;color:var(--color-midnight-sky);">{cls.name}</h3>
+								<p style="font-size:0.75rem;color:var(--color-mystic-sea);margin-top:2px;">{teachers[cls.teacher_id]?.display_name || 'بدون مدرس'}</p>
 							</div>
 						</div>
-						<span class="text-xs px-2.5 py-1 rounded-full font-semibold {active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}">
+						<span style="font-size:0.75rem;padding:4px 10px;border-radius:20px;font-weight:600;background:{active ? 'rgba(64,191,127,0.1)' : 'var(--color-secret-glow)'};color:{active ? 'var(--color-lush-meadow)' : 'var(--color-moonlit-mist)'};">
 							{active ? 'فعال' : 'غیرفعال'}
 						</span>
 					</div>
 
-					<div class="flex items-center gap-4 text-xs text-gray-500 mb-4">
-						<div class="flex items-center gap-1.5">
-							<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg>
+					<div style="display:flex;align-items:center;gap:16px;font-size:0.75rem;color:var(--color-mystic-sea);margin-bottom:16px;">
+						<div style="display:flex;align-items:center;gap:6px;">
+							<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:var(--color-moonlit-mist);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg>
 							<span>{toPersian(studentCount)} دانش‌آموز</span>
 						</div>
-						<div class="flex items-center gap-1.5">
-							<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" /></svg>
+						<div style="display:flex;align-items:center;gap:6px;">
+							<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:var(--color-moonlit-mist);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" /></svg>
 							<span>{toPersian(sessionCount)} جلسه</span>
 						</div>
 						{#if activeSessions.length > 0}

@@ -35,16 +35,16 @@
 
 <div class="space-y-6">
 	<div>
-		<h1 class="text-2xl font-bold text-gray-900">مدیریت جلسات</h1>
-		<p class="text-gray-500 mt-1">مشاهده و مدیریت تمام جلسات</p>
+		<h1 style="font-size:1.5rem;font-weight:700;color:var(--color-midnight-sky);">مدیریت جلسات</h1>
+		<p style="font-size:0.875rem;color:var(--color-mystic-sea);margin-top:4px;">مشاهده و مدیریت تمام جلسات</p>
 	</div>
 
-	<div class="flex items-center gap-3">
-		<div class="flex-1 relative">
-			<svg class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-			<input bind:value={searchQuery} class="w-full pr-10 pl-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white" placeholder="جستجو در عنوان جلسه..." />
+	<div style="display:flex;align-items:center;gap:12px;">
+		<div style="position:relative;flex:1;">
+			<svg style="position:absolute;right:12px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--color-moonlit-mist);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+			<input bind:value={searchQuery} class="sky-input" style="padding-right:36px;" placeholder="جستجو در عنوان جلسه..." />
 		</div>
-		<select bind:value={filterStatus} class="px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+		<select bind:value={filterStatus} class="sky-input" style="width:auto;min-width:140px;">
 			<option value="all">همه</option>
 			<option value="scheduled">برنامه‌ریزی شده</option>
 			<option value="live">در حال برگزاری</option>

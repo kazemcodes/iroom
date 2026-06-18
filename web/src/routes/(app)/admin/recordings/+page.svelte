@@ -39,8 +39,8 @@
 
 <div class="space-y-6">
 	<div>
-		<h1 class="text-2xl font-bold text-gray-900">مدیریت ضبط‌ها</h1>
-		<p class="text-gray-500 mt-1">مشاهده و مدیریت ضبط‌های جلسات</p>
+		<h1 style="font-size:1.5rem;font-weight:700;color:var(--color-midnight-sky);">مدیریت ضبط‌ها</h1>
+		<p style="font-size:0.875rem;color:var(--color-mystic-sea);margin-top:4px;">مشاهده و مدیریت ضبط‌های جلسات</p>
 	</div>
 
 	<div class="relative">

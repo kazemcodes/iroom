@@ -207,16 +207,16 @@
 <div class="space-y-6">
 	<div class="flex items-center justify-between">
 		<div>
-			<h1 class="text-2xl font-bold text-gray-900">مدیریت کاربران</h1>
-			<p class="text-gray-500 mt-1">{toPersian(total)} کاربر</p>
+			<h1 style="font-size:1.5rem;font-weight:700;color:var(--color-midnight-sky);">مدیریت کاربران</h1>
+			<p style="font-size:0.875rem;color:var(--color-mystic-sea);margin-top:4px;">{toPersian(total)} کاربر</p>
 		</div>
-		<div class="flex items-center gap-3">
-			<button onclick={openImportModal} class="px-4 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 flex items-center gap-2">
-				<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+		<div style="display:flex;align-items:center;gap:12px;">
+			<button onclick={openImportModal} class="sky-btn sky-btn-outline">
+				<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
 				وارد کردن گروهی
 			</button>
-			<button onclick={() => showCreateModal = true} class="px-4 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 flex items-center gap-2">
-				<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+			<button onclick={() => showCreateModal = true} class="sky-btn sky-btn-primary">
+				<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
 				کاربر جدید
 			</button>
 		</div>
