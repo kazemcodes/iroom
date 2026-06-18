@@ -8,6 +8,10 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// WebhookHandler handles HTTP requests for webhook management (admin only).
+// Routes: POST /admin/webhooks, GET /admin/webhooks
+//         PUT /admin/webhooks/:id, DELETE /admin/webhooks/:id
+//         GET /admin/webhooks/:id/deliveries, POST /admin/webhooks/:id/test
 type WebhookHandler struct {
 	webhookUC *usecase.WebhookUseCase
 }

@@ -2,6 +2,9 @@ package infrastructure
 
 import "github.com/iroom/iroom/internal/services"
 
+// TOTPServiceImpl wraps the TOTP service for two-factor authentication.
+// Implements the TOTP (Time-based One-Time Password) protocol for 2FA.
+// Used for admin account security.
 type TOTPServiceImpl struct {
 	svc *services.TOTPService
 }

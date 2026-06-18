@@ -5,6 +5,11 @@ import (
 	"github.com/iroom/iroom/internal/pkg/jwt"
 )
 
+// JWTProvider implements token generation and validation using HMAC-SHA256.
+// This is a custom implementation (not using golang-jwt/jwt) to minimize dependencies.
+//
+// Token format: standard JWT with claims {UserID, Email, Role}
+// Signing algorithm: HMAC-SHA256
 type JWTProvider struct {
 	secret string
 }

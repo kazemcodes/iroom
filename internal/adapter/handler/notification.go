@@ -8,6 +8,9 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// NotificationHandler handles HTTP requests for user notifications.
+// Routes: GET /notifications, GET /notifications/unread-count
+//         POST /notifications/:id/read, POST /notifications/read-all
 type NotificationHandler struct {
 	notificationUC *usecase.NotificationUseCase
 }

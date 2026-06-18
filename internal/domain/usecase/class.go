@@ -8,6 +8,8 @@ import (
 	repository "github.com/iroom/iroom/internal/adapter/repository/sqlite"
 )
 
+// ClassUseCase handles all class-related business logic.
+// Classes are virtual classrooms owned by teachers, containing enrolled students and sessions.
 type ClassUseCase struct {
 	classRepo   *repository.ClassRepo
 	sessionRepo *repository.SessionRepo

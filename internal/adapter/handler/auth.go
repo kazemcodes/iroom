@@ -6,6 +6,9 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// AuthHandler handles HTTP requests for authentication operations.
+// Routes: POST /auth/register, /auth/login, /auth/refresh, /auth/guest-login, /auth/create-login-url
+//         GET /auth/me (protected)
 type AuthHandler struct {
 	authUC *usecase.AuthUseCase
 }

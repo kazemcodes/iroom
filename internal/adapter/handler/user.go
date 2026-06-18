@@ -8,6 +8,9 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// UserHandler handles HTTP requests for user management (admin only).
+// Routes: GET /admin/users, POST /admin/users, PUT /admin/users/:id
+//         DELETE /admin/users/:id, POST /admin/users/batch-delete
 type UserHandler struct {
 	userUC *usecase.UserUseCase
 }

@@ -1,3 +1,46 @@
+// IRoom Server — Open-source Iranian-style online classroom platform.
+//
+// Architecture: Clean Architecture (Domain → Adapter → Infrastructure)
+//
+// Dependency flow:
+//
+//	domain/entity      (Business objects, zero dependencies)
+//	domain/usecase     (Business logic, depends on entity + adapter/repository)
+//	adapter/handler    (HTTP handlers, depends on usecase)
+//	adapter/repository (SQLite implementations, depends on entity)
+//	infrastructure     (JWT, hash, TOTP implementations)
+//
+// All wiring happens here in main.go — no circular dependencies.
+//
+// API Routes:
+//
+//	Public:
+//	  GET  /api/v1/health                    — Health check
+//	  GET  /api/v1/sessions/:id/info         — Public session info (no auth)
+//	  POST /api/v1/auth/register             — Create account
+//	  POST /api/v1/auth/login                — Email/password login
+//	  POST /api/v1/auth/guest-login          — Guest login for class joining
+//	  POST /api/v1/auth/refresh              — Refresh JWT token
+//	  POST /api/v1/auth/create-login-url     — Generate direct login URL
+//
+//	Protected (requires JWT):
+//	  GET    /api/v1/auth/me                 — Current user info
+//	  GET    /api/v1/classes                 — List classes
+//	  POST   /api/v1/classes                 — Create class
+//	  GET    /api/v1/sessions                — List sessions
+//	  POST   /api/v1/sessions                — Create session
+//	  POST   /api/v1/sessions/:id/start      — Start session (teacher/admin)
+//	  POST   /api/v1/sessions/:id/end        — End session (teacher/admin)
+//	  POST   /api/v1/sessions/:id/messages   — Send chat message
+//	  WS     /ws/sessions/:id                — Real-time chat
+//	  POST   /api/v1/sessions/:id/classroom/offer   — WebRTC SDP offer
+//	  POST   /api/v1/sessions/:id/classroom/candidate — WebRTC ICE candidate
+//
+//	Admin only (requires JWT + admin role):
+//	  GET  /api/v1/admin/dashboard/stats     — System statistics
+//	  GET  /api/v1/admin/users               — List users
+//	  GET  /api/v1/admin/settings            — Get settings
+//	  PUT  /api/v1/admin/settings            — Update settings
 package main
 
 import (

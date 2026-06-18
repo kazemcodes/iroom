@@ -8,6 +8,14 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// WebRTCHandler handles WebRTC signaling for classroom video/audio.
+// Routes: GET /sessions/:id/classroom (join info)
+//         POST /sessions/:id/classroom/offer (SDP offer)
+//         POST /sessions/:id/classroom/candidate (ICE candidate)
+//         DELETE /sessions/:id/classroom/:userId (leave room)
+//         GET /sessions/:id/classroom/participants
+//         POST /sessions/:id/classroom/mute/:participantId
+//         POST /sessions/:id/classroom/kick/:participantId
 type WebRTCHandler struct {
 	signaling *webrtc.SignalingServer
 }

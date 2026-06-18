@@ -8,6 +8,9 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// RecordingHandler handles HTTP requests for session recordings.
+// Routes: POST /sessions/:id/recordings, GET /sessions/:id/recordings
+//         GET /recordings/:id/download, DELETE /recordings/:id
 type RecordingHandler struct {
 	recordingUC *usecase.RecordingUseCase
 }

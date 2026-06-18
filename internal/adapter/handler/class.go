@@ -8,6 +8,11 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// ClassHandler handles HTTP requests for class management.
+// Routes: GET/POST /classes, GET/PUT/DELETE /classes/:id
+//         POST /classes/:id/enroll, DELETE /classes/:id/users/:userId
+//         GET /classes/:id/students, GET /classes/:id/url
+//         POST /classes/join/:code, GET /users/:id/rooms
 type ClassHandler struct {
 	classUC *usecase.ClassUseCase
 }

@@ -6,6 +6,8 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// DashboardHandler handles HTTP requests for admin dashboard statistics.
+// Routes: GET /admin/dashboard/stats
 type DashboardHandler struct {
 	dashboardUC *usecase.DashboardUseCase
 }

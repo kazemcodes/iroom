@@ -8,6 +8,9 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// MessageHandler handles HTTP requests for chat messages.
+// Routes: GET /sessions/:id/messages, POST /sessions/:id/messages
+// Real-time delivery is handled via WebSocket (see services/ws_hub.go)
 type MessageHandler struct {
 	messageUC *usecase.MessageUseCase
 }

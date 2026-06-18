@@ -8,6 +8,9 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// PollHandler handles HTTP requests for session polls/votes.
+// Routes: POST /sessions/:id/polls, GET /sessions/:id/polls
+//         POST /polls/:id/vote, GET /polls/:id/results, POST /polls/:id/close
 type PollHandler struct {
 	pollUC *usecase.PollUseCase
 }

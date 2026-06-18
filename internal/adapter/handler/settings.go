@@ -6,6 +6,8 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// SettingsHandler handles HTTP requests for system settings (admin only).
+// Routes: GET /admin/settings, PUT /admin/settings
 type SettingsHandler struct {
 	settingsUC *usecase.SettingsUseCase
 }

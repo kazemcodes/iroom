@@ -8,6 +8,10 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// SessionHandler handles HTTP requests for session management.
+// Routes: GET/POST /sessions, GET/DELETE /sessions/:id
+//         POST /sessions/:id/start, /sessions/:id/end
+//         GET /sessions/:id/info (public, no auth required)
 type SessionHandler struct {
 	sessionUC *usecase.SessionUseCase
 }

@@ -8,6 +8,9 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// AnnouncementHandler handles HTTP requests for class announcements.
+// Routes: POST /classes/:id/announcements, GET /classes/:id/announcements
+//         PUT /announcements/:id, DELETE /announcements/:id, POST /announcements/:id/pin
 type AnnouncementHandler struct {
 	announcementUC *usecase.AnnouncementUseCase
 }

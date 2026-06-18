@@ -8,6 +8,9 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// TicketHandler handles HTTP requests for support tickets.
+// Routes: POST /tickets, GET /tickets, GET /tickets/:id
+//         POST /tickets/:id/reply, POST /tickets/:id/close
 type TicketHandler struct {
 	ticketUC *usecase.TicketUseCase
 }

@@ -9,6 +9,15 @@ import (
 	repository "github.com/iroom/iroom/internal/adapter/repository/sqlite"
 )
 
+// AuthUseCase handles all authentication-related business logic.
+// This includes registration, login, token refresh, guest login, and login URL generation.
+//
+// Dependencies (all injected via constructor):
+//   - UserRepo: user CRUD operations
+//   - SessionRepo: validates guest login against live sessions
+//   - ActivityLogRepo: logs authentication events
+//   - TokenProvider: JWT token generation/validation
+//   - PasswordHasher: bcrypt password hashing
 type AuthUseCase struct {
 	userRepo      *repository.UserRepo
 	sessionRepo   *repository.SessionRepo
@@ -21,10 +30,11 @@ type AuthUseCase struct {
 		Hash(password string) (string, error)
 		Check(password, hash string) bool
 	}
-	accessExpiry  int
-	refreshExpiry int
+	accessExpiry  int // Access token lifetime in minutes
+	refreshExpiry int // Refresh token lifetime in minutes
 }
 
+// NewAuthUseCase creates a new AuthUseCase with all dependencies.
 func NewAuthUseCase(
 	userRepo *repository.UserRepo,
 	sessionRepo *repository.SessionRepo,
@@ -50,6 +60,8 @@ func NewAuthUseCase(
 	}
 }
 
+// Register creates a new user account with email/password.
+// Returns the created user, JWT tokens, or an error if email already exists.
 func (uc *AuthUseCase) Register(email, password, displayName, phone string) (*entity.User, map[string]interface{}, error) {
 	existing, _ := uc.userRepo.GetByEmail(email)
 	if existing != nil {
@@ -82,6 +94,8 @@ func (uc *AuthUseCase) Register(email, password, displayName, phone string) (*en
 	return user, tokens, nil
 }
 
+// Login authenticates a user with email/password.
+// Returns the user, JWT tokens, or an error if credentials are invalid.
 func (uc *AuthUseCase) Login(email, password string) (*entity.User, map[string]interface{}, error) {
 	user, err := uc.userRepo.GetByEmail(email)
 	if err != nil {
@@ -104,6 +118,7 @@ func (uc *AuthUseCase) Login(email, password string) (*entity.User, map[string]i
 	return user, tokens, nil
 }
 
+// Refresh generates new tokens from a valid refresh token.
 func (uc *AuthUseCase) Refresh(refreshToken string) (map[string]interface{}, error) {
 	claims, err := uc.tokenProvider.Validate(refreshToken)
 	if err != nil {
@@ -123,6 +138,8 @@ func (uc *AuthUseCase) Refresh(refreshToken string) (map[string]interface{}, err
 	return tokens, nil
 }
 
+// GuestLogin creates a temporary guest user for joining a live session.
+// The session must be in "live" status for guest login to succeed.
 func (uc *AuthUseCase) GuestLogin(sessionID int64, displayName string) (*entity.User, map[string]interface{}, error) {
 	session, err := uc.sessionRepo.GetByID(sessionID)
 	if err != nil {
@@ -158,6 +175,8 @@ func (uc *AuthUseCase) GuestLogin(sessionID int64, displayName string) (*entity.
 	return guestUser, tokens, nil
 }
 
+// CreateLoginURL generates a direct login URL for a room.
+// Used by the external API to create shareable class join links.
 func (uc *AuthUseCase) CreateLoginURL(roomID int64, userID, nickname string, access, concurrent, ttl int, language string) (string, error) {
 	if roomID == 0 {
 		return "", fmt.Errorf("شناسه اتاق الزامی است")
@@ -198,10 +217,12 @@ func (uc *AuthUseCase) CreateLoginURL(roomID int64, userID, nickname string, acc
 	return url, nil
 }
 
+// GetUserByID retrieves a user by their ID. Used by the /auth/me endpoint.
 func (uc *AuthUseCase) GetUserByID(id int64) (*entity.User, error) {
 	return uc.userRepo.GetByID(id)
 }
 
+// generateTokens creates both access and refresh JWT tokens for a user.
 func (uc *AuthUseCase) generateTokens(user *entity.User) (map[string]interface{}, error) {
 	claims := entity.TokenClaims{
 		UserID: user.ID,

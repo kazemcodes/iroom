@@ -10,6 +10,9 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// HealthHandler provides a health check endpoint for monitoring.
+// Routes: GET /api/v1/health
+// Returns: status, uptime, db_size, webrtc_status, active_rooms, total_users
 type HealthHandler struct {
 	db        *sql.DB
 	startTime time.Time

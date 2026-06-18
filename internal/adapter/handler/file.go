@@ -8,6 +8,9 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// FileHandler handles HTTP requests for file uploads and downloads.
+// Routes: POST /sessions/:id/files, GET /sessions/:id/files
+//         GET /files/:id/download, DELETE /files/:id
 type FileHandler struct {
 	fileUC *usecase.FileUseCase
 }
