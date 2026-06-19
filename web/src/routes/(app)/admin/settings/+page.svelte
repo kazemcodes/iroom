@@ -44,6 +44,7 @@
 	let passwordChangeLoading = $state(false);
 	let passwordChangeSuccess = $state(false);
 	let passwordChangeError = $state('');
+	let apiCopied = $state(false);
 
 	onMount(async () => {
 		const res = await api.get<any>('/admin/settings');
@@ -118,6 +119,15 @@
 	}
 
 	function toPersian(n: number) { return n.toLocaleString('fa-IR'); }
+
+	function generateApiKey(): string {
+		const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+		let key = 'irk_';
+		for (let i = 0; i < 32; i++) {
+			key += chars.charAt(Math.floor(Math.random() * chars.length));
+		}
+		return key;
+	}
 </script>
 
 <div style="max-width:800px;margin:0 auto;" class="space-y-5">
@@ -185,10 +195,91 @@
 			{:else if activeTab === 'api'}
 				<div class="space-y-6">
 					<div><h2 class="text-lg font-bold" style="color: var(--color-midnight-sky);">تنظیمات API خارجی</h2><p class="text-sm text-gray-500 mt-1">کلید API برای اتصال سرویس‌های خارجی</p></div>
-					<div><label class="sky-label">کلید API</label><input type="text" bind:value={settings.external_api_key} class="sky-input" placeholder="کلید API را وارد کنید" dir="ltr" /></div>
+					<div>
+						<label class="sky-label">کلید API</label>
+						<div class="flex items-center gap-2">
+							<input type="text" bind:value={settings.external_api_key} class="sky-input flex-1" placeholder="کلید API را وارد کنید" dir="ltr" readonly />
+							<button onclick={() => { navigator.clipboard.writeText(settings.external_api_key); apiCopied = true; setTimeout(() => apiCopied = false, 2000); }} class="sky-btn sky-btn-secondary whitespace-nowrap">{apiCopied ? 'کپی شد ✓' : 'کپی'}</button>
+							<button onclick={() => { settings.external_api_key = generateApiKey(); }} class="sky-btn sky-btn-secondary whitespace-nowrap">تولید کلید جدید</button>
+						</div>
+					</div>
 					<div class="flex items-center justify-between pt-4 border-t">
 						{#if saved}<span class="text-sm" style="color: var(--color-lush-meadow);">ذخیره شد</span>{:else}<span></span>{/if}
 						<button onclick={saveSettings} disabled={saving} class="sky-btn sky-btn-primary">{saving ? 'در حال ذخیره...' : 'ذخیره تنظیمات'}</button>
+					</div>
+
+					<!-- API Documentation -->
+					<div class="pt-6 border-t">
+						<h3 class="text-lg font-bold mb-4" style="color: var(--color-midnight-sky);">مستندات API</h3>
+						<div class="space-y-4">
+							<div class="sky-card p-4">
+								<h4 class="font-bold mb-2" style="color: var(--color-midnight-sky);">احراز هویت</h4>
+								<p class="text-sm mb-2" style="color: var(--color-mystic-sea);">تمام درخواست‌ها باید شامل هدر زیر باشند:</p>
+								<pre class="p-3 rounded-lg text-xs overflow-x-auto" style="background: var(--color-secret-glow); color: var(--color-midnight-sky);"><code>X-API-Key: {settings.external_api_key || 'your-api-key-here'}</code></pre>
+							</div>
+
+							<div class="sky-card p-4">
+								<h4 class="font-bold mb-2" style="color: var(--color-midnight-sky);">ایجاد کلاس</h4>
+								<pre class="p-3 rounded-lg text-xs overflow-x-auto mb-2" style="background: var(--color-secret-glow); color: var(--color-midnight-sky);"><code>POST /api/v1/external/classes
+Content-Type: application/json
+X-API-Key: your-api-key
+
+{`{
+  "name": "نام کلاس",
+  "description": "توضیحات",
+  "teacher_id": 1
+}`}</code></pre>
+							</div>
+
+							<div class="sky-card p-4">
+								<h4 class="font-bold mb-2" style="color: var(--color-midnight-sky);">ایجاد جلسه</h4>
+								<pre class="p-3 rounded-lg text-xs overflow-x-auto mb-2" style="background: var(--color-secret-glow); color: var(--color-midnight-sky);"><code>POST /api/v1/external/sessions
+Content-Type: application/json
+X-API-Key: your-api-key
+
+{`{
+  "class_id": 1,
+  "title": "عنوان جلسه",
+  "scheduled_at": "2024-01-01T10:00:00Z",
+  "duration": 60
+}`}</code></pre>
+							</div>
+
+							<div class="sky-card p-4">
+								<h4 class="font-bold mb-2" style="color: var(--color-midnight-sky);">ایجاد لینک ورود</h4>
+								<pre class="p-3 rounded-lg text-xs overflow-x-auto mb-2" style="background: var(--color-secret-glow); color: var(--color-midnight-sky);"><code>POST /api/v1/auth/create-login-url
+Content-Type: application/json
+X-API-Key: your-api-key
+
+{`{
+  "room_id": 1,
+  "user_id": "user-123",
+  "nickname": "نام کاربر",
+  "access": 1,
+  "concurrent": 1,
+  "ttl": 3600
+}`}</code></pre>
+							</div>
+
+							<div class="sky-card p-4">
+								<h4 class="font-bold mb-2" style="color: var(--color-midnight-sky);">دریافت اطلاعات اتاق</h4>
+								<pre class="p-3 rounded-lg text-xs overflow-x-auto mb-2" style="background: var(--color-secret-glow); color: var(--color-midnight-sky);"><code>GET /api/v1/rooms/slug/:slug
+X-API-Key: your-api-key</code></pre>
+								<p class="text-xs" style="color: var(--color-mystic-sea);">این endpoint نیازی به احراز هویت ندارد.</p>
+							</div>
+
+							<div class="sky-card p-4">
+								<h4 class="font-bold mb-2" style="color: var(--color-midnight-sky);">لیست اتاق‌ها</h4>
+								<pre class="p-3 rounded-lg text-xs overflow-x-auto mb-2" style="background: var(--color-secret-glow); color: var(--color-midnight-sky);"><code>GET /api/v1/admin/rooms?page=1&per_page=20
+X-API-Key: your-api-key</code></pre>
+							</div>
+
+							<div class="sky-card p-4">
+								<h4 class="font-bold mb-2" style="color: var(--color-midnight-sky);">لیست کاربران</h4>
+								<pre class="p-3 rounded-lg text-xs overflow-x-auto mb-2" style="background: var(--color-secret-glow); color: var(--color-midnight-sky);"><code>GET /api/v1/admin/users?page=1&per_page=20
+X-API-Key: your-api-key</code></pre>
+							</div>
+						</div>
 					</div>
 				</div>
 
