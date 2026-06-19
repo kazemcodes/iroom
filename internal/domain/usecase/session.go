@@ -45,17 +45,28 @@ func (uc *SessionUseCase) List(classID int64, page, perPage int, search string) 
 	return uc.sessionRepo.ListAll(page, perPage, search)
 }
 
+func (uc *SessionUseCase) checkPermission(s *entity.Session, userID int64, role string) error {
+	if role == "admin" || role == "owner" {
+		return nil
+	}
+	class, err := uc.classRepo.GetByID(s.ClassID)
+	if err != nil {
+		return nil
+	}
+	if class.TeacherID == userID {
+		return nil
+	}
+	return fmt.Errorf("شما اجازه انجام این عملیات را ندارید")
+}
+
 func (uc *SessionUseCase) Start(id, userID int64, role string) (*entity.Session, error) {
 	s, err := uc.sessionRepo.GetByID(id)
 	if err != nil {
 		return nil, fmt.Errorf("جلسه یافت نشد")
 	}
 
-	if role != "admin" {
-		class, err := uc.classRepo.GetByID(s.ClassID)
-		if err != nil || class.TeacherID != userID {
-			return nil, fmt.Errorf("شما اجازه شروع این جلسه را ندارید")
-		}
+	if err := uc.checkPermission(s, userID, role); err != nil {
+		return nil, err
 	}
 
 	roomName := fmt.Sprintf("room-%d", s.ID)
@@ -74,11 +85,8 @@ func (uc *SessionUseCase) End(id, userID int64, role string) error {
 		return fmt.Errorf("جلسه یافت نشد")
 	}
 
-	if role != "admin" {
-		class, err := uc.classRepo.GetByID(s.ClassID)
-		if err != nil || class.TeacherID != userID {
-			return fmt.Errorf("شما اجازه پایان این جلسه را ندارید")
-		}
+	if err := uc.checkPermission(s, userID, role); err != nil {
+		return err
 	}
 
 	return uc.sessionRepo.UpdateStatus(id, "ended", "")
@@ -90,11 +98,8 @@ func (uc *SessionUseCase) Delete(id, userID int64, role string) error {
 		return fmt.Errorf("جلسه یافت نشد")
 	}
 
-	if role != "admin" {
-		class, err := uc.classRepo.GetByID(s.ClassID)
-		if err != nil || class.TeacherID != userID {
-			return fmt.Errorf("شما اجازه حذف این جلسه را ندارید")
-		}
+	if err := uc.checkPermission(s, userID, role); err != nil {
+		return err
 	}
 
 	return uc.sessionRepo.Delete(id)
@@ -102,8 +107,4 @@ func (uc *SessionUseCase) Delete(id, userID int64, role string) error {
 
 func (uc *SessionUseCase) Count() (int64, error) {
 	return uc.sessionRepo.Count()
-}
-
-func (uc *SessionUseCase) CountActive() (int64, error) {
-	return uc.sessionRepo.CountActive()
 }

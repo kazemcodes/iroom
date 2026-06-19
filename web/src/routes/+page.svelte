@@ -7,7 +7,7 @@
 		auth.init();
 		const unsub = auth.subscribe(($auth) => {
 			if ($auth.isLoggedIn) {
-				goto('/dashboard');
+				goto('/admin');
 			} else {
 				goto('/auth');
 			}

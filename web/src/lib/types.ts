@@ -38,6 +38,18 @@ export interface Class {
 	updated_at: string;
 }
 
+export interface Room {
+	id: number;
+	owner_id: number;
+	name: string;
+	description: string;
+	color: string;
+	slug: string;
+	guest_login_enabled: boolean;
+	created_at: string;
+	updated_at: string;
+}
+
 export interface Session {
 	id: number;
 	class_id: number;
@@ -118,29 +130,6 @@ export interface Recording {
 	duration: number;
 	status: 'processing' | 'ready' | 'failed';
 	created_at: string;
-}
-
-export interface Ticket {
-	id: number;
-	user_id: number;
-	title: string;
-	category: string;
-	status: 'open' | 'answered' | 'closed';
-	priority: 'low' | 'normal' | 'high' | 'urgent';
-	created_at: string;
-	updated_at: string;
-	user_display_name: string;
-	messages?: TicketMessage[];
-}
-
-export interface TicketMessage {
-	id: number;
-	ticket_id: number;
-	user_id: number;
-	content: string;
-	is_admin: boolean;
-	created_at: string;
-	user_display_name: string;
 }
 
 export interface SessionLog {

@@ -3,16 +3,14 @@
   
   Responsibilities:
     - Redirects unauthenticated users to /auth
-    - Renders sidebar with navigation links
+    - Renders sidebar with admin navigation links
     - Handles real-time notifications via WebSocket
     - Shows unread notification count badge
     - Collapsible sidebar (240px → 60px)
     - Mobile responsive sidebar
-    - Admin section visible only to admin/teacher roles
   
   Navigation items:
-    - Dashboard, Classes, Sessions, Files, Support, Profile
-    - Admin: Users, Sessions, Rooms, Tickets, Recordings, Logs, Settings
+    - Dashboard, Users, Rooms, Files, Recordings, Logs, Settings
   
   Route: (app)/* — all authenticated pages
 -->
@@ -31,7 +29,6 @@
 	let currentPath = $derived(page.url.pathname);
 	let mobileOpen = $state(false);
 	let sidebarCollapsed = $state(false);
-	let counts = $state({ classes: 0, sessions: 0 });
 	let showNotifications = $state(false);
 	let showUserMenu = $state(false);
 
@@ -75,11 +72,6 @@
 		const token = localStorage.getItem('access_token');
 		if (!token) return;
 		(async () => {
-			try {
-				const [c, s] = await Promise.all([api.get<any>('/classes'), api.get<any>('/sessions')]);
-				if (c.success && c.data) counts.classes = Array.isArray(c.data) ? c.data.length : (c.data?.total || 0);
-				if (s.success && s.data) counts.sessions = Array.isArray(s.data) ? s.data.length : (s.data?.total || 0);
-			} catch {}
 			await notifications.load();
 			connectWebSocket();
 		})();
@@ -106,25 +98,14 @@
 	};
 
 	const navItems = $derived.by(() => [
-		{ href: '/dashboard', label: 'داشبورد', icon: icons.dashboard },
-		{ href: '/classes', label: 'کلاس‌ها', icon: icons.classes },
-		{ href: '/sessions', label: 'جلسات', icon: icons.sessions },
-		{ href: '/files', label: 'فایل‌ها', icon: icons.files },
-		{ href: '/support', label: 'پشتیبانی', icon: icons.support },
-		{ href: '/profile', label: 'حساب کاربری', icon: icons.profile },
+		{ href: '/admin', label: 'داشبورد', icon: icons.adminHome },
+		{ href: '/admin/users', label: 'کاربران', icon: icons.users },
+		{ href: '/admin/rooms', label: 'اتاق‌ها', icon: icons.rooms },
+		{ href: '/admin/files', label: 'فایل‌ها', icon: icons.files },
+		{ href: '/admin/recordings', label: 'ضبط‌ها', icon: icons.recordings },
+		{ href: '/admin/logs', label: 'لاگ‌ها', icon: icons.logs },
+		{ href: '/admin/settings', label: 'تنظیمات', icon: icons.settings },
 	]);
-
-	const adminNavItems = $derived.by(() => {
-		if (!$isAdmin) return [];
-		return [
-			{ href: '/admin', label: 'داشبورد مدیریت', icon: icons.adminHome },
-			{ href: '/admin/users', label: 'کاربران', icon: icons.users },
-			{ href: '/admin/rooms', label: 'اتاق‌ها', icon: icons.rooms },
-			{ href: '/admin/recordings', label: 'ضبط‌ها', icon: icons.recordings },
-			{ href: '/admin/logs', label: 'لاگ‌ها', icon: icons.logs },
-			{ href: '/admin/settings', label: 'تنظیمات', icon: icons.settings },
-		];
-	});
 
 	function confirmLogout() {
 		if (confirm('آیا از خروج از حساب کاربری اطمینان دارید؟')) auth.logout();
@@ -166,26 +147,6 @@
 					{/if}
 				</a>
 			{/each}
-
-			{#if $isAdmin && adminNavItems.length > 0}
-				<div class="pt-2 mt-2" style="border-top: 1px solid rgba(255,255,255,0.08);">
-					{#if !sidebarCollapsed}
-						<p class="sky-sidebar-section-title">مدیریت</p>
-					{/if}
-					{#each adminNavItems as item}
-						<a href={item.href}
-							class="sky-nav-item {currentPath === item.href || (item.href === '/admin' && currentPath === '/admin') ? 'active' : ''}"
-							onclick={() => mobileOpen = false}
-							title={sidebarCollapsed ? item.label : undefined}
-						>
-							{@html item.icon}
-							{#if !sidebarCollapsed}
-								<span>{item.label}</span>
-							{/if}
-						</a>
-					{/each}
-				</div>
-			{/if}
 		</nav>
 
 		<!-- User Info -->
@@ -301,8 +262,8 @@
 
 					{#if showUserMenu}
 						<div class="absolute top-full left-0 mt-2 w-48 rounded-xl shadow-xl overflow-hidden" style="background: var(--color-pure); border: 1px solid var(--color-zen-garden);">
-							<a href="/profile" class="block px-4 py-2.5 text-[13px] hover:bg-gray-50 transition-colors" style="color: var(--color-midnight-sky);">حساب کاربری</a>
-							<a href="/dashboard" class="block px-4 py-2.5 text-[13px] hover:bg-gray-50 transition-colors" style="color: var(--color-midnight-sky);">داشبورد</a>
+							<a href="/admin" class="block px-4 py-2.5 text-[13px] hover:bg-gray-50 transition-colors" style="color: var(--color-midnight-sky);">حساب کاربری</a>
+							<a href="/admin" class="block px-4 py-2.5 text-[13px] hover:bg-gray-50 transition-colors" style="color: var(--color-midnight-sky);">داشبورد</a>
 							<div class="h-px" style="background: var(--color-zen-garden);"></div>
 							<a href="/auth" class="block px-4 py-2.5 text-[13px] hover:bg-red-50 transition-colors" style="color: var(--color-fiery-passion);">خروج</a>
 						</div>

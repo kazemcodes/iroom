@@ -175,24 +175,29 @@
 
 	function actionLabel(action: string): string {
 		const map: Record<string, string> = {
-			'user_login': 'ورود کاربر',
-			'user_created': 'ایجاد کاربر',
-			'session_started': 'شروع جلسه',
-			'session_ended': 'پایان جلسه',
-			'class_created': 'ایجاد کلاس',
-			'file_uploaded': 'آپلود فایل',
+			'create_user': 'ایجاد کاربر',
+			'update_user': 'بروزرسانی کاربر',
+			'delete_user': 'حذف کاربر',
+			'create_room': 'ایجاد اتاق',
+			'update_room': 'بروزرسانی اتاق',
+			'delete_room': 'حذف اتاق',
+			'create_class': 'ایجاد کلاس',
+			'delete_class': 'حذف کلاس',
+			'create_session': 'ایجاد جلسه',
+			'upload_file': 'آپلود فایل',
+			'update_settings': 'بروزرسانی تنظیمات',
 		};
 		return map[action] || action;
 	}
 
 	function actionColor(action: string): string {
 		const map: Record<string, string> = {
-			'user_login': 'bg-blue-500',
-			'user_created': 'bg-green-500',
-			'session_started': 'bg-emerald-500',
-			'session_ended': 'bg-gray-400',
-			'class_created': 'bg-purple-500',
-			'file_uploaded': 'bg-amber-500',
+			'create_user': 'bg-blue-500',
+			'create_room': 'bg-green-500',
+			'create_session': 'bg-emerald-500',
+			'delete_user': 'bg-red-500',
+			'delete_room': 'bg-red-500',
+			'upload_file': 'bg-amber-500',
 		};
 		return map[action] || 'bg-gray-400';
 	}

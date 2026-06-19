@@ -38,11 +38,6 @@ func (uc *UserUseCase) Create(email, password, displayName, phone, role string, 
 		return nil, fmt.Errorf("ایمیل قبلاً ثبت شده است")
 	}
 
-	// Prevent role escalation: only owners can create admins
-	if role == "admin" && callerRole != "owner" {
-		return nil, fmt.Errorf("فقط مالک می‌تواند مدیر ایجاد کند")
-	}
-
 	hashedPassword, err := uc.hasher.Hash(password)
 	if err != nil {
 		return nil, fmt.Errorf("خطای داخلی")
@@ -125,4 +120,30 @@ func (uc *UserUseCase) Count() (int64, error) {
 
 func (uc *UserUseCase) GetUserRooms(userID int64) ([]entity.Class, error) {
 	return uc.classRepo.GetByUserID(userID)
+}
+
+func (uc *UserUseCase) ResetPassword(userID int64, newPassword string) error {
+	hashedPassword, err := uc.hasher.Hash(newPassword)
+	if err != nil {
+		return fmt.Errorf("خطای داخلی")
+	}
+	return uc.userRepo.UpdatePassword(userID, hashedPassword)
+}
+
+func (uc *UserUseCase) ChangePassword(userID int64, oldPassword, newPassword string) error {
+	user, err := uc.userRepo.GetByID(userID)
+	if err != nil {
+		return fmt.Errorf("کاربر یافت نشد")
+	}
+
+	if !uc.hasher.Check(oldPassword, user.PasswordHash) {
+		return fmt.Errorf("رمز عبور فعلی اشتباه است")
+	}
+
+	hashedPassword, err := uc.hasher.Hash(newPassword)
+	if err != nil {
+		return fmt.Errorf("خطای داخلی")
+	}
+
+	return uc.userRepo.UpdatePassword(userID, hashedPassword)
 }

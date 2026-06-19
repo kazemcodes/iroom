@@ -94,26 +94,26 @@ func main() {
 	recordingRepo := sqliteRepo.NewRecordingRepo(db)
 	logRepo := sqliteRepo.NewActivityLogRepo(db)
 	settingsRepo := sqliteRepo.NewSettingsRepo(db)
-	ticketRepo := sqliteRepo.NewTicketRepo(db)
 	notificationRepo := sqliteRepo.NewNotificationRepo(db)
 	webhookRepo := sqliteRepo.NewWebhookRepo(db)
+	roomRepo := sqliteRepo.NewRoomRepo(db)
 
 	// Use Cases (business logic)
-	authUC := usecase.NewAuthUseCase(userRepo, sessionRepo, logRepo, tokenProvider, passwordHasher, cfg.JWT.AccessExpiry, cfg.JWT.RefreshExpiry)
+	authUC := usecase.NewAuthUseCase(userRepo, sessionRepo, roomRepo, tokenProvider, passwordHasher, cfg.JWT.AccessExpiry, cfg.JWT.RefreshExpiry)
 	classUC := usecase.NewClassUseCase(classRepo, sessionRepo, userRepo)
 	sessionUC := usecase.NewSessionUseCase(sessionRepo, classRepo)
 	messageUC := usecase.NewMessageUseCase(messageRepo)
 	fileUC := usecase.NewFileUseCase(fileRepo, sessionRepo, classRepo, cfg.Upload.UploadDir)
 	recordingUC := usecase.NewRecordingUseCase(recordingRepo, sessionRepo, classRepo, cfg.Upload.UploadDir)
-	ticketUC := usecase.NewTicketUseCase(ticketRepo)
 	announcementUC := usecase.NewAnnouncementUseCase(sqliteRepo.NewAnnouncementRepo(db), classRepo)
 	pollUC := usecase.NewPollUseCase(sqliteRepo.NewPollRepo(db))
 	notificationUC := usecase.NewNotificationUseCase(notificationRepo)
 	settingsUC := usecase.NewSettingsUseCase(settingsRepo)
-	dashboardUC := usecase.NewDashboardUseCase(userRepo, classRepo, sessionRepo, recordingRepo, logRepo)
+	dashboardUC := usecase.NewDashboardUseCase(userRepo, classRepo, sessionRepo, recordingRepo)
 	userUC := usecase.NewUserUseCase(userRepo, classRepo, passwordHasher)
 	webhookDeliveryRepo := sqliteRepo.NewWebhookDeliveryRepo(db)
 	webhookUC := usecase.NewWebhookUseCase(webhookRepo, webhookDeliveryRepo)
+	roomUC := usecase.NewRoomUseCase(roomRepo, userRepo, sessionRepo)
 
 	// Handlers
 	authHandler := handler.NewAuthHandler(authUC)
@@ -122,7 +122,6 @@ func main() {
 	messageHandler := handler.NewMessageHandler(messageUC)
 	fileHandler := handler.NewFileHandler(fileUC)
 	recordingHandler := handler.NewRecordingHandler(recordingUC)
-	ticketHandler := handler.NewTicketHandler(ticketUC)
 	announcementHandler := handler.NewAnnouncementHandler(announcementUC)
 	pollHandler := handler.NewPollHandler(pollUC)
 	notificationHandler := handler.NewNotificationHandler(notificationUC)
@@ -130,6 +129,8 @@ func main() {
 	dashboardHandler := handler.NewDashboardHandler(dashboardUC)
 	userHandler := handler.NewUserHandler(userUC)
 	webhookHandler := handler.NewWebhookHandler(webhookUC)
+	roomHandler := handler.NewRoomHandler(roomUC)
+	activityLogHandler := handler.NewActivityLogHandler(logRepo)
 	healthHandler := handler.NewHealthHandler(db, cfg.Database.Path)
 
 	// WebRTC
@@ -159,6 +160,9 @@ func main() {
 	// Public session info
 	e.GET("/api/v1/sessions/:id/info", sessionHandler.GetPublicInfo)
 
+	// Public room info (no auth required)
+	e.GET("/api/v1/rooms/slug/:slug", roomHandler.GetInfo)
+
 	// Class URL resolution (Skyroom-style /ch-{org}/{slug}/)
 	classURLHandler := handler.NewClassURLHandler(classUC, userUC)
 	e.GET("/api/v1/classes/slug/:slug", classURLHandler.ResolveSlug)
@@ -169,6 +173,7 @@ func main() {
 	authGroup.POST("/register", authHandler.Register)
 	authGroup.POST("/login", authHandler.Login)
 	authGroup.POST("/guest-login", authHandler.GuestLogin)
+	authGroup.POST("/room-guest-login", authHandler.RoomGuestLogin)
 	authGroup.POST("/refresh", authHandler.Refresh)
 	authGroup.POST("/create-login-url", authHandler.CreateLoginURL)
 	authGroup.POST("/forgot-password", func(c echo.Context) error {
@@ -185,7 +190,7 @@ func main() {
 	// Profile
 	api.GET("/auth/me", authHandler.Me)
 	api.PUT("/auth/me", func(c echo.Context) error { return response.Success(c, map[string]string{"message": "بروزرسانی شد"}) })
-	api.POST("/auth/change-password", func(c echo.Context) error { return response.Success(c, map[string]string{"message": "تغییر یافت"}) })
+	api.POST("/auth/change-password", userHandler.ChangeOwnPassword)
 	api.POST("/auth/avatar", func(c echo.Context) error { return response.Success(c, map[string]string{"message": "آپلود شد"}) })
 
 	// Classes
@@ -202,6 +207,16 @@ func main() {
 	api.POST("/classes/:id/regenerate-code", classHandler.RegenerateCode)
 	api.POST("/classes/join/:code", classHandler.JoinByCode)
 	api.GET("/users/:id/rooms", classHandler.GetUserRooms)
+
+	// Rooms
+	api.GET("/rooms", roomHandler.List)
+	api.GET("/rooms/:id", roomHandler.GetByID)
+	api.POST("/rooms", roomHandler.Create)
+	api.PUT("/rooms/:id", roomHandler.Update)
+	api.DELETE("/rooms/:id", roomHandler.Delete)
+	api.GET("/rooms/:id/users", roomHandler.GetUsers)
+	api.POST("/rooms/:id/users", roomHandler.AddUser)
+	api.DELETE("/rooms/:id/users/:userId", roomHandler.RemoveUser)
 
 	// Announcements
 	api.POST("/classes/:id/announcements", announcementHandler.Create)
@@ -260,13 +275,6 @@ func main() {
 	api.GET("/sessions/:id/recordings", recordingHandler.ListBySession)
 	api.GET("/recordings/:id/download", recordingHandler.Download)
 
-	// Tickets
-	api.POST("/tickets", ticketHandler.Create)
-	api.GET("/tickets", ticketHandler.ListMy)
-	api.GET("/tickets/:id", ticketHandler.GetByID)
-	api.POST("/tickets/:id/reply", ticketHandler.Reply)
-	api.POST("/tickets/:id/close", ticketHandler.Close)
-
 	// Notifications
 	api.GET("/notifications", notificationHandler.List)
 	api.GET("/notifications/unread-count", notificationHandler.UnreadCount)
@@ -282,19 +290,25 @@ func main() {
 	admin.POST("/users/batch-delete", userHandler.BatchDelete)
 	admin.PUT("/users/:id", userHandler.Update)
 	admin.DELETE("/users/:id", userHandler.Deactivate)
+	admin.POST("/users/:id/reset-password", userHandler.ResetPassword)
 	admin.GET("/classes", classHandler.List)
 	admin.POST("/classes", classHandler.Create)
 	admin.PUT("/classes/:id", classHandler.Update)
 	admin.DELETE("/classes/:id", classHandler.Delete)
+	admin.GET("/rooms", roomHandler.List)
+	admin.POST("/rooms", roomHandler.Create)
+	admin.PUT("/rooms/:id", roomHandler.Update)
+	admin.DELETE("/rooms/:id", roomHandler.Delete)
+	admin.GET("/rooms/:id/users", roomHandler.GetUsers)
+	admin.POST("/rooms/:id/users", roomHandler.AddUser)
+	admin.DELETE("/rooms/:id/users/:userId", roomHandler.RemoveUser)
 	admin.GET("/sessions", sessionHandler.List)
 	admin.GET("/sessions/:id", sessionHandler.GetByID)
 	admin.DELETE("/sessions/:id", sessionHandler.Delete)
 	admin.GET("/recordings", recordingHandler.ListAll)
 	admin.DELETE("/recordings/:id", recordingHandler.Delete)
-	admin.GET("/logs", func(c echo.Context) error {
-		return response.Success(c, []interface{}{})
-	})
-	admin.GET("/tickets", ticketHandler.ListMy)
+	admin.GET("/logs", activityLogHandler.List)
+	admin.GET("/activity-logs", activityLogHandler.List)
 	admin.PUT("/settings", settingsHandler.Update)
 	admin.GET("/settings", settingsHandler.Get)
 	admin.POST("/webhooks", webhookHandler.Create)

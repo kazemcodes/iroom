@@ -76,6 +76,42 @@
 	let showDeleteConfirm = $state(false);
 	let webhookToDelete = $state<number | null>(null);
 
+	// Password change state
+	let currentPassword = $state('');
+	let newPassword = $state('');
+	let confirmPassword = $state('');
+	let passwordChangeLoading = $state(false);
+	let passwordChangeSuccess = $state(false);
+	let passwordChangeError = $state('');
+
+	async function changeMyPassword() {
+		if (newPassword !== confirmPassword) {
+			passwordChangeError = 'رمز عبور جدید و تکرار آن مطابقت ندارند';
+			return;
+		}
+		if (newPassword.length < 6) {
+			passwordChangeError = 'رمز عبور باید حداقل ۶ کاراکتر باشد';
+			return;
+		}
+		passwordChangeLoading = true;
+		passwordChangeError = '';
+		passwordChangeSuccess = false;
+		const res = await api.post('/auth/change-password', {
+			old_password: currentPassword,
+			new_password: newPassword,
+		});
+		if (res.success) {
+			passwordChangeSuccess = true;
+			currentPassword = '';
+			newPassword = '';
+			confirmPassword = '';
+			setTimeout(() => passwordChangeSuccess = false, 3000);
+		} else {
+			passwordChangeError = res.error || 'خطا در تغییر رمز عبور';
+		}
+		passwordChangeLoading = false;
+	}
+
 	onMount(async () => {
 		const res = await api.get<any>('/admin/settings');
 		if (res.success && res.data) settings = { ...settings, ...res.data };
@@ -525,6 +561,35 @@
 					</div>
 				{:else}
 					<div class="space-y-6">
+						<!-- Change Admin Password -->
+						<div class="sky-card p-5">
+							<h2 class="text-lg font-bold mb-1" style="color: var(--color-midnight-sky);">تغییر رمز عبور</h2>
+							<p class="text-sm mb-4" style="color: var(--color-mystic-sea);">رمز عبور حساب مدیر خود را تغییر دهید</p>
+							{#if passwordChangeSuccess}
+								<div class="mb-3 p-3 rounded-lg text-sm" style="background: rgba(64,191,127,0.1); color: var(--color-lush-meadow);">رمز عبور با موفقیت تغییر کرد</div>
+							{/if}
+							{#if passwordChangeError}
+								<div class="mb-3 p-3 rounded-lg text-sm" style="background: rgba(224,82,82,0.1); color: var(--color-fiery-passion);">{passwordChangeError}</div>
+							{/if}
+							<div class="space-y-3" style="max-width: 400px;">
+								<div>
+									<label class="sky-label">رمز عبور فعلی</label>
+									<input type="password" bind:value={currentPassword} class="sky-input" dir="ltr" />
+								</div>
+								<div>
+									<label class="sky-label">رمز عبور جدید</label>
+									<input type="password" bind:value={newPassword} class="sky-input" dir="ltr" />
+								</div>
+								<div>
+									<label class="sky-label">تکرار رمز عبور جدید</label>
+									<input type="password" bind:value={confirmPassword} class="sky-input" dir="ltr" />
+								</div>
+								<button onclick={changeMyPassword} disabled={passwordChangeLoading || !currentPassword || !newPassword} class="sky-btn sky-btn-primary">
+									{passwordChangeLoading ? 'در حال تغییر...' : 'تغییر رمز عبور'}
+								</button>
+							</div>
+						</div>
+
 						<div>
 							<h2 class="text-lg font-bold" style="color: var(--color-midnight-sky);">تنظیمات امنیتی</h2>
 							<p class="text-sm text-gray-500 mt-1">سیاست رمز عبور و امنیت حساب کاربران</p>

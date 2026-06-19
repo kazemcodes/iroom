@@ -39,36 +39,6 @@ type Recording struct {
 	CreatedAt  time.Time `json:"created_at" db:"created_at"`
 }
 
-// Ticket represents a support ticket submitted by a user.
-// Tickets can be replied to by admins and have a status lifecycle.
-//
-// Status flow: open → answered → closed
-// Categories: general, technical, financial
-// Priority levels: low, normal, high, urgent
-type Ticket struct {
-	ID              int64     `json:"id" db:"id"`
-	UserID          int64     `json:"user_id" db:"user_id"` // Ticket creator
-	Title           string    `json:"title" db:"title"`
-	Category        string    `json:"category" db:"category"`
-	Status          string    `json:"status" db:"status"`     // "open", "answered", "closed"
-	Priority        string    `json:"priority" db:"priority"` // "low", "normal", "high", "urgent"
-	UserDisplayName string    `json:"user_display_name" db:"user_display_name"` // Joined from users table
-	CreatedAt       time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt       time.Time `json:"updated_at" db:"updated_at"`
-}
-
-// TicketMessage represents a reply within a support ticket.
-// Both users and admins can send messages in a ticket thread.
-type TicketMessage struct {
-	ID              int64     `json:"id" db:"id"`
-	TicketID        int64     `json:"ticket_id" db:"ticket_id"` // Parent ticket
-	UserID          int64     `json:"user_id" db:"user_id"`     // Message author
-	Content         string    `json:"content" db:"content"`
-	IsAdmin         bool      `json:"is_admin" db:"is_admin"`   // true = admin reply
-	UserDisplayName string    `json:"user_display_name" db:"user_display_name"` // Joined from users
-	CreatedAt       time.Time `json:"created_at" db:"created_at"`
-}
-
 // Announcement represents a class announcement.
 // Can be pinned to the top of the list or marked as system-wide.
 type Announcement struct {

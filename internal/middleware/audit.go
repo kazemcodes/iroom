@@ -90,10 +90,11 @@ func AuditLog(logRepo *repository.ActivityLogRepo) echo.MiddlewareFunc {
 			}
 
 			userID, _ := getUserID(c)
+			action := mapAction(method, path)
 
 			log := &entity.ActivityLog{
 				UserID:     userID,
-				Action:     method,
+				Action:     action,
 				EntityType: "api",
 				Details:    path,
 				IPAddress:  c.RealIP(),
@@ -104,6 +105,80 @@ func AuditLog(logRepo *repository.ActivityLogRepo) echo.MiddlewareFunc {
 
 			return err
 		}
+	}
+}
+
+// mapAction converts HTTP method + path to a semantic action name.
+func mapAction(method, path string) string {
+	// Strip /api/v1 prefix
+	p := path
+	if len(p) > 8 && p[:8] == "/api/v1" {
+		p = p[8:]
+	}
+
+	switch {
+	// Users
+	case p == "/admin/users" && method == "POST":
+		return "create_user"
+	case p == "/admin/users/batch-delete" && method == "POST":
+		return "batch_delete_users"
+	case len(p) > 13 && p[:13] == "/admin/users/" && method == "PUT":
+		return "update_user"
+	case len(p) > 13 && p[:13] == "/admin/users/" && method == "DELETE":
+		return "delete_user"
+
+	// Rooms
+	case p == "/admin/rooms" && method == "POST":
+		return "create_room"
+	case len(p) > 12 && p[:12] == "/admin/rooms/" && method == "PUT":
+		return "update_room"
+	case len(p) > 12 && p[:12] == "/admin/rooms/" && method == "DELETE":
+		return "delete_room"
+	case len(p) > 12 && p[:12] == "/rooms/" && method == "POST":
+		return "add_room_user"
+	case len(p) > 12 && p[:12] == "/rooms/" && method == "DELETE":
+		return "remove_room_user"
+
+	// Classes
+	case p == "/classes" && method == "POST":
+		return "create_class"
+	case len(p) > 9 && p[:9] == "/classes/" && method == "PUT":
+		return "update_class"
+	case len(p) > 9 && p[:9] == "/classes/" && method == "DELETE":
+		return "delete_class"
+
+	// Sessions
+	case p == "/sessions" && method == "POST":
+		return "create_session"
+	case len(p) > 12 && p[:12] == "/sessions/" && method == "POST":
+		return "session_action"
+	case len(p) > 12 && p[:12] == "/sessions/" && method == "DELETE":
+		return "delete_session"
+
+	// Settings
+	case p == "/admin/settings" && method == "PUT":
+		return "update_settings"
+
+	// Webhooks
+	case p == "/admin/webhooks" && method == "POST":
+		return "create_webhook"
+	case len(p) > 16 && p[:16] == "/admin/webhooks/" && method == "PUT":
+		return "update_webhook"
+	case len(p) > 16 && p[:16] == "/admin/webhooks/" && method == "DELETE":
+		return "delete_webhook"
+
+	// Files
+	case len(p) > 10 && p[:10] == "/sessions/" && method == "POST":
+		return "upload_file"
+	case len(p) > 7 && p[:7] == "/files/" && method == "DELETE":
+		return "delete_file"
+
+	// Recordings
+	case len(p) > 10 && p[:10] == "/sessions/" && method == "POST":
+		return "upload_recording"
+
+	default:
+		return method
 	}
 }
 

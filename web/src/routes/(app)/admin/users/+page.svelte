@@ -22,7 +22,11 @@
 	let deleteUserId = $state(0);
 
 	let newUser = $state({ email: '', password: '', display_name: '', phone: '', role: 'student' });
-	let editForm = $state({ role: 'student', is_active: true });
+	let editForm = $state({ display_name: '', role: 'student', is_active: true });
+	let editPassword = $state('');
+	let editLoading = $state(false);
+	let editError = $state('');
+	let showDeleteFromEdit = $state(false);
 	let createLoading = $state(false);
 	let createError = $state('');
 
@@ -57,7 +61,9 @@
 
 	function openEdit(user: User) {
 		editingUser = user;
-		editForm = { role: user.role, is_active: user.is_active };
+		editForm = { display_name: user.display_name, role: user.role, is_active: user.is_active };
+		editPassword = '';
+		editError = '';
 		showEditModal = true;
 	}
 
@@ -78,12 +84,38 @@
 
 	async function saveEdit() {
 		if (!editingUser) return;
-		const res = await api.put(`/admin/users/${editingUser.id}`, editForm);
-		if (res.success) {
-			showEditModal = false;
-			editingUser = null;
-			await loadUsers();
+		editLoading = true;
+		editError = '';
+
+		// Update user info
+		const res = await api.put(`/admin/users/${editingUser.id}`, {
+			display_name: editForm.display_name,
+			role: editForm.role,
+			is_active: editForm.is_active,
+		});
+
+		if (!res.success) {
+			editError = res.error || 'خطا در بروزرسانی';
+			editLoading = false;
+			return;
 		}
+
+		// Reset password if provided
+		if (editPassword) {
+			const passRes = await api.post(`/admin/users/${editingUser.id}/reset-password`, {
+				password: editPassword,
+			});
+			if (!passRes.success) {
+				editError = passRes.error || 'خطا در تغییر رمز عبور';
+				editLoading = false;
+				return;
+			}
+		}
+
+		showEditModal = false;
+		editingUser = null;
+		editLoading = false;
+		await loadUsers();
 	}
 
 	async function toggleActive(user: User) {
@@ -99,6 +131,17 @@
 	async function deleteUser() {
 		const res = await api.delete(`/admin/users/${deleteUserId}`);
 		if (res.success) await loadUsers();
+	}
+
+	async function deleteUserFromEdit() {
+		if (!editingUser) return;
+		const res = await api.delete(`/admin/users/${editingUser.id}`);
+		if (res.success) {
+			showEditModal = false;
+			editingUser = null;
+			showDeleteFromEdit = false;
+			await loadUsers();
+		}
 	}
 
 	// --- Bulk Import ---
@@ -375,7 +418,14 @@
 				<button onclick={() => showEditModal = false} class="sky-btn-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
 			</div>
 			<div class="sky-modal-body space-y-4">
-				<p class="text-sm" style="color: var(--color-mystic-sea);">{editingUser.display_name} — {editingUser.email}</p>
+				{#if editError}
+					<div class="p-3 rounded-lg text-sm" style="background: rgba(224,82,82,0.1); color: var(--color-fiery-passion);">{editError}</div>
+				{/if}
+				<p class="text-sm" style="color: var(--color-mystic-sea);">{editingUser.email}</p>
+				<div>
+					<label class="sky-label">نام نمایشی</label>
+					<input type="text" bind:value={editForm.display_name} class="sky-input" />
+				</div>
 				<div>
 					<label class="sky-label">نقش</label>
 					<select bind:value={editForm.role} class="sky-input"><option value="student">دانش‌آموز</option><option value="teacher">مدرس</option><option value="admin">مدیر</option></select>
@@ -386,10 +436,37 @@
 						<span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform {editForm.is_active ? 'translate-x-6' : 'translate-x-1'}"></span>
 					</button>
 				</div>
+				<div style="border-top: 1px solid var(--color-zen-garden); padding-top: 16px;">
+					<label class="sky-label">رمز عبور جدید (اختیاری)</label>
+					<input type="password" bind:value={editPassword} class="sky-input" dir="ltr" placeholder="برای تغییر رمز، رمز جدید را وارد کنید" />
+					<p class="text-xs mt-1" style="color: var(--color-moonlit-mist);">اگر خالی بماند، رمز عبور تغییر نمی‌کند</p>
+				</div>
 			</div>
 			<div class="sky-modal-footer">
+				<button onclick={() => { showDeleteFromEdit = true; }} class="sky-btn" style="background: rgba(224,82,82,0.1); color: var(--color-fiery-passion); margin-right: auto;">حذف کاربر</button>
 				<button onclick={() => showEditModal = false} class="sky-btn sky-btn-secondary">انصراف</button>
-				<button onclick={saveEdit} class="sky-btn sky-btn-primary">ذخیره</button>
+				<button onclick={saveEdit} disabled={editLoading} class="sky-btn sky-btn-primary">
+					{editLoading ? 'در حال ذخیره...' : 'ذخیره'}
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- Delete Confirm from Edit -->
+{#if showDeleteFromEdit && editingUser}
+	<div class="modal-overlay" onclick={() => showDeleteFromEdit = false} role="button" tabindex="-1">
+		<div class="modal-content" onclick={(e) => e.stopPropagation()}>
+			<div class="sky-modal-header">
+				<h2>حذف کاربر</h2>
+				<button onclick={() => showDeleteFromEdit = false} class="sky-btn-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+			</div>
+			<div class="sky-modal-body">
+				<p class="text-sm" style="color: var(--color-mystic-sea);">آیا از حذف کاربر <strong>{editingUser.display_name}</strong> اطمینان دارید؟</p>
+			</div>
+			<div class="sky-modal-footer">
+				<button onclick={() => showDeleteFromEdit = false} class="sky-btn sky-btn-secondary">انصراف</button>
+				<button onclick={deleteUserFromEdit} class="sky-btn" style="background: var(--color-fiery-passion); color: white;">حذف</button>
 			</div>
 		</div>
 	</div>

@@ -9,7 +9,6 @@ type DashboardUseCase struct {
 	classRepo     *repository.ClassRepo
 	sessionRepo   *repository.SessionRepo
 	recordingRepo *repository.RecordingRepo
-	logRepo       *repository.ActivityLogRepo
 }
 
 func NewDashboardUseCase(
@@ -17,14 +16,12 @@ func NewDashboardUseCase(
 	classRepo *repository.ClassRepo,
 	sessionRepo *repository.SessionRepo,
 	recordingRepo *repository.RecordingRepo,
-	logRepo *repository.ActivityLogRepo,
 ) *DashboardUseCase {
 	return &DashboardUseCase{
 		userRepo:      userRepo,
 		classRepo:     classRepo,
 		sessionRepo:   sessionRepo,
 		recordingRepo: recordingRepo,
-		logRepo:       logRepo,
 	}
 }
 

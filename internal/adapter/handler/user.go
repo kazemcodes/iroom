@@ -104,3 +104,46 @@ func (h *UserHandler) BatchDelete(c echo.Context) error {
 		"failure": failure,
 	})
 }
+
+func (h *UserHandler) ResetPassword(c echo.Context) error {
+	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+
+	var req struct {
+		Password string `json:"password"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return response.BadRequest(c, "داده‌های نامعتبر")
+	}
+
+	if req.Password == "" {
+		return response.BadRequest(c, "رمز عبور الزامی است")
+	}
+
+	if err := h.userUC.ResetPassword(id, req.Password); err != nil {
+		return response.InternalError(c, err.Error())
+	}
+
+	return response.Success(c, map[string]string{"message": "رمز عبور بروزرسانی شد"})
+}
+
+func (h *UserHandler) ChangeOwnPassword(c echo.Context) error {
+	userID, _ := getUserID(c)
+
+	var req struct {
+		OldPassword string `json:"old_password"`
+		NewPassword string `json:"new_password"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return response.BadRequest(c, "داده‌های نامعتبر")
+	}
+
+	if req.OldPassword == "" || req.NewPassword == "" {
+		return response.BadRequest(c, "رمز عبور فعلی و جدید الزامی است")
+	}
+
+	if err := h.userUC.ChangePassword(userID, req.OldPassword, req.NewPassword); err != nil {
+		return response.BadRequest(c, err.Error())
+	}
+
+	return response.Success(c, map[string]string{"message": "رمز عبور تغییر کرد"})
+}

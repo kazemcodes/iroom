@@ -22,9 +22,14 @@ describe('classroomWindow', async () => {
 	});
 
 	it('open creates new window', () => {
-		const result = classroomWindow.open('1', 'Test Session');
-		expect(window.open).toHaveBeenCalledWith('/classroom/popup/1', '_blank');
+		const result = classroomWindow.open('1', 'Test Session', '/ali/test-room/');
+		expect(window.open).toHaveBeenCalledWith('/ali/test-room/', '_blank');
 		expect(result).toBe(mockWindow);
+	});
+
+	it('open without slug falls back to /', () => {
+		const result = classroomWindow.open('1', 'Test Session');
+		expect(window.open).toHaveBeenCalledWith('/', '_blank');
 	});
 
 	it('close closes the window', () => {

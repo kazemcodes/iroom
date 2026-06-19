@@ -125,6 +125,26 @@ func (h *AuthHandler) CreateLoginURL(c echo.Context) error {
 	return response.Success(c, map[string]string{"url": url})
 }
 
+func (h *AuthHandler) RoomGuestLogin(c echo.Context) error {
+	var req struct {
+		RoomSlug    string `json:"room_slug"`
+		DisplayName string `json:"display_name"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return response.BadRequest(c, "داده‌های نامعتبر")
+	}
+
+	user, tokens, err := h.authUC.RoomGuestLogin(req.RoomSlug, req.DisplayName)
+	if err != nil {
+		return response.BadRequest(c, err.Error())
+	}
+
+	return response.Success(c, map[string]interface{}{
+		"user":   user,
+		"tokens": tokens,
+	})
+}
+
 func (h *AuthHandler) Me(c echo.Context) error {
 	userID, ok := getUserID(c)
 	if !ok {

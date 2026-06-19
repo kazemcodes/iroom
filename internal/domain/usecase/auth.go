@@ -22,7 +22,7 @@ import (
 type AuthUseCase struct {
 	userRepo      *repository.UserRepo
 	sessionRepo   *repository.SessionRepo
-	logRepo       *repository.ActivityLogRepo
+	roomRepo      *repository.RoomRepo
 	tokenProvider interface {
 		Generate(claims entity.TokenClaims, expiryMinutes int) (string, error)
 		Validate(token string) (*entity.TokenClaims, error)
@@ -39,7 +39,7 @@ type AuthUseCase struct {
 func NewAuthUseCase(
 	userRepo *repository.UserRepo,
 	sessionRepo *repository.SessionRepo,
-	logRepo *repository.ActivityLogRepo,
+	roomRepo *repository.RoomRepo,
 	tokenProvider interface {
 		Generate(claims entity.TokenClaims, expiryMinutes int) (string, error)
 		Validate(token string) (*entity.TokenClaims, error)
@@ -53,7 +53,7 @@ func NewAuthUseCase(
 	return &AuthUseCase{
 		userRepo:      userRepo,
 		sessionRepo:   sessionRepo,
-		logRepo:       logRepo,
+		roomRepo:      roomRepo,
 		tokenProvider: tokenProvider,
 		hasher:        hasher,
 		accessExpiry:  accessExpiry,
@@ -176,6 +176,46 @@ func (uc *AuthUseCase) GuestLogin(sessionID int64, displayName string) (*entity.
 	return guestUser, tokens, nil
 }
 
+// RoomGuestLogin creates a temporary guest user for joining a room.
+// The room must have guest_login_enabled set to true.
+func (uc *AuthUseCase) RoomGuestLogin(roomSlug, displayName string) (*entity.User, map[string]interface{}, error) {
+	room, err := uc.roomRepo.GetBySlug(roomSlug)
+	if err != nil {
+		return nil, nil, fmt.Errorf("اتاق یافت نشد")
+	}
+
+	if !room.GuestLoginEnabled {
+		return nil, nil, fmt.Errorf("ورود مهمان برای این اتاق غیرفعال است")
+	}
+
+	guestEmail := fmt.Sprintf("guest_%d_%d@iroom.local", room.ID, time.Now().UnixMilli())
+	hashedPassword, _ := uc.hasher.Hash("guest_no_password")
+
+	guestUser := &entity.User{
+		Email:        guestEmail,
+		PasswordHash: hashedPassword,
+		DisplayName:  sanitize.Sanitize(displayName),
+		Role:         entity.RoleStudent,
+		IsActive:     true,
+	}
+
+	if err := uc.userRepo.Create(guestUser); err != nil {
+		slog.Error("room guest login: failed to create guest user", "error", err)
+		return nil, nil, fmt.Errorf("خطا در ورود مهمان")
+	}
+
+	// Auto-enroll guest in the room
+	_ = uc.roomRepo.AddUser(room.ID, guestUser.ID, "student")
+
+	tokens, err := uc.generateTokens(guestUser)
+	if err != nil {
+		slog.Error("room guest login: failed to generate tokens", "error", err)
+		return nil, nil, fmt.Errorf("خطا در تولید توکن")
+	}
+
+	return guestUser, tokens, nil
+}
+
 // CreateLoginURL generates a direct login URL for a room.
 // Used by the external API to create shareable class join links.
 func (uc *AuthUseCase) CreateLoginURL(roomID int64, userID, nickname string, access, concurrent, ttl int, language string) (string, error) {
@@ -248,24 +288,3 @@ func (uc *AuthUseCase) generateTokens(user *entity.User) (map[string]interface{}
 	}, nil
 }
 
-// CleanupGuestAccounts deletes guest accounts older than 24 hours.
-// Should be called periodically to prevent database bloat.
-func (uc *AuthUseCase) CleanupGuestAccounts() error {
-	cutoff := time.Now().Add(-24 * time.Hour)
-	
-	// Get all guest users
-	users, _, err := uc.userRepo.List(1, 1000, "guest_")
-	if err != nil {
-		return err
-	}
-
-	for _, user := range users {
-		if user.CreatedAt.Before(cutoff) {
-			user.IsActive = false
-			if err := uc.userRepo.Update(&user); err != nil {
-				slog.Error("failed to deactivate guest user", "user_id", user.ID, "error", err)
-			}
-		}
-	}
-	return nil
-}
