@@ -40,22 +40,14 @@
 
 	const isOperator = $derived(['owner', 'admin', 'operator'].includes(userRole));
 
-	let menuEl = $state<HTMLDivElement>();
-
-	function handleClickOutside(e: MouseEvent) {
-		if (menuEl && !menuEl.contains(e.target as Node)) {
-			onDismiss();
-		}
-	}
-
 	function handleKeydown(e: KeyboardEvent) {
 		if (e.key === 'Escape') onDismiss();
 	}
 </script>
 
-<svelte:window onclick={handleClickOutside} onkeydown={handleKeydown} />
+<svelte:window onkeydown={handleKeydown} />
 
-<div class="app-menu" bind:this={menuEl}>
+<div class="app-menu">
 	<ul>
 		<li onclick={() => { onUserInfo(); onDismiss(); }}>
 			<svg width="20" height="20"><use xlink:href="#shape_info_outline"></use></svg>

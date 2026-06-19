@@ -27,6 +27,8 @@ export interface PionRoomConfig {
 	userId: string;
 	role: string;
 	displayName: string;
+	userRole: string;
+	listener?: boolean;
 }
 
 export class PionClient {
@@ -34,7 +36,9 @@ export class PionClient {
 	private roomId: string;
 	private userId: string;
 	private displayName: string;
+	private userRole: string;
 	private localStream: MediaStream | null = null;
+	private listener: boolean;
 
 	onRemoteStream?: (stream: MediaStream, participantId: string) => void;
 	onLocalStream?: (stream: MediaStream) => void;
@@ -43,17 +47,23 @@ export class PionClient {
 		this.roomId = config.roomId;
 		this.userId = config.userId;
 		this.displayName = config.displayName;
+		this.userRole = config.userRole || 'student';
+		this.listener = config.listener || false;
 	}
 
 	async connect(): Promise<void> {
 		console.log('[Pion] Starting connect...');
-		this.localStream = await navigator.mediaDevices.getUserMedia({
-			video: true,
-			audio: true
-		});
-		console.log('[Pion] Got local stream');
+		if (!this.listener) {
+			this.localStream = await navigator.mediaDevices.getUserMedia({
+				video: true,
+				audio: true
+			});
+			console.log('[Pion] Got local stream');
+		} else {
+			console.log('[Pion] Listener mode — no media');
+		}
 
-		if (this.onLocalStream) {
+		if (this.onLocalStream && this.localStream) {
 			this.onLocalStream(this.localStream);
 		}
 
@@ -66,11 +76,16 @@ export class PionClient {
 		});
 		console.log('[Pion] Created RTCPeerConnection');
 
-		this.localStream.getTracks().forEach(track => {
+		this.localStream?.getTracks().forEach(track => {
 			if (this.pc) {
 				this.pc.addTrack(track, this.localStream!);
 			}
 		});
+
+		if (this.listener && this.pc) {
+			this.pc.addTransceiver('audio', { direction: 'recvonly' });
+			this.pc.addTransceiver('video', { direction: 'recvonly' });
+		}
 
 		this.pc.onicecandidate = async (event) => {
 			if (event.candidate) {
@@ -119,7 +134,8 @@ export class PionClient {
 				sdp: offer.sdp,
 				room_id: this.roomId,
 				user_id: this.userId,
-				name: this.displayName
+				name: this.displayName,
+				role: this.userRole
 			})
 		});
 

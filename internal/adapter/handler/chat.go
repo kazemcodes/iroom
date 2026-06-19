@@ -101,8 +101,19 @@ func (h *ChatHandler) readPump(client *services.Client, sessionID int64) {
 		var msg struct {
 			Type    string `json:"type"`
 			Content string `json:"content"`
+			Command string `json:"command"`
 		}
 		if err := json.Unmarshal(raw, &msg); err != nil {
+			continue
+		}
+
+		if msg.Type == "command" && msg.Command != "" {
+			broadcast := map[string]interface{}{
+				"type":    "command",
+				"command": msg.Command,
+			}
+			data, _ := json.Marshal(broadcast)
+			h.hub.BroadcastToRoom(strconv.FormatInt(sessionID, 10), "chat", data, 0)
 			continue
 		}
 

@@ -12,6 +12,8 @@
     onClose: Callback to close the modal
 -->
 <script lang="ts">
+	import { onMount } from 'svelte';
+
 	let { onClose }: { onClose: () => void } = $props();
 
 	let activeTab = $state<'general' | 'audio' | 'notifications'>('general');
@@ -25,9 +27,9 @@
 	});
 
 	let audioSettings = $state({
-		micDevice: 'پیش‌فرض',
+		micDevice: '',
 		micQuality: 'خوب',
-		webcamDevice: 'پیش‌فرض',
+		webcamDevice: '',
 		webcamQuality: 'خوب',
 	});
 
@@ -39,6 +41,22 @@
 		newMessage: true,
 		muteToggle: true,
 		serverDisconnect: true,
+	});
+
+	let micDevices = $state<string[]>([]);
+	let webcamDevices = $state<string[]>([]);
+
+	onMount(async () => {
+		try {
+			const devices = await navigator.mediaDevices.enumerateDevices();
+			micDevices = devices.filter(d => d.kind === 'audioinput').map(d => d.label || `میکروفون ${micDevices.length + 1}`);
+			webcamDevices = devices.filter(d => d.kind === 'videoinput').map(d => d.label || `وبکم ${webcamDevices.length + 1}`);
+			if (micDevices.length > 0) audioSettings.micDevice = micDevices[0];
+			if (webcamDevices.length > 0) audioSettings.webcamDevice = webcamDevices[0];
+		} catch (e) {
+			micDevices = ['پیش‌فرض'];
+			webcamDevices = ['پیش‌فرض'];
+		}
 	});
 </script>
 
@@ -86,26 +104,30 @@
 				<div class="settings-group">
 					<div class="setting-item">
 						<label>میکروفون:</label>
-						<select class="setting-select">
-							<option>پیش‌فرض</option>
+						<select class="setting-select" bind:value={audioSettings.micDevice}>
+							{#each micDevices as device}<option value={device}>{device}</option>{/each}
 						</select>
 					</div>
 					<div class="setting-item">
 						<label>کیفیت صدا:</label>
-						<select class="setting-select">
+						<select class="setting-select" bind:value={audioSettings.micQuality}>
 							<option>خوب</option>
+							<option>بهترین</option>
+							<option>صرفه‌جویی</option>
 						</select>
 					</div>
 					<div class="setting-item">
 						<label>وبکم:</label>
-						<select class="setting-select">
-							<option>پیش‌فرض</option>
+						<select class="setting-select" bind:value={audioSettings.webcamDevice}>
+							{#each webcamDevices as device}<option value={device}>{device}</option>{/each}
 						</select>
 					</div>
 					<div class="setting-item">
 						<label>کیفیت تصویر:</label>
-						<select class="setting-select">
+						<select class="setting-select" bind:value={audioSettings.webcamQuality}>
 							<option>خوب</option>
+							<option>بهترین</option>
+							<option>صرفه‌جویی</option>
 						</select>
 					</div>
 				</div>

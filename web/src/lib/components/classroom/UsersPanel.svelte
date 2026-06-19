@@ -79,7 +79,7 @@
 							<span class="user-role">{ROLE_LABELS[role as UserRole] || role}</span>
 						</div>
 						{#if p.handRaised}
-							<span style="font-size:0.7rem;">✋</span>
+							<span class="hand-icon"><svg width="14" height="14" style="fill:#f59e0b;"><use xlink:href="#shape_hand"></use></svg></span>
 						{/if}
 					</div>
 				{/each}
@@ -112,4 +112,5 @@
 	.user-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 	.user-name { font-size: 0.75rem; font-weight: 600; color: #e0e0e6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	.user-role { font-size: 0.65rem; color: #8a8a96; }
+	.hand-icon { display: flex; align-items: center; flex-shrink: 0; }
 </style>

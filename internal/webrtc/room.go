@@ -8,14 +8,16 @@ import (
 )
 
 type Participant struct {
-	ID          string
-	Name        string
-	Conn        *webrtc.PeerConnection
-	AudioTrack  *webrtc.TrackLocalStaticRTP
-	VideoTrack  *webrtc.TrackLocalStaticRTP
-	ScreenTrack *webrtc.TrackLocalStaticRTP
-	IsMuted     bool
-	IsVideoOff  bool
+	ID              string
+	Name            string
+	Role            string
+	Conn            *webrtc.PeerConnection
+	SignalDC        *webrtc.DataChannel
+	AudioTrack      *webrtc.TrackLocalStaticRTP
+	VideoTrack      *webrtc.TrackLocalStaticRTP
+	ScreenTrack     *webrtc.TrackLocalStaticRTP
+	IsMuted         bool
+	IsVideoOff      bool
 	IsScreenSharing bool
 }
 
@@ -110,20 +112,25 @@ func (rm *RoomManager) RemoveParticipant(roomID, participantID string) {
 		return
 	}
 
-	room.mu.Lock()
-	defer room.mu.Unlock()
+	var connToClose *webrtc.PeerConnection
 
+	room.mu.Lock()
 	if p, exists := room.Participants[participantID]; exists {
-		if p.Conn != nil {
-			p.Conn.Close()
-		}
+		connToClose = p.Conn
 		delete(room.Participants, participantID)
 		slog.Info("participant left", "room_id", roomID, "participant_id", participantID)
+		empty := len(room.Participants) == 0
+		room.mu.Unlock()
 
-		if len(room.Participants) == 0 {
+		if connToClose != nil {
+			connToClose.Close()
+		}
+		if empty {
 			go rm.DeleteRoom(roomID)
 		}
+		return
 	}
+	room.mu.Unlock()
 }
 
 func (rm *RoomManager) GetParticipant(roomID, participantID string) *Participant {
@@ -179,6 +186,7 @@ func (rm *RoomManager) GetRoomParticipants(roomID string) []ParticipantInfo {
 		pi := ParticipantInfo{
 			ID:              p.ID,
 			Name:            p.Name,
+			Role:            p.Role,
 			IsMuted:         p.IsMuted,
 			IsVideoOff:      p.IsVideoOff,
 			IsScreenSharing: p.IsScreenSharing,
@@ -191,6 +199,7 @@ func (rm *RoomManager) GetRoomParticipants(roomID string) []ParticipantInfo {
 type ParticipantInfo struct {
 	ID              string `json:"id"`
 	Name            string `json:"name"`
+	Role            string `json:"role"`
 	IsMuted         bool   `json:"is_muted"`
 	IsVideoOff      bool   `json:"is_video_off"`
 	IsScreenSharing bool   `json:"is_screen_sharing"`
@@ -227,6 +236,7 @@ func (rm *RoomManager) getParticipantsLocked(room *Room) []ParticipantInfo {
 		pi := ParticipantInfo{
 			ID:              p.ID,
 			Name:            p.Name,
+			Role:            p.Role,
 			IsMuted:         p.IsMuted,
 			IsVideoOff:      p.IsVideoOff,
 			IsScreenSharing: p.IsScreenSharing,

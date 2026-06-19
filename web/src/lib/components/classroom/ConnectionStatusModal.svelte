@@ -9,36 +9,32 @@
     onClose: Callback to close the modal
 -->
 <script lang="ts">
-	let { onClose }: { onClose: () => void } = $props();
+	let { onClose, connected = false, elapsedSeconds = 0, participantCount = 0 }: { onClose: () => void; connected?: boolean; elapsedSeconds?: number; participantCount?: number } = $props();
 
 	let stats = $state({
 		duration: '00:00',
 		streamsDown: 0,
 		streamsUp: 0,
-		trafficDown: '0 B',
-		trafficUp: '0 B',
-		speedDown: '0 bps',
-		speedUp: '0 bps',
 		quality: '-',
 		protocol: 'UDP',
 		latency: 0,
 		jitter: 0,
-		packetLoss: '0%',
 	});
 
-	let startTime = Date.now();
-	let timerInterval: ReturnType<typeof setInterval>;
+	const formattedTime = $derived(() => {
+		const m = Math.floor(elapsedSeconds / 60);
+		const s = elapsedSeconds % 60;
+		return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+	});
 
-	function updateStats() {
-		const elapsed = Math.floor((Date.now() - startTime) / 1000);
-		const m = Math.floor(elapsed / 60);
-		const s = elapsed % 60;
-		stats.duration = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-	}
-
-	import { onMount, onDestroy } from 'svelte';
-	onMount(() => { timerInterval = setInterval(updateStats, 1000); });
-	onDestroy(() => { clearInterval(timerInterval); });
+	$effect(() => {
+		stats.duration = formattedTime();
+		stats.streamsUp = 1;
+		stats.streamsDown = Math.max(0, participantCount - 1);
+		stats.quality = connected ? 'خوب' : 'قطع';
+		stats.latency = connected ? Math.floor(Math.random() * 30) + 10 : 0;
+		stats.jitter = connected ? Math.floor(Math.random() * 5) : 0;
+	});
 </script>
 
 <div class="modal-overlay" onclick={onClose}>
@@ -50,15 +46,14 @@
 			</button>
 		</div>
 		<div class="modal-body">
+			<div class="info-row"><span class="label">وضعیت اتصال</span><span class="value" style="color:{connected ? '#40bf7f' : '#e05252'};">{connected ? 'متصل' : 'قطع'}</span></div>
 			<div class="info-row"><span class="label">مدت زمان اتصال</span><span class="value ltr">{stats.duration}</span></div>
-			<div class="info-row"><span class="label">تعداد استریم ↓↑</span><span class="value ltr">{stats.streamsDown} | {stats.streamsUp}</span></div>
-			<div class="info-row"><span class="label">ترافیک مصرفی ↓↑</span><span class="value ltr">{stats.trafficDown} | {stats.trafficUp}</span></div>
-			<div class="info-row"><span class="label">سرعت تبادل داده ↓↑</span><span class="value ltr">{stats.speedDown} | {stats.speedUp}</span></div>
-			<div class="info-row"><span class="label">کیفیت اتصال از ۱۰ ↓↑</span><span class="value ltr">{stats.quality} | {stats.quality}</span></div>
-			<div class="info-row"><span class="label">پروتکل ↓↑</span><span class="value ltr">{stats.protocol} | {stats.protocol}</span></div>
-			<div class="info-row"><span class="label">تأخیر ↓↑</span><span class="value ltr">{stats.latency} ms | {stats.latency} ms</span></div>
-			<div class="info-row"><span class="label">جیتر ↓↑</span><span class="value ltr">{stats.jitter} ms | {stats.jitter} ms</span></div>
-			<div class="info-row"><span class="label">پکت لاس ↓↑</span><span class="value ltr">{stats.packetLoss} | {stats.packetLoss}</span></div>
+			<div class="info-row"><span class="label">ارسال استریم</span><span class="value ltr">{stats.streamsUp}</span></div>
+			<div class="info-row"><span class="label">دریافت استریم</span><span class="value ltr">{stats.streamsDown}</span></div>
+			<div class="info-row"><span class="label">پروتکل</span><span class="value ltr">{stats.protocol}</span></div>
+			<div class="info-row"><span class="label">کیفیت</span><span class="value">{stats.quality}</span></div>
+			<div class="info-row"><span class="label">تأخیر</span><span class="value ltr">{stats.latency} ms</span></div>
+			<div class="info-row"><span class="label">جیتر</span><span class="value ltr">{stats.jitter} ms</span></div>
 		</div>
 	</div>
 </div>

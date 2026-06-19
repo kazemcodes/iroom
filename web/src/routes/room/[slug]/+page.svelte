@@ -151,6 +151,7 @@
 	import ConnectionStatusModal from '$lib/components/classroom/ConnectionStatusModal.svelte';
 	import SettingsModal from '$lib/components/classroom/SettingsModal.svelte';
 	import LayoutModal from '$lib/components/classroom/LayoutModal.svelte';
+	import AttendanceModal from '$lib/components/classroom/AttendanceModal.svelte';
 
 	let roomId = $state<number | null>(null);
 	let currentSession = $state<any>(null);
@@ -168,7 +169,15 @@
 	let showAppMenu = $state(false);
 	let showUsersMenu = $state(false);
 	let showChatMenu = $state(false);
-	let showModal = $state<'userInfo' | 'connection' | 'settings' | 'layout' | null>(null);
+	let chatDisabled = $state(false);
+	let chatPrivate = $state(false);
+	let whiteboardTool = $state<'pen' | 'eraser'>('pen');
+	let whiteboardColor = $state('#ffffff');
+	let whiteboardCanvas: HTMLCanvasElement | null = null;
+	let isDrawing = $state(false);
+	let lastX = $state(0);
+	let lastY = $state(0);
+	let showModal = $state<'userInfo' | 'connection' | 'settings' | 'layout' | 'attendance' | null>(null);
 	let joinNotification = $state<{ name: string; show: boolean }>({ name: '', show: false });
 	let menuPos = $state<{ top: number; left: number }>({ top: 0, left: 0 });
 	let participants = $state<Participant[]>([]);
@@ -176,6 +185,9 @@
 	let localVideoEl: HTMLVideoElement;
 	let remoteContainer: HTMLDivElement;
 	let chatWs: WebSocket | null = null;
+	let showWhiteboard = $state(false);
+	let showEntryModal = $state(false);
+	let entryMode = $state<'speaker' | 'listener'>('speaker');
 
 	const currentUserRole = $derived(($auth.user?.role || 'student') as UserRole);
 	const perms = $derived(ROLE_PERMISSIONS[currentUserRole] || ROLE_PERMISSIONS.student);
@@ -194,7 +206,19 @@
 		return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 	});
 
-	function handleClickOutside() { showUsersMenu = false; showChatMenu = false; showAppMenu = false; }
+	function handleClickOutside(e: MouseEvent) {
+		const target = e.target as HTMLElement;
+		if (!target.closest('.app-menu') && !target.closest('.skyroom-icon-square') && !target.closest('.skyroom-dots-btn') && !target.closest('.skyroom-context-menu')) {
+			showUsersMenu = false;
+			showChatMenu = false;
+			showAppMenu = false;
+		}
+	}
+
+	function positionMenu(e: MouseEvent) {
+		const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+		menuPos = { top: rect.bottom + 4, left: rect.left };
+	}
 
 	function connectChatWs() {
 		const token = localStorage.getItem('access_token');
@@ -203,7 +227,8 @@
 		chatWs = new WebSocket(`${proto}//${window.location.host}/ws/sessions/${roomId}?token=${token}`);
 		chatWs.onmessage = (event) => {
 			try {
-				const data = JSON.parse(event.data);
+				const raw = JSON.parse(event.data);
+				const data = raw.payload || raw;
 				if (data.type === 'message') {
 					const msg = data.message;
 					const isOwn = msg.user_id === $auth.user?.id;
@@ -214,6 +239,11 @@
 						time: new Date(msg.created_at).toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' }),
 						isOwn
 					}];
+				} else if (data.type === 'command') {
+					if (data.command === 'lower_hands') {
+						participants = participants.map(p => ({ ...p, handRaised: false }));
+						if (handRaised) handRaised = false;
+					}
 				}
 			} catch (e) {}
 		};
@@ -225,14 +255,30 @@
 		const joinRes = await api.get(`/sessions/${roomId}/classroom`);
 		if (!joinRes.success || !joinRes.data) return;
 		const { room_id, user_id, role } = joinRes.data;
+		const isListener = entryMode === 'listener';
 		try {
 			pion = new PionClient({
 				roomId: String(room_id), userId: String(user_id), role,
 				displayName: $auth.user?.display_name || 'کاربر',
+				userRole: role || 'student',
+				listener: isListener,
 			});
-			pion.onLocalStream = (stream) => { if (localVideoEl) localVideoEl.srcObject = stream; };
+			pion.onLocalStream = (stream) => {
+				if (localVideoEl) localVideoEl.srcObject = stream;
+				micOn = stream.getAudioTracks().length > 0 && stream.getAudioTracks()[0].enabled;
+				webcamOn = stream.getVideoTracks().length > 0 && stream.getVideoTracks()[0].enabled;
+				// Update local user media state
+				participants = participants.map(p => {
+					if (p.id === String(user_id)) {
+						return { ...p, hasAudio: micOn, hasVideo: webcamOn, isLocal: true };
+					}
+					return p;
+				});
+			};
 			pion.onRemoteStream = (stream, participantId) => {
 				if (remoteContainer) {
+					const existingEl = document.getElementById(`track-${participantId}`);
+					if (existingEl) existingEl.remove();
 					const el = document.createElement('video');
 					el.id = `track-${participantId}`;
 					el.autoplay = true;
@@ -240,6 +286,13 @@
 					el.className = 'w-full h-full object-cover rounded-lg';
 					remoteContainer.appendChild(el);
 					el.srcObject = stream;
+					// Update remote user media state
+					participants = participants.map(p => {
+						if (p.id === participantId) {
+							return { ...p, hasAudio: stream.getAudioTracks().length > 0, hasVideo: stream.getVideoTracks().length > 0 };
+						}
+						return p;
+					});
 				}
 			};
 			await pion.connect();
@@ -267,12 +320,33 @@
 	function toggleWebcam() { if (!perms.canWebcam) return; if (pion) pion.toggleVideo(); webcamOn = !webcamOn; }
 	function toggleScreenShare() { if (!perms.canScreenShare) return; if (pion && !screenShareOn) pion.shareScreen(); screenShareOn = !screenShareOn; }
 	function toggleHand() { if (!perms.canHandRaise) return; handRaised = !handRaised; }
+	function lowerAllHands() {
+		if (chatWs && chatWs.readyState === WebSocket.OPEN) {
+			chatWs.send(JSON.stringify({ type: 'command', command: 'lower_hands' }));
+		}
+		participants = participants.map(p => ({ ...p, handRaised: false }));
+	}
 	function sendChatMessage(text: string) {
-		if (!perms.canChat || !chatWs || chatWs.readyState !== WebSocket.OPEN) return;
+		if (!perms.canChat || chatDisabled || !chatWs || chatWs.readyState !== WebSocket.OPEN) return;
 		chatWs.send(JSON.stringify({ type: 'message', content: text }));
 	}
-	function leaveRoom() { disconnect(); auth.logout(); goto('/'); }
-	function positionMenu(e: MouseEvent) { const rect = (e.currentTarget as HTMLElement).getBoundingClientRect(); menuPos = { top: rect.bottom + 4, left: rect.left }; }
+	function leaveRoom() {
+		if (confirm('آیا از خروج از اتاق اطمینان دارید؟')) {
+			disconnect();
+			auth.logout();
+			goto('/');
+		}
+	}
+
+	async function closeRoom() {
+		if (!confirm('آیا از بستن اتاق اطمینان دارید؟ تمام کاربران قطع خواهند شد.')) return;
+		if (roomId) {
+			await api.post(`/sessions/${roomId}/end`);
+		}
+		disconnect();
+		auth.logout();
+		goto('/');
+	}
 	function showJoinNotification(name: string) { joinNotification = { name, show: true }; setTimeout(() => { joinNotification = { name: '', show: false }; }, 3000); }
 
 	async function fetchParticipants() {
@@ -280,10 +354,26 @@
 		try {
 			const res = await api.get<any[]>(`/sessions/${roomId}/classroom/participants`);
 			if (res.success && Array.isArray(res.data)) {
-				participants = res.data.map((p: any) => ({
-					id: p.id, name: p.name, role: 'student' as UserRole,
-					isSpeaking: false, hasVideo: false, hasAudio: true, hasScreen: false, hasWhiteboard: false, handRaised: false,
-				}));
+				const serverIds = new Set(res.data.map((p: any) => p.id));
+				// Merge: keep local state for existing participants, add new ones from server
+				participants = [
+					...participants.filter(p => serverIds.has(p.id)).map(p => {
+						const serverP = res.data.find((s: any) => s.id === p.id);
+						return {
+							...p,
+							name: serverP?.name ?? p.name,
+							role: (serverP?.role ?? p.role) as UserRole,
+							isSpeaking: p.isSpeaking,
+							isLocal: p.isLocal,
+							handRaised: p.handRaised,
+						};
+					}),
+					...res.data.filter((p: any) => !participants.find(ep => ep.id === p.id)).map((p: any) => ({
+						id: p.id, name: p.name, role: (p.role || 'student') as UserRole,
+						isSpeaking: false, hasVideo: !p.is_video_off, hasAudio: !p.is_muted,
+						hasScreen: p.is_screen_sharing || false, hasWhiteboard: false, handRaised: false,
+					})),
+				];
 			}
 		} catch (e) {}
 	}
@@ -296,6 +386,73 @@
 			startTimer();
 		}
 	}
+
+	// Whiteboard functions
+	function initWhiteboard() {
+		const canvas = document.getElementById('whiteboard-canvas') as HTMLCanvasElement;
+		if (!canvas) return;
+		whiteboardCanvas = canvas;
+		const ctx = canvas.getContext('2d');
+		if (!ctx) return;
+
+		canvas.width = canvas.offsetWidth;
+		canvas.height = canvas.offsetHeight;
+
+		ctx.fillStyle = '#1c2a3a';
+		ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+		canvas.addEventListener('mousedown', startDrawing);
+		canvas.addEventListener('mousemove', draw);
+		canvas.addEventListener('mouseup', stopDrawing);
+		canvas.addEventListener('mouseout', stopDrawing);
+	}
+
+	function startDrawing(e: MouseEvent) {
+		isDrawing = true;
+		const canvas = whiteboardCanvas;
+		if (!canvas) return;
+		const rect = canvas.getBoundingClientRect();
+		lastX = e.clientX - rect.left;
+		lastY = e.clientY - rect.top;
+	}
+
+	function draw(e: MouseEvent) {
+		if (!isDrawing || !whiteboardCanvas) return;
+		const ctx = whiteboardCanvas.getContext('2d');
+		if (!ctx) return;
+		const rect = whiteboardCanvas.getBoundingClientRect();
+		const x = e.clientX - rect.left;
+		const y = e.clientY - rect.top;
+
+		ctx.beginPath();
+		ctx.moveTo(lastX, lastY);
+		ctx.lineTo(x, y);
+		ctx.strokeStyle = whiteboardTool === 'eraser' ? '#1c2a3a' : whiteboardColor;
+		ctx.lineWidth = whiteboardTool === 'eraser' ? 20 : 2;
+		ctx.lineCap = 'round';
+		ctx.stroke();
+
+		lastX = x;
+		lastY = y;
+	}
+
+	function stopDrawing() {
+		isDrawing = false;
+	}
+
+	function clearWhiteboard() {
+		if (!whiteboardCanvas) return;
+		const ctx = whiteboardCanvas.getContext('2d');
+		if (!ctx) return;
+		ctx.fillStyle = '#1c2a3a';
+		ctx.fillRect(0, 0, whiteboardCanvas.width, whiteboardCanvas.height);
+	}
+
+	$effect(() => {
+		if (showWhiteboard) {
+			setTimeout(initWhiteboard, 100);
+		}
+	});
 </script>
 
 <svelte:window onclick={handleClickOutside} />
@@ -346,7 +503,7 @@
 				</div>
 				<p style="color:var(--text-secondary);font-size:var(--font-size);">{$auth.user?.display_name || 'کاربر'}</p>
 				{#if currentSession?.status === 'live'}
-					<button onclick={joinClassroom} class="skyroom-btn">پیوستن به کلاس</button>
+					<button onclick={() => showEntryModal = true} class="skyroom-btn">پیوستن به کلاس</button>
 				{:else if currentSession?.status === 'scheduled'}
 					<p style="color:var(--inactive);font-size:var(--font-size-sm);">جلسه هنوز شروع نشده</p>
 					{#if isPresenterOrAbove}<button onclick={startSession} class="skyroom-btn" style="background:#f59e0b;">شروع جلسه</button>{/if}
@@ -375,6 +532,7 @@
 					<div style="flex:1;"></div>
 					<div class="skyroom-row" style="flex-shrink:0;gap:4px;">
 						{#if perms.canHandRaise}<button class="skyroom-icon-square" class:active={handRaised} title="بالا بردن دست" onclick={toggleHand}><svg width="18" height="18"><use xlink:href="#shape_hand"></use></svg></button>{/if}
+						{#if perms.canWhiteboard}<button class="skyroom-icon-square" class:active={showWhiteboard} title="تخته" onclick={() => showWhiteboard = !showWhiteboard}><svg width="18" height="18"><use xlink:href="#shape_brush"></use></svg></button>{/if}
 						{#if perms.canScreenShare}<button class="skyroom-icon-square" class:active={screenShareOn} title="اشتراک‌گذاری صفحه" onclick={toggleScreenShare}><svg width="18" height="18"><use xlink:href="#shape_laptop"></use></svg></button>{/if}
 						{#if perms.canWebcam}<button class="skyroom-icon-square" class:active={webcamOn} title="وبکم" onclick={toggleWebcam}><svg width="18" height="18"><use xlink:href={webcamOn ? '#shape_videocam' : '#shape_videocamoff'}></use></svg></button>{/if}
 						{#if perms.canMic}<button class="skyroom-icon-square" class:active={micOn} title="میکروفون" onclick={toggleMic}><svg width="18" height="18"><use xlink:href={micOn ? '#shape_mic' : '#shape_mic_off'}></use></svg></button>{/if}
@@ -389,35 +547,142 @@
 									<div class="skyroom-block-header">
 										<div class="skyroom-block-title"><div class="skyroom-block-title-content">کاربران</div></div>
 										<span class="skyroom-users-count">{participants.length}</span>
+										<div style="position:relative;">
+											<button class="skyroom-dots-btn" onclick={(e) => { e.stopPropagation(); positionMenu(e); showUsersMenu = !showUsersMenu; }}>
+												<svg width="16" height="16"><use xlink:href="#shape_more_vert"></use></svg>
+											</button>
+											{#if showUsersMenu}
+												<div class="skyroom-context-menu" style="top:{menuPos.top}px;left:{menuPos.left}px;" onclick={(e) => e.stopPropagation()}>
+													<div class="ctx-item" onclick={() => { showUsersMenu = false; showUsersPanel = true; }}>نمایش کاربران</div>
+													<div class="ctx-item" onclick={() => { showUsersMenu = false; lowerAllHands(); }}>پایین آوردن دست‌ها</div>
+													<div class="ctx-item" onclick={() => { showUsersMenu = false; showModal = 'attendance'; }}>حضور و غیاب</div>
+													<div class="ctx-separator"></div>
+													<div class="ctx-item" onclick={() => { showUsersMenu = false; showUsersPanel = false; }}>بستن</div>
+												</div>
+											{/if}
+										</div>
 									</div>
 									<div class="skyroom-block-content">
 										<div class="skyroom-users-list-wrapper"><div class="skyroom-users-list">
-											{#each participants as p}<div class="skyroom-user-row"><div class="skyroom-user-icon"><svg width="24" height="24" style="vertical-align:middle;fill:var(--text-color);width:16px;height:16px;display:inline-block;"><use xlink:href="#shape_person"></use></svg></div><div class="skyroom-user-nickname">{p.name}</div></div>{/each}
+											{#each participants as p}
+												<div class="skyroom-user-row">
+													<div class="skyroom-user-icon"><svg width="24" height="24" style="vertical-align:middle;fill:var(--text-color);width:16px;height:16px;display:inline-block;"><use xlink:href="#shape_person"></use></svg></div>
+													<div class="skyroom-user-nickname">{p.name}{#if p.isLocal} <span style="font-size:10px;color:var(--accent);">(شما)</span>{/if}</div>
+													<div class="skyroom-user-media">
+														<span class="media-icon" class:muted={!p.hasAudio} class:speaking={p.isSpeaking && p.hasAudio} title={p.hasAudio ? 'میکروفون فعال' : 'میکروفون خاموش'}>
+															<svg width="14" height="14"><use xlink:href={p.hasAudio ? '#shape_mic' : '#shape_mic_off'}></use></svg>
+														</span>
+														<span class="media-icon" class:muted={!p.hasVideo} title={p.hasVideo ? 'وبکم فعال' : 'وبکم خاموش'}>
+															<svg width="14" height="14"><use xlink:href={p.hasVideo ? '#shape_videocam' : '#shape_videocamoff'}></use></svg>
+														</span>
+														{#if p.handRaised}
+															<span class="media-icon hand-raised" title="دست بلند">
+																<svg width="14" height="14" style="fill:#f59e0b;"><use xlink:href="#shape_hand"></use></svg>
+															</span>
+														{/if}
+													</div>
+												</div>
+											{/each}
 										</div></div>
 									</div>
 								</div>
 							{/if}
 							{#if showChatPanel}
 								<div class="skyroom-block skyroom-chat-block" style="flex:1;min-height:0;">
-									<div class="skyroom-block-header"><div class="skyroom-block-title"><div class="skyroom-block-title-content">پیام‌ها</div></div></div>
+									<div class="skyroom-block-header">
+										<div class="skyroom-block-title"><div class="skyroom-block-title-content">پیام‌ها</div></div>
+										<div style="position:relative;">
+											<button class="skyroom-dots-btn" onclick={(e) => { e.stopPropagation(); positionMenu(e); showChatMenu = !showChatMenu; }}>
+												<svg width="16" height="16"><use xlink:href="#shape_more_vert"></use></svg>
+											</button>
+											{#if showChatMenu}
+												<div class="skyroom-context-menu" style="top:{menuPos.top}px;left:{menuPos.left}px;" onclick={(e) => e.stopPropagation()}>
+													<div class="ctx-item" onclick={() => { showChatMenu = false; }}>نمایش بزرگتر</div>
+													<div class="ctx-item" onclick={() => { showChatMenu = false; chatDisabled = !chatDisabled; }}>غیرفعال‌سازی چت</div>
+													<div class="ctx-item" onclick={() => { showChatMenu = false; chatPrivate = !chatPrivate; }}>حالت خصوصی</div>
+													<div class="ctx-item" onclick={() => { showChatMenu = false; chatMessages = []; }}>پاک کردن همه پیام‌ها</div>
+													<div class="ctx-separator"></div>
+													<div class="ctx-item" onclick={() => { showChatMenu = false; }}>بستن</div>
+												</div>
+											{/if}
+										</div>
+									</div>
 									<div class="skyroom-block-content" style="flex:1;min-height:0;"><ChatPanel messages={chatMessages} isAdmin={perms.canMic} onSend={sendChatMessage} onClose={() => showChatPanel = false} /></div>
 								</div>
 							{/if}
 						</div>
 					{/if}
-					<div class="skyroom-mainbar">
-						<div bind:this={remoteContainer} style="position:absolute;inset:0;display:grid;{gridCols};gap:4px;padding:4px;"></div>
+				<div class="skyroom-mainbar">
+					{#if showWhiteboard}
+						<div class="whiteboard-container">
+							<canvas id="whiteboard-canvas" class="whiteboard-canvas"></canvas>
+							<div class="whiteboard-tools">
+								<button class="skyroom-icon-square" class:active={whiteboardTool === 'pen'} onclick={() => whiteboardTool = 'pen'} title="مداد">
+									<svg width="18" height="18"><use xlink:href="#shape_brush"></use></svg>
+								</button>
+								<button class="skyroom-icon-square" class:active={whiteboardTool === 'eraser'} onclick={() => whiteboardTool = 'eraser'} title="پاک‌کن">
+									<svg width="18" height="18"><use xlink:href="#shape_clear"></use></svg>
+								</button>
+								<input type="color" bind:value={whiteboardColor} class="w-8 h-8 rounded cursor-pointer" title="رنگ" />
+								<button class="skyroom-icon-square" onclick={clearWhiteboard} title="پاک کردن همه">
+									<svg width="18" height="18"><use xlink:href="#shape_power_settings_new"></use></svg>
+								</button>
+								<button class="skyroom-icon-square" onclick={() => showWhiteboard = false} title="بستن تخته">
+									<svg width="18" height="18"><use xlink:href="#shape_exit"></use></svg>
+								</button>
+							</div>
+						</div>
+					{:else}
+						<div bind:this={remoteContainer} style="position:absolute;inset:0;display:grid;{gridCols};gap:4px;padding:4px;pointer-events:{connected ? 'auto' : 'none'};"></div>
 						<div class="absolute bottom-4 left-3 w-36 h-28 rounded overflow-hidden border border-[#3a3a5a]"><video bind:this={localVideoEl} autoplay muted playsinline class="w-full h-full object-cover"></video></div>
-					</div>
+					{/if}
+				</div>
 				</div>
 			</div>
 		{/if}
-		{#if showAppMenu}<AppMenu userRole={currentUserRole} onUserInfo={() => showModal = 'userInfo'} onConnectionStatus={() => showModal = 'connection'} onSettings={() => showModal = 'settings'} onLayout={() => showModal = 'layout'} onLeave={leaveRoom} onCloseRoom={leaveRoom} onDismiss={() => showAppMenu = false} />{/if}
+		{#if showAppMenu}<AppMenu userRole={currentUserRole} onUserInfo={() => showModal = 'userInfo'} onConnectionStatus={() => showModal = 'connection'} onSettings={() => showModal = 'settings'} onLayout={() => showModal = 'layout'} onLeave={leaveRoom} onCloseRoom={closeRoom} onDismiss={() => showAppMenu = false} />{/if}
 		{#if joinNotification.show}<div class="join-toast"><svg width="16" height="16" style="fill:#23b9d7;"><use xlink:href="#shape_group"></use></svg><span>{joinNotification.name} به کلاس پیوست</span></div>{/if}
 		{#if showModal === 'userInfo'}<UserInfoModal onClose={() => showModal = null} />
-		{:else if showModal === 'connection'}<ConnectionStatusModal onClose={() => showModal = null} />
+		{:else if showModal === 'connection'}<ConnectionStatusModal onClose={() => showModal = null} connected={connected} elapsedSeconds={elapsedSeconds} participantCount={participants.length} />
 		{:else if showModal === 'settings'}<SettingsModal onClose={() => showModal = null} />
-		{:else if showModal === 'layout'}<LayoutModal showUsers={showUsersPanel} showChat={showChatPanel} onToggleUsers={() => showUsersPanel = !showUsersPanel} onToggleChat={() => showChatPanel = !showChatPanel} onClose={() => showModal = null} />{/if}
+		{:else if showModal === 'layout'}<LayoutModal showUsers={showUsersPanel} showChat={showChatPanel} onToggleUsers={() => showUsersPanel = !showUsersPanel} onToggleChat={() => showChatPanel = !showChatPanel} onClose={() => showModal = null} />
+		{:else if showModal === 'attendance'}<AttendanceModal participants={participants} onClose={() => showModal = null} />{/if}
+	</div>
+{/if}
+
+{#if showEntryModal}
+	<div class="entry-modal-overlay" onclick={() => showEntryModal = false}>
+		<div class="entry-modal" onclick={(e) => e.stopPropagation()}>
+			<div class="entry-modal-header">
+				<span>نحوه ورود</span>
+			</div>
+			<div class="entry-modal-body">
+				<p style="color:var(--text-secondary);font-size:var(--font-size);margin-bottom:16px;text-align:center;">نحوه ورود خود به اتاق را انتخاب کنید</p>
+				<div class="entry-options">
+					<button class="entry-option" class:selected={entryMode === 'speaker'} onclick={() => entryMode = 'speaker'}>
+						<div class="entry-option-icon speaker">
+							<svg width="24" height="24"><use xlink:href="#shape_mic"></use></svg>
+						</div>
+						<div class="entry-option-text">
+							<span class="entry-option-title">ورود به عنوان گوینده</span>
+							<span class="entry-option-desc">میکروفون و وبکم فعال</span>
+						</div>
+					</button>
+					<button class="entry-option" class:selected={entryMode === 'listener'} onclick={() => entryMode = 'listener'}>
+						<div class="entry-option-icon listener">
+							<svg width="24" height="24"><use xlink:href="#shape_volume_off"></use></svg>
+						</div>
+						<div class="entry-option-text">
+							<span class="entry-option-title">ورود به عنوان شنونده</span>
+							<span class="entry-option-desc">فقط مشاهده و گوش دادن</span>
+						</div>
+					</button>
+				</div>
+			</div>
+			<div class="entry-modal-footer">
+				<button class="skyroom-btn" onclick={() => { showEntryModal = false; joinClassroom(); }}>ورود به اتاق</button>
+			</div>
+		</div>
 	</div>
 {/if}
 
@@ -437,6 +702,8 @@
 	<symbol id="shape_slideshow" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zM7 10h2v7H7zm4-3h2v10h-2zm4 6h2v4h-2z"/></symbol>
 	<symbol id="shape_hand" viewBox="0 0 24 24"><path d="M21 7c0-1.38-1.12-2.5-2.5-2.5-.17 0-.34.02-.5.05V4c0-1.38-1.12-2.5-2.5-2.5-.23 0-.46.03-.67.09C14.46.66 13.56 0 12.5 0c-1.23 0-2.25.89-2.46 2.06C9.87 2.02 9.69 2 9.5 2 8.12 2 7 3.12 7 4.5v5.89c-.34-.31-.76-.55-1.22-.67C4.56 9.56 3.28 10.33 3 11.58V20c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V7z"/></symbol>
 	<symbol id="shape_person" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></symbol>
+	<symbol id="shape_check" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></symbol>
+	<symbol id="shape_block" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM4 12c0-4.42 3.58-8 8-8 1.85 0 3.55.63 4.9 1.69L5.69 16.9C4.63 15.55 4 13.85 4 12zm8 8c-1.85 0-3.55-.63-4.9-1.69L18.31 7.1C19.37 8.45 20 10.15 20 12c0 4.42-3.58 8-8 8z"/></symbol>
 	<symbol id="shape_menu" viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></symbol>
 	<symbol id="shape_more_vert" viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></symbol>
 	<symbol id="shape_exit" viewBox="0 0 24 24"><path d="M10.09 15.59L11.5 17l5-5-5-5-1.41 1.41L12.67 11H3v2h9.67l-2.58 2.59zM19 3H5c-1.11 0-2 .9-2 2v4h2V5h14v14H5v-4H3v4c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/></symbol>
@@ -473,5 +740,35 @@
 	.skyroom-icon-square svg { fill: currentColor; }
 	.skyroom-btn { background-color: var(--accent); padding: 10px 28px; border-radius: var(--radius-sm); border: none; cursor: pointer; font-family: var(--font-family); font-size: var(--font-size); font-weight: 600; color: #fff; transition: all 0.2s ease; }
 	.skyroom-btn:hover { background: #1a9fc0; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(35, 185, 215, 0.3); }
+	.skyroom-context-menu { position: fixed; background: #1c2a3a; border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); z-index: 9999; min-width: 180px; padding: 4px 0; animation: menuFadeIn 0.12s ease; }
+	@keyframes menuFadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+	.ctx-item { padding: 8px 14px; cursor: pointer; color: #e0e0e6; font-size: 0.8rem; transition: background 0.12s; }
+	.ctx-item:hover { background: rgba(255,255,255,0.06); }
+	.ctx-separator { height: 1px; background: rgba(255,255,255,0.08); margin: 3px 0; }
+	.skyroom-user-media { display: flex; align-items: center; gap: 3px; margin-left: auto; flex-shrink: 0; }
+	.media-icon { display: flex; align-items: center; justify-content: center; }
+	.media-icon svg { fill: #40bf7f; }
+	.media-icon.muted svg { fill: #5a6070; opacity: 0.5; }
+	.media-icon.hand-raised svg { fill: #f59e0b; }
+	.whiteboard-container { position: absolute; inset: 0; background: #1c2a3a; }
+	.whiteboard-canvas { width: 100%; height: 100%; cursor: crosshair; }
+	.whiteboard-tools { position: absolute; top: 8px; right: 8px; display: flex; gap: 4px; background: rgba(28,42,58,0.9); padding: 4px; border-radius: 8px; z-index: 10; }
 	.join-toast { position: fixed; top: 60px; left: 50%; transform: translateX(-50%); background: #1c2a3a; border: 1px solid rgba(35, 185, 215, 0.3); color: #e0e0e6; padding: 8px 16px; border-radius: 8px; font-size: 0.8rem; display: flex; align-items: center; gap: 8px; z-index: 150; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+	.entry-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 200; animation: fadeIn 0.15s ease; }
+	.entry-modal { background: #1c2a3a; border-radius: 12px; width: 380px; max-width: 90vw; box-shadow: 0 12px 40px rgba(0,0,0,0.5); animation: slideUp 0.2s ease; }
+	.entry-modal-header { padding: 16px; border-bottom: 1px solid rgba(255,255,255,0.08); font-weight: 600; font-size: 0.95rem; color: #e0e0e6; text-align: center; }
+	.entry-modal-body { padding: 20px 16px; }
+	.entry-options { display: flex; flex-direction: column; gap: 10px; }
+	.entry-option { display: flex; align-items: center; gap: 14px; padding: 14px; border-radius: 10px; border: 2px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.03); cursor: pointer; transition: all 0.2s ease; text-align: right; width: 100%; font-family: inherit; }
+	.entry-option:hover { border-color: rgba(35, 185, 215, 0.3); background: rgba(35, 185, 215, 0.05); }
+	.entry-option.selected { border-color: var(--accent); background: rgba(35, 185, 215, 0.1); }
+	.entry-option-icon { width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+	.entry-option-icon.speaker { background: rgba(64, 191, 127, 0.15); color: #40bf7f; }
+	.entry-option-icon.listener { background: rgba(138, 138, 150, 0.15); color: #8a8a96; }
+	.entry-option-icon svg { fill: currentColor; }
+	.entry-option-text { display: flex; flex-direction: column; gap: 2px; }
+	.entry-option-title { font-size: 0.85rem; font-weight: 600; color: #e0e0e6; }
+	.entry-option-desc { font-size: 0.75rem; color: #8a8a96; }
+	.entry-modal-footer { padding: 16px; border-top: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: center; }
+	.media-icon.speaking svg { fill: #3b82f6; }
 </style>

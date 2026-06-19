@@ -12,15 +12,17 @@ import (
 )
 
 type SignalingServer struct {
-	roomManager *RoomManager
-	rtcConfig   webrtc.Configuration
-	mu          sync.Mutex
+	roomManager      *RoomManager
+	rtcConfig        webrtc.Configuration
+	mu               sync.Mutex
+	pendingCandidates map[string][]webrtc.ICECandidateInit // key: "roomID:userID"
 }
 
 func NewSignalingServer(rtcConfig webrtc.Configuration) *SignalingServer {
 	return &SignalingServer{
-		roomManager: NewRoomManager(),
-		rtcConfig:   rtcConfig,
+		roomManager:       NewRoomManager(),
+		rtcConfig:         rtcConfig,
+		pendingCandidates: make(map[string][]webrtc.ICECandidateInit),
 	}
 }
 
@@ -33,6 +35,7 @@ type OfferRequest struct {
 	RoomID string `json:"room_id"`
 	UserID string `json:"user_id"`
 	Name   string `json:"name"`
+	Role   string `json:"role"`
 }
 
 type AnswerResponse struct {
@@ -66,7 +69,7 @@ func (ss *SignalingServer) HandleOffer(c echo.Context) error {
 	// Ensure room exists before adding participant
 	ss.roomManager.GetOrCreateRoom(req.RoomID, 50, 0)
 
-	peerConn, err := ss.createPeerConnection(req.UserID, req.RoomID)
+	peerConn, signalDC, err := ss.createPeerConnection(req.UserID, req.RoomID)
 	if err != nil {
 		slog.Error("failed to create peer connection", "error", err, "user_id", req.UserID)
 		return response.InternalError(c, "خطا در ایجاد اتصال")
@@ -94,14 +97,55 @@ func (ss *SignalingServer) HandleOffer(c echo.Context) error {
 	}
 
 	participant := &Participant{
-		ID:   req.UserID,
-		Name: req.Name,
-		Conn: peerConn,
+		ID:       req.UserID,
+		Name:     req.Name,
+		Role:     req.Role,
+		Conn:     peerConn,
+		SignalDC: signalDC,
 	}
 
 	if err := ss.roomManager.AddParticipant(req.RoomID, participant); err != nil {
 		peerConn.Close()
 		return response.InternalError(c, err.Error())
+	}
+
+	// Flush any ICE candidates that arrived before the participant was added
+	key := req.RoomID + ":" + req.UserID
+	ss.mu.Lock()
+	pending := ss.pendingCandidates[key]
+	delete(ss.pendingCandidates, key)
+	ss.mu.Unlock()
+	for _, c := range pending {
+		if err := peerConn.AddICECandidate(c); err != nil {
+			slog.Error("failed to add buffered ICE candidate", "error", err, "user_id", req.UserID)
+		}
+	}
+
+	// Catch-up: send existing participants' tracks to the new joiner
+	room := ss.roomManager.GetRoom(req.RoomID)
+	if room != nil {
+		room.mu.RLock()
+		for _, existing := range room.Participants {
+			if existing.ID == req.UserID {
+				continue
+			}
+			if existing.AudioTrack != nil {
+				if _, err := peerConn.AddTrack(existing.AudioTrack); err != nil {
+					slog.Error("failed to add existing audio track to new joiner", "error", err, "from", existing.ID, "to", req.UserID)
+				}
+			}
+			if existing.VideoTrack != nil {
+				if _, err := peerConn.AddTrack(existing.VideoTrack); err != nil {
+					slog.Error("failed to add existing video track to new joiner", "error", err, "from", existing.ID, "to", req.UserID)
+				}
+			}
+			if existing.ScreenTrack != nil {
+				if _, err := peerConn.AddTrack(existing.ScreenTrack); err != nil {
+					slog.Error("failed to add existing screen track to new joiner", "error", err, "from", existing.ID, "to", req.UserID)
+				}
+			}
+		}
+		room.mu.RUnlock()
 	}
 
 	ss.broadcastParticipantJoined(req.RoomID, req.UserID, req.Name)
@@ -123,12 +167,21 @@ func (ss *SignalingServer) HandleCandidate(c echo.Context) error {
 
 	participant := ss.roomManager.GetParticipant(req.RoomID, req.UserID)
 	if participant == nil || participant.Conn == nil {
-		return response.NotFound(c, "شرکت‌کننده یافت نشد")
+		// Buffer candidate — may arrive before participant is added
+		key := req.RoomID + ":" + req.UserID
+		ss.mu.Lock()
+		ss.pendingCandidates[key] = append(ss.pendingCandidates[key], webrtc.ICECandidateInit{
+			Candidate:     req.Candidate,
+			SDPMid:        req.SDPMid,
+			SDPMLineIndex: req.SDPMLineIndex,
+		})
+		ss.mu.Unlock()
+		return response.Success(c, map[string]string{"status": "buffered"})
 	}
 
 	candidate := webrtc.ICECandidateInit{
-		Candidate:  req.Candidate,
-		SDPMid:     req.SDPMid,
+		Candidate:     req.Candidate,
+		SDPMid:        req.SDPMid,
 		SDPMLineIndex: req.SDPMLineIndex,
 	}
 
@@ -141,12 +194,18 @@ func (ss *SignalingServer) HandleCandidate(c echo.Context) error {
 }
 
 func (ss *SignalingServer) HandleLeave(c echo.Context) error {
-	roomID := c.Param("roomId")
+	roomID := c.Param("id")
 	userID := c.Param("userId")
 
 	if roomID == "" || userID == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "missing required fields")
 	}
+
+	// Clean up pending candidates
+	key := roomID + ":" + userID
+	ss.mu.Lock()
+	delete(ss.pendingCandidates, key)
+	ss.mu.Unlock()
 
 	room := ss.roomManager.GetRoom(roomID)
 	if room != nil {
@@ -161,7 +220,7 @@ func (ss *SignalingServer) HandleLeave(c echo.Context) error {
 }
 
 func (ss *SignalingServer) HandleRoomInfo(c echo.Context) error {
-	roomID := c.Param("roomId")
+	roomID := c.Param("id")
 	if roomID == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "missing room ID")
 	}
@@ -174,10 +233,10 @@ func (ss *SignalingServer) HandleRoomInfo(c echo.Context) error {
 	return c.JSON(http.StatusOK, stats)
 }
 
-func (ss *SignalingServer) createPeerConnection(userID, roomID string) (*webrtc.PeerConnection, error) {
+func (ss *SignalingServer) createPeerConnection(userID, roomID string) (*webrtc.PeerConnection, *webrtc.DataChannel, error) {
 	peerConn, err := webrtc.NewPeerConnection(ss.rtcConfig)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	peerConn.OnICECandidate(func(candidate *webrtc.ICECandidate) {
@@ -199,7 +258,7 @@ func (ss *SignalingServer) createPeerConnection(userID, roomID string) (*webrtc.
 		localTrack, err := webrtc.NewTrackLocalStaticRTP(
 			remoteTrack.Codec().RTPCodecCapability,
 			remoteTrack.ID(),
-			remoteTrack.StreamID(),
+			userID, // Use sender's user ID as stream ID for client identification
 		)
 		if err != nil {
 			slog.Error("failed to create local track", "error", err)
@@ -232,7 +291,13 @@ func (ss *SignalingServer) createPeerConnection(userID, roomID string) (*webrtc.
 		})
 	})
 
-	return peerConn, nil
+	// Create a signaling data channel for room events
+	signalDC, err := peerConn.CreateDataChannel("signal", nil)
+	if err != nil {
+		slog.Error("failed to create signal data channel", "error", err)
+	}
+
+	return peerConn, signalDC, nil
 }
 
 func (ss *SignalingServer) forwardTrack(remoteTrack *webrtc.TrackRemote, localTrack *webrtc.TrackLocalStaticRTP, roomID, userID string) {
@@ -300,15 +365,9 @@ func (ss *SignalingServer) broadcastToRoom(roomID string, message interface{}) {
 	}
 
 	for _, p := range room.Participants {
-		if p.Conn != nil && p.Conn.ConnectionState() == webrtc.PeerConnectionStateConnected {
-			for _, sender := range p.Conn.GetSenders() {
-				if sender.Track() != nil {
-						if track, ok := sender.Track().(*webrtc.TrackLocalStaticRTP); ok {
-						if track.Kind() == webrtc.RTPCodecTypeVideo {
-							track.Write(data)
-						}
-					}
-				}
+		if p.SignalDC != nil && p.SignalDC.ReadyState() == webrtc.DataChannelStateOpen {
+			if err := p.SignalDC.SendText(string(data)); err != nil {
+				slog.Error("failed to send signal via data channel", "error", err, "user_id", p.ID)
 			}
 		}
 	}
