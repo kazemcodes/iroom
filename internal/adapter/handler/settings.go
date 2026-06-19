@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"fmt"
+
 	"github.com/iroom/iroom/internal/domain/usecase"
 	"github.com/iroom/iroom/internal/pkg/response"
 	"github.com/labstack/echo/v4"
@@ -42,16 +44,7 @@ func (h *SettingsHandler) Update(c echo.Context) error {
 		case string:
 			settings[k] = val
 		case float64:
-			// Validate numeric settings
-			if k == "max_users_per_room" || k == "max_file_size_mb" || k == "session_auto_end_minutes" || k == "session_timeout_minutes" {
-				if val < 0 {
-					return response.BadRequest(c, "مقدار نمی‌تواند منفی باشد")
-				}
-				if val == 0 && (k == "session_timeout_minutes" || k == "max_users_per_room") {
-					return response.BadRequest(c, "مقدار نمی‌تواند صفر باشد")
-				}
-			}
-			settings[k] = string(rune(int(val)))
+			settings[k] = fmt.Sprintf("%d", int(val))
 		}
 	}
 

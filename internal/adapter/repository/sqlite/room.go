@@ -178,3 +178,40 @@ func (r *RoomRepo) GetUserCount(roomID int64) (int, error) {
 	err := r.db.QueryRow(`SELECT COUNT(*) FROM room_users WHERE room_id = ?`, roomID).Scan(&count)
 	return count, err
 }
+
+// Room Settings
+
+func (r *RoomRepo) GetSettings(roomID int64) (*entity.RoomSettings, error) {
+	s := &entity.RoomSettings{}
+	err := r.db.QueryRow(
+		`SELECT room_id, max_users, recording_enabled, allow_student_video, allow_student_audio,
+		 allow_student_screen_share, allow_student_whiteboard, allow_student_chat,
+		 session_auto_end_minutes, waiting_room_enabled FROM room_settings WHERE room_id = ?`, roomID,
+	).Scan(&s.RoomID, &s.MaxUsers, &s.RecordingEnabled, &s.AllowStudentVideo, &s.AllowStudentAudio,
+		&s.AllowStudentScreenShare, &s.AllowStudentWhiteboard, &s.AllowStudentChat,
+		&s.SessionAutoEndMinutes, &s.WaitingRoomEnabled)
+	if err != nil {
+		// Return defaults if no settings exist
+		return &entity.RoomSettings{
+			RoomID:                roomID,
+			MaxUsers:              50,
+			RecordingEnabled:      true,
+			AllowStudentAudio:     true,
+			AllowStudentChat:      true,
+			SessionAutoEndMinutes: 120,
+		}, nil
+	}
+	return s, nil
+}
+
+func (r *RoomRepo) UpdateSettings(s *entity.RoomSettings) error {
+	_, err := r.db.Exec(
+		`INSERT OR REPLACE INTO room_settings (room_id, max_users, recording_enabled, allow_student_video, allow_student_audio,
+		 allow_student_screen_share, allow_student_whiteboard, allow_student_chat, session_auto_end_minutes, waiting_room_enabled, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+		s.RoomID, s.MaxUsers, s.RecordingEnabled, s.AllowStudentVideo, s.AllowStudentAudio,
+		s.AllowStudentScreenShare, s.AllowStudentWhiteboard, s.AllowStudentChat,
+		s.SessionAutoEndMinutes, s.WaitingRoomEnabled,
+	)
+	return err
+}

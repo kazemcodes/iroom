@@ -3,6 +3,7 @@ package handler
 import (
 	"strconv"
 
+	"github.com/iroom/iroom/internal/domain/entity"
 	"github.com/iroom/iroom/internal/domain/usecase"
 	"github.com/iroom/iroom/internal/pkg/response"
 	"github.com/labstack/echo/v4"
@@ -168,4 +169,49 @@ func (h *RoomHandler) GetInfo(c echo.Context) error {
 		"user_count":      userCount,
 		"active_sessions": activeSessions,
 	})
+}
+
+func (h *RoomHandler) GetSettings(c echo.Context) error {
+	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	settings, err := h.roomUC.GetSettings(id)
+	if err != nil {
+		return response.InternalError(c, err.Error())
+	}
+	return response.Success(c, settings)
+}
+
+func (h *RoomHandler) UpdateSettings(c echo.Context) error {
+	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+
+	var req struct {
+		MaxUsers                  int  `json:"max_users"`
+		RecordingEnabled          bool `json:"recording_enabled"`
+		AllowStudentVideo         bool `json:"allow_student_video"`
+		AllowStudentAudio         bool `json:"allow_student_audio"`
+		AllowStudentScreenShare   bool `json:"allow_student_screen_share"`
+		AllowStudentWhiteboard    bool `json:"allow_student_whiteboard"`
+		AllowStudentChat          bool `json:"allow_student_chat"`
+		SessionAutoEndMinutes     int  `json:"session_auto_end_minutes"`
+		WaitingRoomEnabled        bool `json:"waiting_room_enabled"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return response.BadRequest(c, "داده‌های نامعتبر")
+	}
+
+	if err := h.roomUC.UpdateSettings(id, &entity.RoomSettings{
+		RoomID:                  id,
+		MaxUsers:                req.MaxUsers,
+		RecordingEnabled:        req.RecordingEnabled,
+		AllowStudentVideo:       req.AllowStudentVideo,
+		AllowStudentAudio:       req.AllowStudentAudio,
+		AllowStudentScreenShare: req.AllowStudentScreenShare,
+		AllowStudentWhiteboard:  req.AllowStudentWhiteboard,
+		AllowStudentChat:        req.AllowStudentChat,
+		SessionAutoEndMinutes:   req.SessionAutoEndMinutes,
+		WaitingRoomEnabled:      req.WaitingRoomEnabled,
+	}); err != nil {
+		return response.InternalError(c, err.Error())
+	}
+
+	return response.Success(c, map[string]string{"message": "تنظیمات بروزرسانی شد"})
 }

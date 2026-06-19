@@ -217,6 +217,8 @@ func main() {
 	api.GET("/rooms/:id/users", roomHandler.GetUsers)
 	api.POST("/rooms/:id/users", roomHandler.AddUser)
 	api.DELETE("/rooms/:id/users/:userId", roomHandler.RemoveUser)
+	api.GET("/rooms/:id/settings", roomHandler.GetSettings)
+	api.PUT("/rooms/:id/settings", roomHandler.UpdateSettings)
 
 	// Announcements
 	api.POST("/classes/:id/announcements", announcementHandler.Create)

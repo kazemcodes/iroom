@@ -125,6 +125,14 @@ func (uc *RoomUseCase) GetUserCount(roomID int64) (int, error) {
 	return uc.roomRepo.GetUserCount(roomID)
 }
 
+func (uc *RoomUseCase) GetSettings(roomID int64) (*entity.RoomSettings, error) {
+	return uc.roomRepo.GetSettings(roomID)
+}
+
+func (uc *RoomUseCase) UpdateSettings(roomID int64, settings *entity.RoomSettings) error {
+	return uc.roomRepo.UpdateSettings(settings)
+}
+
 func (uc *RoomUseCase) GetActiveSessionCount(roomID int64) (int, error) {
 	sessions, err := uc.sessionRepo.ListByClass(roomID)
 	if err != nil {

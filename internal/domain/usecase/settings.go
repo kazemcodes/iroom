@@ -24,7 +24,7 @@ func (uc *SettingsUseCase) GetAll() (map[string]interface{}, error) {
 		return nil, fmt.Errorf("خطا در دریافت تنظیمات")
 	}
 
-	boolFields := map[string]bool{"recording_enabled": true, "maintenance_mode": true, "allow_student_video": true}
+	boolFields := map[string]bool{"recording_enabled": true, "maintenance_mode": true}
 	result := make(map[string]interface{})
 	for k, v := range settings {
 		if boolFields[k] {
