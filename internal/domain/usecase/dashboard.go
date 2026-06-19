@@ -6,20 +6,20 @@ import (
 
 type DashboardUseCase struct {
 	userRepo      *repository.UserRepo
-	classRepo     *repository.ClassRepo
+	roomRepo      *repository.RoomRepo
 	sessionRepo   *repository.SessionRepo
 	recordingRepo *repository.RecordingRepo
 }
 
 func NewDashboardUseCase(
 	userRepo *repository.UserRepo,
-	classRepo *repository.ClassRepo,
+	roomRepo *repository.RoomRepo,
 	sessionRepo *repository.SessionRepo,
 	recordingRepo *repository.RecordingRepo,
 ) *DashboardUseCase {
 	return &DashboardUseCase{
 		userRepo:      userRepo,
-		classRepo:     classRepo,
+		roomRepo:      roomRepo,
 		sessionRepo:   sessionRepo,
 		recordingRepo: recordingRepo,
 	}
@@ -27,11 +27,11 @@ func NewDashboardUseCase(
 
 func (uc *DashboardUseCase) Stats() (map[string]int64, error) {
 	userCount, _ := uc.userRepo.Count()
-	classCount, _ := uc.classRepo.Count()
+	roomCount, _ := uc.roomRepo.Count()
 	sessionCount, _ := uc.sessionRepo.Count()
 	return map[string]int64{
 		"users":    userCount,
-		"classes":  classCount,
+		"rooms":    roomCount,
 		"sessions": sessionCount,
 	}, nil
 }

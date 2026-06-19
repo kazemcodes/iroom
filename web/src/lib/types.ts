@@ -206,8 +206,9 @@ export interface UpdateWebhookRequest {
 export const WEBHOOK_EVENTS = {
 	'session.started': 'شروع جلسه',
 	'session.ended': 'پایان جلسه',
-	'user.registered': 'ثبت‌نام کاربر',
-	'ticket.created': 'ایجاد تیکت',
+	'user.created': 'ایجاد کاربر',
+	'room.created': 'ایجاد اتاق',
+	'room.user_added': 'افزودن کاربر به اتاق',
 } as const;
 
 export type WebhookEventType = keyof typeof WEBHOOK_EVENTS;

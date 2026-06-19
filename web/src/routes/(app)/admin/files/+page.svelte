@@ -1,17 +1,18 @@
 <script lang="ts">
 	import { api } from '$lib/api';
 	import { onMount } from 'svelte';
-	import type { FileItem, Session } from '$lib/types';
+	import type { FileItem, Session, Room } from '$lib/types';
 	import { toPersianNum, toPersianDateTime } from '$lib/utils/persian';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 
+	let allFiles = $state<FileItem[]>([]);
 	let sessions = $state<Session[]>([]);
+	let rooms = $state<Room[]>([]);
+	let selectedRoomId = $state<number | null>(null);
 	let selectedSessionId = $state<number | null>(null);
-	let files = $state<FileItem[]>([]);
 	let loading = $state(false);
 	let uploading = $state(false);
 	let fileInput = $state<HTMLInputElement | null>(null);
-	let dropZone = $state<HTMLDivElement | null>(null);
 	let isDragging = $state(false);
 
 	let currentPage = $state(1);
@@ -49,33 +50,48 @@
 	}
 
 	const filteredFiles = $derived(
-		activeFilter === 'all' ? files : files.filter((f) => getFileCategory(f.filename) === activeFilter)
+		activeFilter === 'all' ? allFiles : allFiles.filter((f) => getFileCategory(f.filename) === activeFilter)
+	);
+
+	const filteredSessions = $derived(
+		selectedRoomId ? sessions.filter(s => s.class_id === selectedRoomId) : sessions
 	);
 
 	onMount(async () => {
-		const res = await api.get<Session[]>('/sessions');
-		if (res.success && res.data) {
-			sessions = Array.isArray(res.data) ? res.data : [];
-			if (sessions.length > 0) {
-				selectedSessionId = sessions[0].id;
-				currentPage = 1;
-				await loadFiles();
-			}
+		const [sessionsRes, roomsRes] = await Promise.all([
+			api.get<{ items: Session[]; total: number }>('/sessions', { per_page: '100' }),
+			api.get<{ items: Room[]; total: number }>('/rooms', { per_page: '100' })
+		]);
+		if (sessionsRes.success && sessionsRes.data) {
+			sessions = sessionsRes.data.items || [];
 		}
+		if (roomsRes.success && roomsRes.data) {
+			rooms = roomsRes.data.items || [];
+		}
+		await loadAllFiles();
 	});
 
-	async function loadFiles() {
-		if (!selectedSessionId) return;
+	async function loadAllFiles() {
 		loading = true;
-		const params: Record<string, string> = { page: String(currentPage), per_page: String(perPage) };
-		const res = await api.get<{ items: FileItem[]; total: number }>(`/sessions/${selectedSessionId}/files`, params);
-		if (res.success && res.data) {
-			files = res.data.items || (Array.isArray(res.data) ? res.data : []);
-			totalFiles = res.data.total || files.length;
-		} else {
-			files = [];
-			totalFiles = 0;
+		allFiles = [];
+		totalFiles = 0;
+
+		// Load files from all sessions
+		const sessRes = await api.get<{ items: Session[]; total: number }>('/sessions', { per_page: '100' });
+		if (sessRes.success && sessRes.data) {
+			const allSessions = sessRes.data.items || [];
+			for (const sess of allSessions) {
+				if (selectedRoomId && sess.class_id !== selectedRoomId) continue;
+				if (selectedSessionId && sess.id !== selectedSessionId) continue;
+
+				const filesRes = await api.get<{ items: FileItem[]; total: number }>(`/sessions/${sess.id}/files`, { per_page: '100' });
+				if (filesRes.success && filesRes.data) {
+					const sessionFiles = (filesRes.data.items || []).map(f => ({ ...f, _sessionTitle: sess.title }));
+					allFiles = [...allFiles, ...sessionFiles];
+				}
+			}
 		}
+		totalFiles = allFiles.length;
 		loading = false;
 	}
 
@@ -101,7 +117,8 @@
 					try {
 						const data = JSON.parse(xhr.responseText);
 						if (data.success && data.data) {
-							files = [data.data, ...files];
+							allFiles = [data.data, ...allFiles];
+							totalFiles = allFiles.length;
 							uploads[index] = { ...uploads[index], progress: 100, status: 'success' };
 						} else {
 							uploads[index] = { ...uploads[index], progress: 100, status: 'error', errorMsg: data.error || 'خطا در آپلود' };
@@ -130,20 +147,18 @@
 	}
 
 	async function handleFiles(fileList: FileList | null) {
-		if (!fileList?.length || !selectedSessionId) return;
+		if (!fileList?.length) return;
+		const sessionId = selectedSessionId || (filteredSessions.length > 0 ? filteredSessions[0].id : null);
+		if (!sessionId) { alert('ابتدا یک جلسه انتخاب کنید'); return; }
 
 		uploading = true;
 		uploads = [];
-
 		for (let i = 0; i < fileList.length; i++) {
-			const file = fileList[i];
-			uploads = [...uploads, { filename: file.name, progress: 0, status: 'uploading' as const }];
+			uploads = [...uploads, { filename: fileList[i].name, progress: 0, status: 'uploading' as const }];
 		}
-
 		for (let i = 0; i < fileList.length; i++) {
-			await uploadSingleFile(fileList[i], selectedSessionId, i);
+			await uploadSingleFile(fileList[i], sessionId, i);
 		}
-
 		uploading = false;
 		setTimeout(() => { uploads = []; }, 3000);
 	}
@@ -154,10 +169,10 @@
 		input.value = '';
 	}
 
-	function handleDragOver(e: DragEvent) { e.preventDefault(); e.stopPropagation(); isDragging = true; }
-	function handleDragLeave(e: DragEvent) { e.preventDefault(); e.stopPropagation(); isDragging = false; }
+	function handleDragOver(e: DragEvent) { e.preventDefault(); isDragging = true; }
+	function handleDragLeave(e: DragEvent) { e.preventDefault(); isDragging = false; }
 	function handleDrop(e: DragEvent) {
-		e.preventDefault(); e.stopPropagation(); isDragging = false;
+		e.preventDefault(); isDragging = false;
 		if (e.dataTransfer?.files) handleFiles(e.dataTransfer.files);
 	}
 
@@ -180,24 +195,21 @@
 	}
 
 	function confirmDelete(file: FileItem) { deleteTarget = file; showDeleteModal = true; }
-
 	async function deleteFile() {
 		if (!deleteTarget) return;
 		const res = await api.delete(`/files/${deleteTarget.id}`);
 		if (res.success) {
-			files = files.filter((f) => f.id !== deleteTarget!.id);
-			totalFiles = Math.max(0, totalFiles - 1);
+			allFiles = allFiles.filter(f => f.id !== deleteTarget!.id);
+			totalFiles = allFiles.length;
 		}
 		showDeleteModal = false;
 		deleteTarget = null;
 	}
-
 	function cancelDelete() { showDeleteModal = false; deleteTarget = null; }
 
 	function goToPage(page: number) {
 		if (page < 1 || page > totalPages || page === currentPage) return;
 		currentPage = page;
-		loadFiles();
 	}
 
 	const pageNumbers = $derived(() => {
@@ -208,6 +220,11 @@
 		if (end - start + 1 < maxVisible) start = Math.max(1, end - maxVisible + 1);
 		for (let i = start; i <= end; i++) pages.push(i);
 		return pages;
+	});
+
+	const pagedFiles = $derived(() => {
+		const start = (currentPage - 1) * perPage;
+		return filteredFiles.slice(start, start + perPage);
 	});
 </script>
 
@@ -220,7 +237,9 @@
 		<input type="file" multiple bind:this={fileInput} onchange={handleUpload} class="hidden" />
 	</div>
 
-	<div bind:this={dropZone} ondragover={handleDragOver} ondragleave={handleDragLeave} ondrop={handleDrop}
+	<!-- Upload Zone -->
+	<div
+		ondragover={handleDragOver} ondragleave={handleDragLeave} ondrop={handleDrop}
 		onclick={() => fileInput?.click()} role="button" tabindex="-1"
 		class="relative rounded-xl p-8 text-center cursor-pointer transition-all duration-200"
 		style="border: 2px dashed {isDragging ? 'var(--color-crystal-clear)' : 'var(--color-zen-garden)'}; background: {isDragging ? 'rgba(35,185,215,0.08)' : 'var(--color-pure)'};">
@@ -235,6 +254,7 @@
 		</div>
 	</div>
 
+	<!-- Upload Progress -->
 	{#if uploads.length > 0}
 		<div class="sky-card p-4 space-y-3">
 			{#each uploads as upload}
@@ -253,51 +273,45 @@
 		</div>
 	{/if}
 
-	<div class="sky-card p-4">
-		<div class="flex items-center gap-3">
-			<label class="text-sm font-medium shrink-0" style="color: var(--color-mystic-sea);">جلسه:</label>
-			<select bind:value={selectedSessionId} onchange={() => { currentPage = 1; activeFilter = 'all'; loadFiles(); }} class="sky-input flex-1">
-				{#if sessions.length === 0}
-					<option value={null}>جلسه‌ای موجود نیست</option>
-				{:else}
-					{#each sessions as s}<option value={s.id}>{s.title} ({s.status})</option>{/each}
-				{/if}
+	<!-- Filters -->
+	<div class="flex items-center gap-3 flex-wrap">
+		<div>
+			<label class="text-xs font-medium mb-1 block" style="color: var(--color-mystic-sea);">اتاق</label>
+			<select bind:value={selectedRoomId} onchange={() => { selectedSessionId = null; currentPage = 1; loadAllFiles(); }} class="sky-input" style="min-width:150px;">
+				<option value={null}>همه اتاق‌ها</option>
+				{#each rooms as room}<option value={room.id}>{room.name}</option>{/each}
 			</select>
 		</div>
-	</div>
-
-	<div class="sky-filter-bar w-fit flex-wrap">
-		{#each filters as filter}
-			<button onclick={() => { activeFilter = filter.key; }} class="sky-filter-btn {activeFilter === filter.key ? 'active' : ''}">
-				{filter.label}
-				<span class="text-xs opacity-70">({toPersianNum(filter.key === 'all' ? files.length : files.filter((f) => getFileCategory(f.filename) === filter.key).length)})</span>
-			</button>
-		{/each}
+		<div>
+			<label class="text-xs font-medium mb-1 block" style="color: var(--color-mystic-sea);">جلسه</label>
+			<select bind:value={selectedSessionId} onchange={() => { currentPage = 1; loadAllFiles(); }} class="sky-input" style="min-width:150px;">
+				<option value={null}>همه جلسات</option>
+				{#each filteredSessions as sess}<option value={sess.id}>{sess.title}</option>{/each}
+			</select>
+		</div>
+		<div class="sky-filter-bar">
+			{#each filters as filter}
+				<button onclick={() => { activeFilter = filter.key; currentPage = 1; }} class="sky-filter-btn {activeFilter === filter.key ? 'active' : ''}">
+					{filter.label}
+					<span class="text-xs opacity-70">({toPersianNum(filter.key === 'all' ? allFiles.length : allFiles.filter(f => getFileCategory(f.filename) === filter.key).length)})</span>
+				</button>
+			{/each}
+		</div>
 	</div>
 
 	{#if loading}
 		<div class="flex items-center justify-center py-16"><svg class="sky-spinner lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--color-crystal-clear);"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg></div>
 	{:else if filteredFiles.length === 0}
-		<div class="sky-card">
-			<div class="sky-empty">
-				<div class="sky-empty-icon"><svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24" style="color: var(--color-muted-mountain);"><path stroke-linecap="round" stroke-linejoin="round" d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
-				<p class="sky-empty-title">فایلی وجود ندارد</p>
-				<p class="sky-empty-desc">فایل‌ها را بالا بکشید تا آپلود شوند</p>
-			</div>
-		</div>
+		<div class="sky-card"><div class="sky-empty"><div class="sky-empty-icon"><svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24" style="color: var(--color-muted-mountain);"><path stroke-linecap="round" stroke-linejoin="round" d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div><p class="sky-empty-title">فایلی وجود ندارد</p><p class="sky-empty-desc">فایل‌ها را بالا بکشید تا آپلود شوند</p></div></div>
 	{:else}
 		<div class="sky-card overflow-hidden">
 			<table class="sky-table">
-				<thead><tr><th>فایل</th><th>اندازه</th><th>تاریخ</th><th>عملیات</th></tr></thead>
+				<thead><tr><th>فایل</th><th>جلسه</th><th>اندازه</th><th>تاریخ</th><th>عملیات</th></tr></thead>
 				<tbody>
-					{#each filteredFiles as file}
+					{#each pagedFiles() as file}
 						<tr>
-							<td>
-								<div class="flex items-center gap-3">
-									<span class="text-xl">{getFileIcon(file.filename)}</span>
-									<span class="text-sm font-medium truncate max-w-[300px]" style="color: var(--color-midnight-sky);">{file.filename}</span>
-								</div>
-							</td>
+							<td><div class="flex items-center gap-3"><span class="text-xl">{getFileIcon(file.filename)}</span><span class="text-sm font-medium truncate max-w-[250px]" style="color: var(--color-midnight-sky);">{file.filename}</span></div></td>
+							<td style="color: var(--color-mystic-sea);font-size:12px;">{(file as any)._sessionTitle || '—'}</td>
 							<td style="color: var(--color-mystic-sea);">{formatSize(file.filesize)}</td>
 							<td style="color: var(--color-mystic-sea);">{toPersianDateTime(file.created_at)}</td>
 							<td>
@@ -317,9 +331,10 @@
 		</div>
 	{/if}
 
+	<!-- Pagination -->
 	{#if totalPages > 1}
 		<div class="flex items-center justify-between text-sm" style="color: var(--color-mystic-sea);">
-			<span>{toPersianNum(totalFiles)} فایل</span>
+			<span>{toPersianNum(filteredFiles.length)} فایل</span>
 			<div class="sky-pagination">
 				<button class="sky-page-btn" disabled={currentPage <= 1} onclick={() => goToPage(currentPage - 1)}>
 					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
@@ -336,4 +351,4 @@
 	{/if}
 </div>
 
-<ConfirmModal show={showDeleteModal} title="حذف فایل" message="آیا از حذف فایل {deleteTarget?.filename} اطمینان دارید؟" onConfirm={deleteFile} onCancel={cancelDelete} />
+<ConfirmModal show={showDeleteModal} title="حذف فایل" message="آیا از حذف فایل اطمینان دارید؟" onConfirm={deleteFile} onCancel={cancelDelete} />

@@ -109,7 +109,7 @@ func main() {
 	pollUC := usecase.NewPollUseCase(sqliteRepo.NewPollRepo(db))
 	notificationUC := usecase.NewNotificationUseCase(notificationRepo)
 	settingsUC := usecase.NewSettingsUseCase(settingsRepo)
-	dashboardUC := usecase.NewDashboardUseCase(userRepo, classRepo, sessionRepo, recordingRepo)
+	dashboardUC := usecase.NewDashboardUseCase(userRepo, roomRepo, sessionRepo, recordingRepo)
 	userUC := usecase.NewUserUseCase(userRepo, classRepo, passwordHasher)
 	webhookDeliveryRepo := sqliteRepo.NewWebhookDeliveryRepo(db)
 	webhookUC := usecase.NewWebhookUseCase(webhookRepo, webhookDeliveryRepo)
