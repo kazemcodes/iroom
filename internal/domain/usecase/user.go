@@ -64,14 +64,6 @@ func (uc *UserUseCase) Update(id int64, displayName, phone, role string, isActiv
 		return fmt.Errorf("کاربر یافت نشد")
 	}
 
-	// Prevent role escalation
-	if role == "admin" && callerRole != "owner" {
-		return fmt.Errorf("فقط مالک می‌تواند نقش مدیر را تعیین کند")
-	}
-	if user.Role == "admin" && callerRole != "owner" && role != "" && role != "admin" {
-		return fmt.Errorf("فقط مالک می‌تواند نقش مدیر را تغییر دهد")
-	}
-
 	if displayName != "" {
 		user.DisplayName = sanitize.Sanitize(displayName)
 	}
@@ -88,12 +80,11 @@ func (uc *UserUseCase) Update(id int64, displayName, phone, role string, isActiv
 }
 
 func (uc *UserUseCase) Delete(id int64) error {
-	user, err := uc.userRepo.GetByID(id)
+	_, err := uc.userRepo.GetByID(id)
 	if err != nil {
 		return fmt.Errorf("کاربر یافت نشد")
 	}
-	user.IsActive = false
-	return uc.userRepo.Update(user)
+	return uc.userRepo.Delete(id)
 }
 
 func (uc *UserUseCase) BatchDelete(ids []int64) (int, int) {

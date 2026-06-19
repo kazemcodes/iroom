@@ -43,9 +43,9 @@
 
 {#if show}
 	<div class="fixed inset-0 z-50 flex items-center justify-center p-4" onclick={cancel}>
-		<div class="fixed inset-0 bg-black/40 backdrop-blur-sm"></div>
+		<div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
 		<div
-			class="modal-content"
+			class="relative modal-content"
 			onclick={(e) => e.stopPropagation()}
 		>
 			<div class="px-6 pt-6 pb-2">

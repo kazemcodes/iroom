@@ -108,6 +108,11 @@ func (r *UserRepo) UpdatePassword(id int64, hash string) error {
 	return err
 }
 
+func (r *UserRepo) Delete(id int64) error {
+	_, err := r.db.Exec(`DELETE FROM users WHERE id = ?`, id)
+	return err
+}
+
 func (r *UserRepo) UpdateAvatar(id int64, avatarURL string) error {
 	_, err := r.db.Exec(
 		`UPDATE users SET avatar_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,

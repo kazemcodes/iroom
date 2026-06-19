@@ -182,4 +182,4 @@
 	</div>
 {/if}
 
-<ConfirmModal bind:show={showDeleteConfirm} title="حذف اتاق" message="آیا از حذف این اتاق اطمینان دارید؟" onConfirm={() => deleteRoom(deleteTargetId)} onCancel={() => {}} />
+	<ConfirmModal bind:show={showDeleteConfirm} title="حذف اتاق" message="آیا از حذف این اتاق اطمینان دارید؟" onConfirm={() => { showDeleteConfirm = false; deleteRoom(deleteTargetId); }} onCancel={() => {}} />
