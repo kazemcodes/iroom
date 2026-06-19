@@ -78,28 +78,31 @@
 	}
 
 	const statusLabels: Record<string, string> = { open: 'باز', answered: 'پاسخ داده شده', closed: 'بسته شده' };
-	const statusColors: Record<string, string> = { open: 'bg-green-100 text-green-700', answered: 'bg-blue-100 text-blue-700', closed: 'bg-gray-100 text-gray-600' };
+	const statusBadge: Record<string, string> = { open: 'sky-badge sky-badge-success', answered: 'sky-badge sky-badge-info', closed: 'sky-badge sky-badge-default' };
 	const priorityLabels: Record<string, string> = { low: 'کم', normal: 'عادی', high: 'زیاد', urgent: 'فوری' };
-	const priorityColors: Record<string, string> = { low: 'bg-gray-100 text-gray-600', normal: 'bg-blue-100 text-blue-700', high: 'bg-orange-100 text-orange-700', urgent: 'bg-red-100 text-red-700' };
+	const priorityBadge: Record<string, string> = { low: 'sky-badge sky-badge-default', normal: 'sky-badge sky-badge-info', high: 'sky-badge sky-badge-warning', urgent: 'sky-badge sky-badge-danger' };
 </script>
 
-<div class="space-y-6">
+<div class="space-y-5">
 	<div class="flex items-center justify-between">
 		<div>
-			<h1 style="font-size:1.5rem;font-weight:700;color:var(--color-midnight-sky);">مدیریت تیکت‌ها</h1>
-			<p style="font-size:0.875rem;color:var(--color-mystic-sea);margin-top:4px;">{toPersian(total)} تیکت</p>
+			<h1 class="sky-page-title">مدیریت تیکت‌ها</h1>
+			<p class="sky-page-subtitle">{toPersian(total)} تیکت</p>
 		</div>
 	</div>
 
-	<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-		<input type="text" bind:value={search} onkeydown={(e) => e.key === 'Enter' && searchTickets()} class="sky-input" style="flex:1;min-width:200px;" placeholder="جستجوی عنوان تیکت..." />
+	<div class="flex items-center gap-3 flex-wrap">
+		<div class="sky-search flex-1 min-w-[200px]">
+			<div class="sky-search-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
+			<input type="text" bind:value={search} onkeydown={(e) => e.key === 'Enter' && searchTickets()} class="sky-input" style="padding-right: 2.5rem;" placeholder="جستجوی عنوان تیکت..." />
+		</div>
 		<select bind:value={statusFilter} onchange={() => { currentPage = 1; loadTickets(); }} class="sky-input" style="width:auto;min-width:140px;">
 			<option value="all">همه وضعیت‌ها</option>
 			<option value="open">باز</option>
 			<option value="answered">پاسخ داده شده</option>
 			<option value="closed">بسته شده</option>
 		</select>
-		<select bind:value={priorityFilter} onchange={() => { currentPage = 1; loadTickets(); }} class="px-4 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+		<select bind:value={priorityFilter} onchange={() => { currentPage = 1; loadTickets(); }} class="sky-input" style="width:auto;min-width:140px;">
 			<option value="all">همه اولویت‌ها</option>
 			<option value="low">کم</option>
 			<option value="normal">عادی</option>
@@ -109,44 +112,33 @@
 	</div>
 
 	{#if loading}
-		<div class="flex items-center justify-center py-12"><div class="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full"></div></div>
+		<div class="flex items-center justify-center py-16"><svg class="sky-spinner lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--color-crystal-clear);"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg></div>
 	{:else if tickets.length === 0}
-		<div class="text-center py-20 bg-white rounded-xl">
-			<p class="text-gray-500">تیکتی یافت نشد</p>
-		</div>
+		<div class="sky-card"><div class="sky-empty"><p class="sky-empty-desc">تیکتی یافت نشد</p></div></div>
 	{:else}
-		<div class="bg-white rounded-xl overflow-hidden">
-			<table class="w-full text-sm">
-				<thead class="bg-gray-50 border-b">
-					<tr>
-						<th class="px-5 py-3 text-right font-medium text-gray-600">عنوان</th>
-						<th class="px-5 py-3 text-right font-medium text-gray-600">کاربر</th>
-						<th class="px-5 py-3 text-right font-medium text-gray-600">دسته‌بندی</th>
-						<th class="px-5 py-3 text-right font-medium text-gray-600">اولویت</th>
-						<th class="px-5 py-3 text-right font-medium text-gray-600">وضعیت</th>
-						<th class="px-5 py-3 text-right font-medium text-gray-600">تاریخ</th>
-					</tr>
-				</thead>
-				<tbody class="divide-y">
+		<div class="sky-card overflow-hidden">
+			<table class="sky-table">
+				<thead><tr><th>عنوان</th><th>کاربر</th><th>دسته‌بندی</th><th>اولویت</th><th>وضعیت</th><th>تاریخ</th></tr></thead>
+				<tbody>
 					{#each tickets as ticket}
-						<tr class="hover:bg-gray-50 cursor-pointer" onclick={() => openTicket(ticket)}>
-							<td class="px-5 py-3 font-medium">{ticket.title}</td>
-							<td class="px-5 py-3 text-gray-500">{ticket.user_display_name}</td>
-							<td class="px-5 py-3 text-gray-500">{ticket.category}</td>
-							<td class="px-5 py-3"><span class="text-xs px-2 py-1 rounded-full font-medium {priorityColors[ticket.priority]}">{priorityLabels[ticket.priority]}</span></td>
-							<td class="px-5 py-3"><span class="text-xs px-2 py-1 rounded-full font-medium {statusColors[ticket.status]}">{statusLabels[ticket.status]}</span></td>
-							<td class="px-5 py-3 text-gray-500 text-xs" dir="ltr">{formatDate(ticket.created_at)}</td>
+						<tr class="cursor-pointer" onclick={() => openTicket(ticket)}>
+							<td class="font-semibold">{ticket.title}</td>
+							<td style="color: var(--color-mystic-sea);">{ticket.user_display_name}</td>
+							<td style="color: var(--color-mystic-sea);">{ticket.category}</td>
+							<td><span class="{priorityBadge[ticket.priority]}">{priorityLabels[ticket.priority]}</span></td>
+							<td><span class="{statusBadge[ticket.status]}">{statusLabels[ticket.status]}</span></td>
+							<td style="color: var(--color-moonlit-mist);" dir="ltr">{formatDate(ticket.created_at)}</td>
 						</tr>
 					{/each}
 				</tbody>
 			</table>
 			{#if total > perPage}
-				<div class="px-5 py-3 border-t flex items-center justify-between text-sm text-gray-500">
+				<div class="px-5 py-3 flex items-center justify-between text-sm" style="border-top: 1px solid var(--color-zen-garden); color: var(--color-mystic-sea);">
 					<span>{toPersian(total)} تیکت</span>
-					<div class="flex gap-1">
-						<button disabled={currentPage <= 1} onclick={() => { currentPage--; loadTickets(); }} class="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50">قبلی</button>
-						<span class="px-3 py-1">صفحه {toPersian(currentPage)} از {toPersian(Math.ceil(total / perPage))}</span>
-						<button disabled={currentPage >= Math.ceil(total / perPage)} onclick={() => { currentPage++; loadTickets(); }} class="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50">بعدی</button>
+					<div class="sky-pagination">
+						<button class="sky-page-btn" disabled={currentPage <= 1} onclick={() => { currentPage--; loadTickets(); }}>قبلی</button>
+						<span class="sky-page-btn" style="cursor:default;">{toPersian(currentPage)}/{toPersian(Math.ceil(total / perPage))}</span>
+						<button class="sky-page-btn" disabled={currentPage >= Math.ceil(total / perPage)} onclick={() => { currentPage++; loadTickets(); }}>بعدی</button>
 					</div>
 				</div>
 			{/if}
@@ -155,42 +147,42 @@
 </div>
 
 {#if showDetail && selectedTicket}
-	<div class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onclick={() => showDetail = false}>
-		<div class="bg-white rounded-2xl w-full max-w-2xl max-h-[80vh] shadow-xl flex flex-col" onclick={(e) => e.stopPropagation()}>
-			<div class="px-6 py-4 border-b flex items-center justify-between">
+	<div class="modal-overlay" role="button" tabindex="-1" onclick={() => showDetail = false}>
+		<div class="modal-content flex flex-col" style="max-width: 42rem; max-height: 80vh;" onclick={(e) => e.stopPropagation()}>
+			<div class="sky-modal-header">
 				<div>
-					<h2 class="font-bold text-lg">{selectedTicket.title}</h2>
+					<h2>{selectedTicket.title}</h2>
 					<div class="flex items-center gap-2 mt-1">
-						<span class="text-xs px-2 py-0.5 rounded-full font-medium {priorityColors[selectedTicket.priority]}">{priorityLabels[selectedTicket.priority]}</span>
-						<span class="text-xs px-2 py-0.5 rounded-full font-medium {statusColors[selectedTicket.status]}">{statusLabels[selectedTicket.status]}</span>
-						<span class="text-xs text-gray-500">{selectedTicket.user_display_name}</span>
+						<span class="{priorityBadge[selectedTicket.priority]}">{priorityLabels[selectedTicket.priority]}</span>
+						<span class="{statusBadge[selectedTicket.status]}">{statusLabels[selectedTicket.status]}</span>
+						<span class="text-xs" style="color: var(--color-mystic-sea);">{selectedTicket.user_display_name}</span>
 					</div>
 				</div>
-				<button onclick={() => showDetail = false} class="text-gray-400 hover:text-gray-600">
-					<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+				<button onclick={() => showDetail = false} class="sky-btn-icon">
+					<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
 				</button>
 			</div>
 			<div class="flex-1 overflow-y-auto px-6 py-4 space-y-3">
 				{#each selectedTicket.messages || [] as msg}
-					<div class="rounded-lg p-3 {msg.is_admin ? 'bg-blue-50 border border-blue-200' : 'bg-gray-50 border border-gray-200'}">
+					<div class="rounded-lg p-3" style="background: {msg.is_admin ? 'var(--color-polar-ice)' : 'var(--color-secret-glow)'}; border: 1px solid var(--color-zen-garden);">
 						<div class="flex items-center gap-2 mb-1">
-							<span class="text-xs font-bold {msg.is_admin ? 'text-blue-600' : 'text-gray-700'}">{msg.user_display_name}</span>
-							{#if msg.is_admin}<span class="text-[10px] px-1.5 py-0.5 bg-blue-100 text-blue-600 rounded">مدیر</span>{/if}
-							<span class="text-[10px] text-gray-400" dir="ltr">{new Date(msg.created_at).toLocaleString('fa-IR')}</span>
+							<span class="text-xs font-bold" style="color: {msg.is_admin ? 'var(--color-crystal-clear)' : 'var(--color-midnight-sky)'};">{msg.user_display_name}</span>
+							{#if msg.is_admin}<span class="sky-badge sky-badge-info" style="font-size:10px;padding:1px 8px;">مدیر</span>{/if}
+							<span class="text-[10px]" style="color: var(--color-moonlit-mist);" dir="ltr">{new Date(msg.created_at).toLocaleString('fa-IR')}</span>
 						</div>
-						<p class="text-sm text-gray-700 whitespace-pre-wrap">{msg.content}</p>
+						<p class="text-sm whitespace-pre-wrap" style="color: var(--color-ocean-wave);">{msg.content}</p>
 					</div>
 				{/each}
 				{#if !selectedTicket.messages?.length}
-					<p class="text-center text-gray-400 text-sm py-4">هنوز پیامی ثبت نشده</p>
+					<p class="text-center text-sm py-4" style="color: var(--color-moonlit-mist);">هنوز پیامی ثبت نشده</p>
 				{/if}
 			</div>
 			{#if selectedTicket.status !== 'closed'}
-				<div class="px-6 py-4 border-t space-y-3">
-					<textarea bind:value={replyContent} rows="3" class="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none resize-none" placeholder="پاسخ خود را بنویسید..."></textarea>
+				<div class="px-6 py-4 space-y-3" style="border-top: 1px solid var(--color-zen-garden);">
+					<textarea bind:value={replyContent} rows="3" class="sky-input resize-none" placeholder="پاسخ خود را بنویسید..."></textarea>
 					<div class="flex items-center justify-between">
-						<button onclick={closeTicket} class="px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg border border-red-200">بستن تیکت</button>
-						<button onclick={sendReply} disabled={!replyContent.trim() || sendingReply} class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+						<button onclick={closeTicket} class="sky-btn sky-btn-outline" style="color: var(--color-fiery-passion); border-color: rgba(224,82,82,0.3);">بستن تیکت</button>
+						<button onclick={sendReply} disabled={!replyContent.trim() || sendingReply} class="sky-btn sky-btn-primary">
 							{sendingReply ? 'در حال ارسال...' : 'ارسال پاسخ'}
 						</button>
 					</div>

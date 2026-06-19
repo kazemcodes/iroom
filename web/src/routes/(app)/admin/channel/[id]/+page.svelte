@@ -40,55 +40,39 @@
 	}
 </script>
 
-<div class="max-w-2xl mx-auto space-y-6">
+<div class="max-w-2xl mx-auto space-y-5">
 	<div class="flex items-center gap-3">
-		<a href="/admin/channels" class="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100">
-			<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+		<a href="/admin/channels" class="sky-btn-icon">
+			<svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 6l-6 6 6 6"/></svg>
 		</a>
 		<div>
-			<h1 class="text-2xl font-bold text-gray-900">ویرایش کلاس</h1>
-			<p class="text-gray-500 mt-1">{classData?.name || '...'}</p>
+			<h1 class="sky-page-title">ویرایش کلاس</h1>
+			<p class="sky-page-subtitle">{classData?.name || '...'}</p>
 		</div>
 	</div>
 
 	{#if loading}
-		<div class="flex items-center justify-center py-20">
-			<div class="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full"></div>
-		</div>
+		<div class="flex items-center justify-center py-16"><svg class="sky-spinner lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--color-crystal-clear);"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg></div>
 	{:else}
-		<div class="bg-white rounded-xl p-6 space-y-5">
-			<div>
-				<label class="block text-sm font-medium text-gray-700 mb-1">نام کلاس</label>
-				<input bind:value={formName} class="w-full px-4 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
-			</div>
-			<div>
-				<label class="block text-sm font-medium text-gray-700 mb-1">توضیحات</label>
-				<textarea bind:value={formDescription} class="w-full px-4 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" rows="3"></textarea>
-			</div>
+		<div class="sky-card p-6 space-y-5">
+			<div><label class="sky-label">نام کلاس</label><input bind:value={formName} class="sky-input" /></div>
+			<div><label class="sky-label">توضیحات</label><textarea bind:value={formDescription} class="sky-input resize-none" rows="3"></textarea></div>
 			<div class="grid grid-cols-2 gap-4">
-				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-1">رنگ</label>
-					<input type="color" bind:value={formColor} class="w-12 h-12 rounded-lg border cursor-pointer" />
-				</div>
-				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-1">حداکثر دانش‌آموز</label>
-					<input type="number" bind:value={formMaxStudents} class="w-full px-4 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
-				</div>
+				<div><label class="sky-label">رنگ</label><input type="color" bind:value={formColor} class="w-12 h-12 rounded-lg cursor-pointer" style="border: 1px solid var(--color-zen-garden);" /></div>
+				<div><label class="sky-label">حداکثر دانش‌آموز</label><input type="number" bind:value={formMaxStudents} class="sky-input" /></div>
 			</div>
 			{#if classData?.invite_code}
 				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-1">کد دعوت</label>
+					<label class="sky-label">کد دعوت</label>
 					<div class="flex gap-2">
-						<input value={classData.invite_code} readonly class="flex-1 px-4 py-2.5 border rounded-lg text-sm bg-gray-50 font-mono" />
-						<button onclick={() => navigator.clipboard.writeText(classData.invite_code)} class="px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200">کپی</button>
+						<input value={classData.invite_code} readonly class="sky-input flex-1 font-mono" style="background: var(--color-eternal-snow);" />
+						<button onclick={() => navigator.clipboard.writeText(classData.invite_code)} class="sky-btn sky-btn-secondary">کپی</button>
 					</div>
 				</div>
 			{/if}
-			<div class="flex gap-3 pt-4 border-t">
-				<button onclick={save} disabled={saving || !formName.trim()} class="px-6 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed">
-					{saving ? 'در حال ذخیره...' : 'ذخیره تغییرات'}
-				</button>
-				<a href="/admin/channels" class="px-6 py-2.5 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200">انصراف</a>
+			<div class="flex gap-3 pt-4" style="border-top: 1px solid var(--color-zen-garden);">
+				<button onclick={save} disabled={saving || !formName.trim()} class="sky-btn sky-btn-primary">{saving ? 'در حال ذخیره...' : 'ذخیره تغییرات'}</button>
+				<a href="/admin/channels" class="sky-btn sky-btn-secondary">انصراف</a>
 			</div>
 		</div>
 	{/if}

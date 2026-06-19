@@ -24,7 +24,7 @@
 	}
 
 	const statusLabels: Record<string, string> = { scheduled: 'برنامه‌ریزی شده', live: 'در حال برگزاری', ended: 'پایان یافته' };
-	const statusColors: Record<string, string> = { scheduled: 'bg-blue-50 text-blue-700', live: 'bg-green-50 text-green-700', ended: 'bg-gray-100 text-gray-600' };
+	const statusBadge: Record<string, string> = { scheduled: 'sky-badge sky-badge-info', live: 'sky-badge sky-badge-success', ended: 'sky-badge sky-badge-default' };
 
 	const filteredSessions = $derived(sessions.filter(s => {
 		if (filterStatus !== 'all' && s.status !== filterStatus) return false;
@@ -33,16 +33,16 @@
 	}));
 </script>
 
-<div class="space-y-6">
+<div class="space-y-5">
 	<div>
-		<h1 style="font-size:1.5rem;font-weight:700;color:var(--color-midnight-sky);">مدیریت جلسات</h1>
-		<p style="font-size:0.875rem;color:var(--color-mystic-sea);margin-top:4px;">مشاهده و مدیریت تمام جلسات</p>
+		<h1 class="sky-page-title">مدیریت جلسات</h1>
+		<p class="sky-page-subtitle">مشاهده و مدیریت تمام جلسات</p>
 	</div>
 
-	<div style="display:flex;align-items:center;gap:12px;">
-		<div style="position:relative;flex:1;">
-			<svg style="position:absolute;right:12px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--color-moonlit-mist);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-			<input bind:value={searchQuery} class="sky-input" style="padding-right:36px;" placeholder="جستجو در عنوان جلسه..." />
+	<div class="flex items-center gap-3">
+		<div class="sky-search flex-1">
+			<div class="sky-search-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
+			<input bind:value={searchQuery} class="sky-input" style="padding-right: 2.5rem;" placeholder="جستجو در عنوان جلسه..." />
 		</div>
 		<select bind:value={filterStatus} class="sky-input" style="width:auto;min-width:140px;">
 			<option value="all">همه</option>
@@ -53,39 +53,23 @@
 	</div>
 
 	{#if loading}
-		<div class="flex items-center justify-center py-20">
-			<div class="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full"></div>
-		</div>
+		<div class="flex items-center justify-center py-16"><svg class="sky-spinner lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--color-crystal-clear);"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg></div>
 	{:else if filteredSessions.length === 0}
-		<div class="text-center py-20 bg-white rounded-xl">
-			<p class="text-gray-500">جلسه‌ای یافت نشد</p>
-		</div>
+		<div class="sky-card"><div class="sky-empty"><p class="sky-empty-desc">جلسه‌ای یافت نشد</p></div></div>
 	{:else}
-		<div class="bg-white rounded-xl overflow-hidden">
-			<table class="w-full text-sm">
-				<thead class="bg-gray-50 border-b">
-					<tr>
-						<th class="px-4 py-3 text-right font-medium text-gray-600">عنوان</th>
-						<th class="px-4 py-3 text-right font-medium text-gray-600">وضعیت</th>
-						<th class="px-4 py-3 text-right font-medium text-gray-600">تاریخ</th>
-						<th class="px-4 py-3 text-right font-medium text-gray-600">مدت</th>
-						<th class="px-4 py-3 text-right font-medium text-gray-600">عملیات</th>
-					</tr>
-				</thead>
-				<tbody class="divide-y">
+		<div class="sky-card overflow-hidden">
+			<table class="sky-table">
+				<thead><tr><th>عنوان</th><th>وضعیت</th><th>تاریخ</th><th>مدت</th><th>عملیات</th></tr></thead>
+				<tbody>
 					{#each filteredSessions as s (s.id)}
-						<tr class="hover:bg-gray-50">
-							<td class="px-4 py-3 font-medium text-gray-900">{s.title}</td>
-							<td class="px-4 py-3">
-								<span class="text-xs px-2 py-1 rounded-full {statusColors[s.status] || 'bg-gray-100 text-gray-600'}">
-									{statusLabels[s.status] || s.status}
-								</span>
-							</td>
-							<td class="px-4 py-3 text-gray-500 text-xs">{s.scheduled_at ? new Date(s.scheduled_at).toLocaleDateString('fa-IR') : '—'}</td>
-							<td class="px-4 py-3 text-gray-600">{s.duration ? `${toPersianNum(s.duration)} دقیقه` : '—'}</td>
-							<td class="px-4 py-3">
-								<button onclick={() => deleteSession(s.id)} class="p-1.5 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50" title="حذف">
-									<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+						<tr>
+							<td class="font-semibold">{s.title}</td>
+							<td><span class="{statusBadge[s.status] || 'sky-badge sky-badge-default'}">{statusLabels[s.status] || s.status}</span></td>
+							<td style="color: var(--color-moonlit-mist);">{s.scheduled_at ? new Date(s.scheduled_at).toLocaleDateString('fa-IR') : '—'}</td>
+							<td style="color: var(--color-mystic-sea);">{s.duration ? `${toPersianNum(s.duration)} دقیقه` : '—'}</td>
+							<td>
+								<button onclick={() => deleteSession(s.id)} class="sky-btn-icon" style="width:32px;height:32px;" title="حذف">
+									<svg width="16" height="16" fill="none" stroke="var(--color-fiery-passion)" stroke-width="1.75" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
 								</button>
 							</td>
 						</tr>

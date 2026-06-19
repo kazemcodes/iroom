@@ -227,20 +227,17 @@
 	}
 </script>
 
-<div style="max-width:800px;margin:0 auto;">
+<div style="max-width:800px;margin:0 auto;" class="space-y-5">
 	<div>
-		<h1 style="font-size:1.5rem;font-weight:700;color:var(--color-midnight-sky);">تنظیمات سیستم</h1>
-		<p style="font-size:0.875rem;color:var(--color-mystic-sea);margin-top:4px;">تنظیمات کلی پلتفرم کلاس آنلاین</p>
+		<h1 class="sky-page-title">تنظیمات سیستم</h1>
+		<p class="sky-page-subtitle">تنظیمات کلی پلتفرم کلاس آنلاین</p>
 	</div>
 
 	<!-- Tabs -->
-	<div style="background:var(--color-pure);border-radius:12px;overflow:hidden;">
-		<div style="display:flex;border-bottom:1px solid var(--color-zen-garden);overflow-x:auto;">
+	<div class="sky-card overflow-hidden">
+		<div class="sky-tabs" style="padding: 0 1.25rem; overflow-x: auto;">
 			{#each tabs as tab}
-				<button
-					onclick={() => activeTab = tab.id}
-					style="padding:12px 24px;font-size:0.875rem;font-weight:500;white-space:nowrap;transition:all 0.15s;border-bottom:2px solid {activeTab === tab.id ? 'var(--color-crystal-clear)' : 'transparent'};color:{activeTab === tab.id ? 'var(--color-crystal-clear)' : 'var(--color-mystic-sea)'};background:{activeTab === tab.id ? 'rgba(35,185,215,0.05)' : 'transparent'};"
-				>
+				<button class="sky-tab {activeTab === tab.id ? 'active' : ''}" onclick={() => activeTab = tab.id}>
 					{tab.label}
 				</button>
 			{/each}
@@ -251,28 +248,28 @@
 				<!-- General Settings -->
 				{#if loading}
 					<div class="flex items-center justify-center py-12">
-						<div class="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full"></div>
+						<svg class="sky-spinner lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--color-crystal-clear);"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
 					</div>
 				{:else}
 					<div class="divide-y">
 						<!-- Max users per room -->
 						<div class="py-4 flex items-center justify-between">
 							<div>
-								<p class="font-medium text-gray-900">حداکثر کاربر در اتاق</p>
-								<p class="text-sm text-gray-500 mt-0.5">تعداد حداکثر شرکت‌کنندگان در هر جلسه</p>
+								<p class="font-medium" style="color: var(--color-midnight-sky);">حداکثر کاربر در اتاق</p>
+								<p class="text-sm mt-0.5" style="color: var(--color-mystic-sea);">تعداد حداکثر شرکت‌کنندگان در هر جلسه</p>
 							</div>
-							<input type="number" bind:value={settings.max_users_per_room} min="2" max="500" class="w-20 px-3 py-2 border rounded-lg text-sm text-center focus:ring-2 focus:ring-blue-500 outline-none" />
+							<input type="number" bind:value={settings.max_users_per_room} min="2" max="500" class="sky-input text-center" style="width: 5rem;" />
 						</div>
 
 						<!-- Recording enabled -->
 						<div class="py-4 flex items-center justify-between">
 							<div>
-								<p class="font-medium text-gray-900">ضبط جلسات</p>
-								<p class="text-sm text-gray-500 mt-0.5">امکان ضبط جلسات توسط مدرس</p>
+								<p class="font-medium" style="color: var(--color-midnight-sky);">ضبط جلسات</p>
+								<p class="text-sm mt-0.5" style="color: var(--color-mystic-sea);">امکان ضبط جلسات توسط مدرس</p>
 							</div>
 							<button
 								onclick={() => settings.recording_enabled = !settings.recording_enabled}
-								class="relative w-11 h-6 rounded-full transition-colors {settings.recording_enabled ? 'bg-blue-600' : 'bg-gray-300'}"
+								class="relative w-11 h-6 rounded-full transition-colors {settings.recording_enabled ? 'bg-[var(--color-crystal-clear)]' : 'bg-[var(--color-muted-mountain)]'}"
 							>
 								<span class="absolute top-0.5 right-0.5 w-5 h-5 bg-white rounded-full transition-transform {settings.recording_enabled ? 'translate-x-[-20px]' : ''}"></span>
 							</button>
@@ -281,12 +278,12 @@
 						<!-- Allow student video -->
 						<div class="py-4 flex items-center justify-between">
 							<div>
-								<p class="font-medium text-gray-900">ارسال ویدیو توسط دانش‌آموز</p>
-								<p class="text-sm text-gray-500 mt-0.5">اجازه ارسال ویدیو به دانش‌آموزان</p>
+								<p class="font-medium" style="color: var(--color-midnight-sky);">ارسال ویدیو توسط دانش‌آموز</p>
+								<p class="text-sm mt-0.5" style="color: var(--color-mystic-sea);">اجازه ارسال ویدیو به دانش‌آموزان</p>
 							</div>
 							<button
 								onclick={() => settings.allow_student_video = !settings.allow_student_video}
-								class="relative w-11 h-6 rounded-full transition-colors {settings.allow_student_video ? 'bg-blue-600' : 'bg-gray-300'}"
+								class="relative w-11 h-6 rounded-full transition-colors {settings.allow_student_video ? 'bg-[var(--color-crystal-clear)]' : 'bg-[var(--color-muted-mountain)]'}"
 							>
 								<span class="absolute top-0.5 right-0.5 w-5 h-5 bg-white rounded-full transition-transform {settings.allow_student_video ? 'translate-x-[-20px]' : ''}"></span>
 							</button>
@@ -295,30 +292,30 @@
 						<!-- Max file size -->
 						<div class="py-4 flex items-center justify-between">
 							<div>
-								<p class="font-medium text-gray-900">حداکثر حجم فایل (MB)</p>
-								<p class="text-sm text-gray-500 mt-0.5">حداکثر اندازه آپلود فایل</p>
+								<p class="font-medium" style="color: var(--color-midnight-sky);">حداکثر حجم فایل (MB)</p>
+								<p class="text-sm mt-0.5" style="color: var(--color-mystic-sea);">حداکثر اندازه آپلود فایل</p>
 							</div>
-							<input type="number" bind:value={settings.max_file_size_mb} min="1" max="500" class="w-20 px-3 py-2 border rounded-lg text-sm text-center focus:ring-2 focus:ring-blue-500 outline-none" />
+							<input type="number" bind:value={settings.max_file_size_mb} min="1" max="500" class="sky-input text-center" style="width: 5rem;" />
 						</div>
 
 						<!-- Auto end session -->
 						<div class="py-4 flex items-center justify-between">
 							<div>
-								<p class="font-medium text-gray-900">پایان خودکار جلسه (دقیقه)</p>
-								<p class="text-sm text-gray-500 mt-0.5">زمان پایان خودکار پس از شروع</p>
+								<p class="font-medium" style="color: var(--color-midnight-sky);">پایان خودکار جلسه (دقیقه)</p>
+								<p class="text-sm mt-0.5" style="color: var(--color-mystic-sea);">زمان پایان خودکار پس از شروع</p>
 							</div>
-							<input type="number" bind:value={settings.session_auto_end_minutes} min="30" max="480" class="w-20 px-3 py-2 border rounded-lg text-sm text-center focus:ring-2 focus:ring-blue-500 outline-none" />
+							<input type="number" bind:value={settings.session_auto_end_minutes} min="30" max="480" class="sky-input text-center" style="width: 5rem;" />
 						</div>
 
 						<!-- Maintenance mode -->
 						<div class="py-4 flex items-center justify-between">
 							<div>
-								<p class="font-medium text-gray-900">حالت تعمیر و نگهداری</p>
-								<p class="text-sm text-gray-500 mt-0.5">غیرفعال‌سازی موقت سیستم</p>
+								<p class="font-medium" style="color: var(--color-midnight-sky);">حالت تعمیر و نگهداری</p>
+								<p class="text-sm mt-0.5" style="color: var(--color-mystic-sea);">غیرفعال‌سازی موقت سیستم</p>
 							</div>
 							<button
 								onclick={() => settings.maintenance_mode = !settings.maintenance_mode}
-								class="relative w-11 h-6 rounded-full transition-colors {settings.maintenance_mode ? 'bg-red-600' : 'bg-gray-300'}"
+								class="relative w-11 h-6 rounded-full transition-colors {settings.maintenance_mode ? 'bg-[var(--color-fiery-passion)]' : 'bg-[var(--color-muted-mountain)]'}"
 							>
 								<span class="absolute top-0.5 right-0.5 w-5 h-5 bg-white rounded-full transition-transform {settings.maintenance_mode ? 'translate-x-[-20px]' : ''}"></span>
 							</button>
@@ -327,7 +324,7 @@
 
 					<div class="flex items-center justify-between mt-6 pt-4 border-t">
 						{#if saved}
-							<span class="text-sm text-green-600">ذخیره شد</span>
+							<span class="text-sm" style="color: var(--color-lush-meadow);">ذخیره شد</span>
 						{:else}
 							<span></span>
 						{/if}
@@ -342,38 +339,29 @@
 				<div class="space-y-6">
 					<div class="flex items-center justify-between">
 						<div>
-							<h2 class="text-lg font-semibold text-gray-900">مدیریت وب‌هوک‌ها</h2>
-							<p class="text-sm text-gray-500 mt-1">وب‌هوک‌ها برای دریافت اعلان‌های رویدادها در سیستم خارجی استفاده می‌شوند</p>
+							<h2 class="text-lg font-bold" style="color: var(--color-midnight-sky);">مدیریت وب‌هوک‌ها</h2>
+							<p class="text-sm mt-1" style="color: var(--color-mystic-sea);">وب‌هوک‌ها برای دریافت اعلان‌های رویدادها در سیستم خارجی استفاده می‌شوند</p>
 						</div>
-						<button
-							onclick={openCreateModal}
-							class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors flex items-center gap-2"
-						>
-							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-							</svg>
+						<button onclick={openCreateModal} class="sky-btn sky-btn-primary flex items-center gap-2">
+							<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
 							ایجاد وب‌هوک
 						</button>
 					</div>
 
 					{#if webhooksLoading}
 						<div class="flex items-center justify-center py-12">
-							<div class="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full"></div>
+							<svg class="sky-spinner lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--color-crystal-clear);"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
 						</div>
 					{:else if webhooks.length === 0}
-						<div class="text-center py-12 bg-gray-50 rounded-xl-2 border-dashed border-gray-200">
-							<svg class="w-12 h-12 mx-auto text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-							</svg>
-							<p class="mt-4 text-gray-500">هیچ وب‌هوکی ایجاد نشده است</p>
-							<button onclick={openCreateModal} class="mt-4 text-blue-600 hover:text-blue-700 text-sm font-medium">
-								ایجاد اولین وب‌هوک
-							</button>
+						<div class="sky-empty" style="background: var(--color-eternal-snow); border-radius: 12px;">
+							<div class="sky-empty-icon"><svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="color: var(--color-muted-mountain);"><path d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg></div>
+							<p class="sky-empty-title">هیچ وب‌هوکی ایجاد نشده است</p>
+							<button onclick={openCreateModal} class="sky-btn sky-btn-ghost">ایجاد اولین وب‌هوک</button>
 						</div>
 					{:else}
 						<div class="space-y-4">
 							{#each webhooks as webhook (webhook.id)}
-								<div class="bg-white rounded-xl overflow-hidden">
+								<div class="sky-card overflow-hidden">
 									<div class="p-4">
 										<div class="flex items-start justify-between gap-4">
 											<div class="flex-1 min-w-0">
@@ -493,24 +481,24 @@
 				<!-- Video Settings -->
 				{#if loading}
 					<div class="flex items-center justify-center py-12">
-						<div class="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full"></div>
+						<svg class="sky-spinner lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--color-crystal-clear);"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
 					</div>
 				{:else}
 					<div class="space-y-6">
 						<div>
-							<h2 class="text-lg font-semibold text-gray-900">تنظیمات ویدیو</h2>
+							<h2 class="text-lg font-bold" style="color: var(--color-midnight-sky);">تنظیمات ویدیو</h2>
 							<p class="text-sm text-gray-500 mt-1">پیکربندی سرور ویدیو برای جلسات آنلاین</p>
 						</div>
 						<div class="divide-y">
 							<!-- Allow student video -->
 							<div class="py-4 flex items-center justify-between">
 								<div>
-									<p class="font-medium text-gray-900">ارسال ویدیو توسط دانش‌آموز</p>
-									<p class="text-sm text-gray-500 mt-0.5">اجازه ارسال ویدیو به دانش‌آموزان</p>
+									<p class="font-medium" style="color: var(--color-midnight-sky);">ارسال ویدیو توسط دانش‌آموز</p>
+									<p class="text-sm mt-0.5" style="color: var(--color-mystic-sea);">اجازه ارسال ویدیو به دانش‌آموزان</p>
 								</div>
 								<button
 									onclick={() => settings.allow_student_video = !settings.allow_student_video}
-									class="relative w-11 h-6 rounded-full transition-colors {settings.allow_student_video ? 'bg-blue-600' : 'bg-gray-300'}"
+									class="relative w-11 h-6 rounded-full transition-colors {settings.allow_student_video ? 'bg-[var(--color-crystal-clear)]' : 'bg-[var(--color-muted-mountain)]'}"
 								>
 									<span class="absolute top-0.5 right-0.5 w-5 h-5 bg-white rounded-full transition-transform {settings.allow_student_video ? 'translate-x-[-20px]' : ''}"></span>
 								</button>
@@ -518,11 +506,11 @@
 						</div>
 						<div class="flex items-center justify-between pt-4 border-t">
 							{#if saved}
-								<span class="text-sm text-green-600">ذخیره شد</span>
+								<span class="text-sm" style="color: var(--color-lush-meadow);">ذخیره شد</span>
 							{:else}
 								<span></span>
 							{/if}
-							<button onclick={saveSettings} disabled={saving} class="px-6 py-2.5 bg-blue-600 text-white rounded-lg font-medium text-sm hover:bg-blue-700 transition-colors disabled:opacity-50">
+							<button onclick={saveSettings} disabled={saving} class="sky-btn sky-btn-primary">
 								{saving ? 'در حال ذخیره...' : 'ذخیره تنظیمات'}
 							</button>
 						</div>
@@ -533,32 +521,32 @@
 				<!-- Security Settings -->
 				{#if loading}
 					<div class="flex items-center justify-center py-12">
-						<div class="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full"></div>
+						<svg class="sky-spinner lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--color-crystal-clear);"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
 					</div>
 				{:else}
 					<div class="space-y-6">
 						<div>
-							<h2 class="text-lg font-semibold text-gray-900">تنظیمات امنیتی</h2>
+							<h2 class="text-lg font-bold" style="color: var(--color-midnight-sky);">تنظیمات امنیتی</h2>
 							<p class="text-sm text-gray-500 mt-1">سیاست رمز عبور و امنیت حساب کاربران</p>
 						</div>
 						<div class="divide-y">
 							<!-- Password min length -->
 							<div class="py-4 flex items-center justify-between">
 								<div>
-									<p class="font-medium text-gray-900">حداقل طول رمز عبور</p>
-									<p class="text-sm text-gray-500 mt-0.5">حداقل تعداد کاراکتر رمز عبور</p>
+									<p class="font-medium" style="color: var(--color-midnight-sky);">حداقل طول رمز عبور</p>
+									<p class="text-sm mt-0.5" style="color: var(--color-mystic-sea);">حداقل تعداد کاراکتر رمز عبور</p>
 								</div>
-								<input type="number" bind:value={settings.password_min_length} min="6" max="32" class="w-20 px-3 py-2 border rounded-lg text-sm text-center focus:ring-2 focus:ring-blue-500 outline-none" />
+								<input type="number" bind:value={settings.password_min_length} min="6" max="32" class="sky-input text-center" style="width: 5rem;" />
 							</div>
 							<!-- Require uppercase -->
 							<div class="py-4 flex items-center justify-between">
 								<div>
-									<p class="font-medium text-gray-900"> الزام حرف بزرگ</p>
-									<p class="text-sm text-gray-500 mt-0.5">رمز عبور باید شامل حداقل یک حرف بزرگ باشد</p>
+									<p class="font-medium" style="color: var(--color-midnight-sky);"> الزام حرف بزرگ</p>
+									<p class="text-sm mt-0.5" style="color: var(--color-mystic-sea);">رمز عبور باید شامل حداقل یک حرف بزرگ باشد</p>
 								</div>
 								<button
 									onclick={() => settings.password_require_uppercase = !settings.password_require_uppercase}
-									class="relative w-11 h-6 rounded-full transition-colors {settings.password_require_uppercase ? 'bg-blue-600' : 'bg-gray-300'}"
+									class="relative w-11 h-6 rounded-full transition-colors {settings.password_require_uppercase ? 'bg-[var(--color-crystal-clear)]' : 'bg-[var(--color-muted-mountain)]'}"
 								>
 									<span class="absolute top-0.5 right-0.5 w-5 h-5 bg-white rounded-full transition-transform {settings.password_require_uppercase ? 'translate-x-[-20px]' : ''}"></span>
 								</button>
@@ -566,12 +554,12 @@
 							<!-- Require number -->
 							<div class="py-4 flex items-center justify-between">
 								<div>
-									<p class="font-medium text-gray-900">الزام عدد</p>
-									<p class="text-sm text-gray-500 mt-0.5">رمز عبور باید شامل حداقل یک عدد باشد</p>
+									<p class="font-medium" style="color: var(--color-midnight-sky);">الزام عدد</p>
+									<p class="text-sm mt-0.5" style="color: var(--color-mystic-sea);">رمز عبور باید شامل حداقل یک عدد باشد</p>
 								</div>
 								<button
 									onclick={() => settings.password_require_number = !settings.password_require_number}
-									class="relative w-11 h-6 rounded-full transition-colors {settings.password_require_number ? 'bg-blue-600' : 'bg-gray-300'}"
+									class="relative w-11 h-6 rounded-full transition-colors {settings.password_require_number ? 'bg-[var(--color-crystal-clear)]' : 'bg-[var(--color-muted-mountain)]'}"
 								>
 									<span class="absolute top-0.5 right-0.5 w-5 h-5 bg-white rounded-full transition-transform {settings.password_require_number ? 'translate-x-[-20px]' : ''}"></span>
 								</button>
@@ -579,12 +567,12 @@
 							<!-- Require special char -->
 							<div class="py-4 flex items-center justify-between">
 								<div>
-									<p class="font-medium text-gray-900">الزام کاراکتر خاص</p>
-									<p class="text-sm text-gray-500 mt-0.5">رمز عبور باید شامل کاراکتر خاص باشد (مانند @, #, $)</p>
+									<p class="font-medium" style="color: var(--color-midnight-sky);">الزام کاراکتر خاص</p>
+									<p class="text-sm mt-0.5" style="color: var(--color-mystic-sea);">رمز عبور باید شامل کاراکتر خاص باشد (مانند @, #, $)</p>
 								</div>
 								<button
 									onclick={() => settings.password_require_special = !settings.password_require_special}
-									class="relative w-11 h-6 rounded-full transition-colors {settings.password_require_special ? 'bg-blue-600' : 'bg-gray-300'}"
+									class="relative w-11 h-6 rounded-full transition-colors {settings.password_require_special ? 'bg-[var(--color-crystal-clear)]' : 'bg-[var(--color-muted-mountain)]'}"
 								>
 									<span class="absolute top-0.5 right-0.5 w-5 h-5 bg-white rounded-full transition-transform {settings.password_require_special ? 'translate-x-[-20px]' : ''}"></span>
 								</button>
@@ -592,36 +580,36 @@
 							<!-- Session timeout -->
 							<div class="py-4 flex items-center justify-between">
 								<div>
-									<p class="font-medium text-gray-900">مدت زمان نشست (دقیقه)</p>
-									<p class="text-sm text-gray-500 mt-0.5">مدت زمان قبل از خودکار خروج کاربر</p>
+									<p class="font-medium" style="color: var(--color-midnight-sky);">مدت زمان نشست (دقیقه)</p>
+									<p class="text-sm mt-0.5" style="color: var(--color-mystic-sea);">مدت زمان قبل از خودکار خروج کاربر</p>
 								</div>
-								<input type="number" bind:value={settings.session_timeout_minutes} min="5" max="1440" class="w-20 px-3 py-2 border rounded-lg text-sm text-center focus:ring-2 focus:ring-blue-500 outline-none" />
+								<input type="number" bind:value={settings.session_timeout_minutes} min="5" max="1440" class="sky-input text-center" style="width: 5rem;" />
 							</div>
 							<!-- Max login attempts -->
 							<div class="py-4 flex items-center justify-between">
 								<div>
-								<p class="font-medium text-gray-900">حداکثر تلاش ورود</p>
-								<p class="text-sm text-gray-500 mt-0.5">تعداد حداکثر تلاش ناموفق قبل از قفل شدن حساب</p>
+								<p class="font-medium" style="color: var(--color-midnight-sky);">حداکثر تلاش ورود</p>
+								<p class="text-sm mt-0.5" style="color: var(--color-mystic-sea);">تعداد حداکثر تلاش ناموفق قبل از قفل شدن حساب</p>
 								</div>
-								<input type="number" bind:value={settings.max_login_attempts} min="3" max="20" class="w-20 px-3 py-2 border rounded-lg text-sm text-center focus:ring-2 focus:ring-blue-500 outline-none" />
+								<input type="number" bind:value={settings.max_login_attempts} min="3" max="20" class="sky-input text-center" style="width: 5rem;" />
 							</div>
 							<!-- Lockout duration -->
 							<div class="py-4 flex items-center justify-between">
 								<div>
-									<p class="font-medium text-gray-900">مدت قفل حساب (دقیقه)</p>
-									<p class="text-sm text-gray-500 mt-0.5">مدت زمان قفل شدن حساب پس از تلاش‌های ناموفق</p>
+									<p class="font-medium" style="color: var(--color-midnight-sky);">مدت قفل حساب (دقیقه)</p>
+									<p class="text-sm mt-0.5" style="color: var(--color-mystic-sea);">مدت زمان قفل شدن حساب پس از تلاش‌های ناموفق</p>
 								</div>
-								<input type="number" bind:value={settings.lockout_duration_minutes} min="5" max="1440" class="w-20 px-3 py-2 border rounded-lg text-sm text-center focus:ring-2 focus:ring-blue-500 outline-none" />
+								<input type="number" bind:value={settings.lockout_duration_minutes} min="5" max="1440" class="sky-input text-center" style="width: 5rem;" />
 							</div>
 							<!-- Require 2FA -->
 							<div class="py-4 flex items-center justify-between">
 								<div>
-									<p class="font-medium text-gray-900">الزام احراز هویت دو مرحله‌ای</p>
-									<p class="text-sm text-gray-500 mt-0.5">فعال‌سازی اجباری ۲FA برای تمام کاربران</p>
+									<p class="font-medium" style="color: var(--color-midnight-sky);">الزام احراز هویت دو مرحله‌ای</p>
+									<p class="text-sm mt-0.5" style="color: var(--color-mystic-sea);">فعال‌سازی اجباری ۲FA برای تمام کاربران</p>
 								</div>
 								<button
 									onclick={() => settings.require_2fa = !settings.require_2fa}
-									class="relative w-11 h-6 rounded-full transition-colors {settings.require_2fa ? 'bg-blue-600' : 'bg-gray-300'}"
+									class="relative w-11 h-6 rounded-full transition-colors {settings.require_2fa ? 'bg-[var(--color-crystal-clear)]' : 'bg-[var(--color-muted-mountain)]'}"
 								>
 									<span class="absolute top-0.5 right-0.5 w-5 h-5 bg-white rounded-full transition-transform {settings.require_2fa ? 'translate-x-[-20px]' : ''}"></span>
 								</button>
@@ -629,11 +617,11 @@
 						</div>
 						<div class="flex items-center justify-between pt-4 border-t">
 							{#if saved}
-								<span class="text-sm text-green-600">ذخیره شد</span>
+								<span class="text-sm" style="color: var(--color-lush-meadow);">ذخیره شد</span>
 							{:else}
 								<span></span>
 							{/if}
-							<button onclick={saveSettings} disabled={saving} class="px-6 py-2.5 bg-blue-600 text-white rounded-lg font-medium text-sm hover:bg-blue-700 transition-colors disabled:opacity-50">
+							<button onclick={saveSettings} disabled={saving} class="sky-btn sky-btn-primary">
 								{saving ? 'در حال ذخیره...' : 'ذخیره تنظیمات'}
 							</button>
 						</div>
@@ -644,24 +632,24 @@
 				<!-- Email Settings -->
 				{#if loading}
 					<div class="flex items-center justify-center py-12">
-						<div class="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full"></div>
+						<svg class="sky-spinner lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--color-crystal-clear);"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
 					</div>
 				{:else}
 					<div class="space-y-6">
 						<div>
-							<h2 class="text-lg font-semibold text-gray-900">تنظیمات ایمیل</h2>
+							<h2 class="text-lg font-bold" style="color: var(--color-midnight-sky);">تنظیمات ایمیل</h2>
 							<p class="text-sm text-gray-500 mt-1">پیکربندی سرور SMTP برای ارسال ایمیل</p>
 						</div>
 						<div class="divide-y">
 							<!-- SMTP Enabled -->
 							<div class="py-4 flex items-center justify-between">
 								<div>
-									<p class="font-medium text-gray-900">فعال‌سازی ایمیل</p>
-									<p class="text-sm text-gray-500 mt-0.5">فعال‌سازی سرویس ارسال ایمیل</p>
+									<p class="font-medium" style="color: var(--color-midnight-sky);">فعال‌سازی ایمیل</p>
+									<p class="text-sm mt-0.5" style="color: var(--color-mystic-sea);">فعال‌سازی سرویس ارسال ایمیل</p>
 								</div>
 								<button
 									onclick={() => settings.smtp_enabled = !settings.smtp_enabled}
-									class="relative w-11 h-6 rounded-full transition-colors {settings.smtp_enabled ? 'bg-blue-600' : 'bg-gray-300'}"
+									class="relative w-11 h-6 rounded-full transition-colors {settings.smtp_enabled ? 'bg-[var(--color-crystal-clear)]' : 'bg-[var(--color-muted-mountain)]'}"
 								>
 									<span class="absolute top-0.5 right-0.5 w-5 h-5 bg-white rounded-full transition-transform {settings.smtp_enabled ? 'translate-x-[-20px]' : ''}"></span>
 								</button>
@@ -669,50 +657,50 @@
 							<!-- SMTP Host -->
 							<div class="py-4 flex items-center justify-between">
 								<div>
-									<p class="font-medium text-gray-900">آدرس سرور SMTP</p>
-									<p class="text-sm text-gray-500 mt-0.5">آدرس سرور پست الکترونیک</p>
+									<p class="font-medium" style="color: var(--color-midnight-sky);">آدرس سرور SMTP</p>
+									<p class="text-sm mt-0.5" style="color: var(--color-mystic-sea);">آدرس سرور پست الکترونیک</p>
 								</div>
-								<input type="text" bind:value={settings.smtp_host} placeholder="smtp.gmail.com" dir="ltr" class="w-64 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+								<input type="text" bind:value={settings.smtp_host} placeholder="smtp.gmail.com" dir="ltr" class="sky-input" style="width: 16rem;" />
 							</div>
 							<!-- SMTP Port -->
 							<div class="py-4 flex items-center justify-between">
 								<div>
-									<p class="font-medium text-gray-900">پورت SMTP</p>
-									<p class="text-sm text-gray-500 mt-0.5">پورت اتصال به سرور SMTP</p>
+									<p class="font-medium" style="color: var(--color-midnight-sky);">پورت SMTP</p>
+									<p class="text-sm mt-0.5" style="color: var(--color-mystic-sea);">پورت اتصال به سرور SMTP</p>
 								</div>
-								<input type="number" bind:value={settings.smtp_port} min="1" max="65535" class="w-24 px-3 py-2 border rounded-lg text-sm text-center focus:ring-2 focus:ring-blue-500 outline-none" />
+								<input type="number" bind:value={settings.smtp_port} min="1" max="65535" class="sky-input text-center" style="width: 6rem;" />
 							</div>
 							<!-- SMTP Username -->
 							<div class="py-4 flex items-center justify-between">
 								<div>
-									<p class="font-medium text-gray-900">نام کاربری SMTP</p>
-									<p class="text-sm text-gray-500 mt-0.5">نام کاربری احراز هویت SMTP</p>
+									<p class="font-medium" style="color: var(--color-midnight-sky);">نام کاربری SMTP</p>
+									<p class="text-sm mt-0.5" style="color: var(--color-mystic-sea);">نام کاربری احراز هویت SMTP</p>
 								</div>
-								<input type="text" bind:value={settings.smtp_username} placeholder="your@email.com" dir="ltr" class="w-64 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+								<input type="text" bind:value={settings.smtp_username} placeholder="your@email.com" dir="ltr" class="sky-input" style="width: 16rem;" />
 							</div>
 							<!-- SMTP Password -->
 							<div class="py-4 flex items-center justify-between">
 								<div>
-									<p class="font-medium text-gray-900">رمز عبور SMTP</p>
-									<p class="text-sm text-gray-500 mt-0.5">رمز عبور احراز هویت SMTP</p>
+									<p class="font-medium" style="color: var(--color-midnight-sky);">رمز عبور SMTP</p>
+									<p class="text-sm mt-0.5" style="color: var(--color-mystic-sea);">رمز عبور احراز هویت SMTP</p>
 								</div>
-								<input type="password" bind:value={settings.smtp_password} placeholder="••••••••" dir="ltr" class="w-64 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+								<input type="password" bind:value={settings.smtp_password} placeholder="••••••••" dir="ltr" class="sky-input" style="width: 16rem;" />
 							</div>
 							<!-- SMTP From -->
 							<div class="py-4 flex items-center justify-between">
 								<div>
-									<p class="font-medium text-gray-900">آدرس فرستنده</p>
-									<p class="text-sm text-gray-500 mt-0.5">آدرس ایمیل نمایش داده شده به عنوان فرستنده</p>
+									<p class="font-medium" style="color: var(--color-midnight-sky);">آدرس فرستنده</p>
+									<p class="text-sm mt-0.5" style="color: var(--color-mystic-sea);">آدرس ایمیل نمایش داده شده به عنوان فرستنده</p>
 								</div>
-								<input type="email" bind:value={settings.smtp_from} placeholder="noreply@iroom.ir" dir="ltr" class="w-64 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+								<input type="email" bind:value={settings.smtp_from} placeholder="noreply@iroom.ir" dir="ltr" class="sky-input" style="width: 16rem;" />
 							</div>
 						</div>
 
 						<!-- Test Email -->
 						<div class="flex items-center gap-3 pt-4 border-t">
-							<button onclick={testEmail} disabled={emailTesting || !settings.smtp_enabled} class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
+							<button onclick={testEmail} disabled={emailTesting || !settings.smtp_enabled} class="sky-btn sky-btn-secondary flex items-center gap-2">
 								{#if emailTesting}
-									<div class="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+									<svg class="sky-spinner sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
 									در حال ارسال...
 								{:else}
 									<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -730,11 +718,11 @@
 
 						<div class="flex items-center justify-between pt-4 border-t">
 							{#if saved}
-								<span class="text-sm text-green-600">ذخیره شد</span>
+								<span class="text-sm" style="color: var(--color-lush-meadow);">ذخیره شد</span>
 							{:else}
 								<span></span>
 							{/if}
-							<button onclick={saveSettings} disabled={saving} class="px-6 py-2.5 bg-blue-600 text-white rounded-lg font-medium text-sm hover:bg-blue-700 transition-colors disabled:opacity-50">
+							<button onclick={saveSettings} disabled={saving} class="sky-btn sky-btn-primary">
 								{saving ? 'در حال ذخیره...' : 'ذخیره تنظیمات'}
 							</button>
 						</div>
@@ -745,12 +733,12 @@
 				<!-- API Settings -->
 				{#if loading}
 					<div class="flex items-center justify-center py-12">
-						<div class="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full"></div>
+						<svg class="sky-spinner lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--color-crystal-clear);"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
 					</div>
 				{:else}
 					<div class="space-y-6">
 						<div>
-							<h2 class="text-lg font-semibold text-gray-900">تنظیمات API خارجی</h2>
+							<h2 class="text-lg font-bold" style="color: var(--color-midnight-sky);">تنظیمات API خارجی</h2>
 							<p class="text-sm text-gray-500 mt-1">مدیریت کلید API و مستندات اندپوینت‌ها</p>
 						</div>
 
@@ -758,7 +746,7 @@
 						<div class="bg-gray-50 rounded-xl p-4">
 							<h3 class="font-medium text-gray-900 mb-3">کلید API خارجی</h3>
 							<div class="flex items-center gap-3">
-								<input type="text" bind:value={settings.external_api_key} placeholder="کلید API را وارد کنید" dir="ltr" class="flex-1 px-4 py-2.5 border rounded-lg text-sm font-mono focus:ring-2 focus:ring-blue-500 outline-none" />
+								<input type="text" bind:value={settings.external_api_key} placeholder="کلید API را وارد کنید" dir="ltr" class="sky-input flex-1 font-mono" />
 							</div>
 							<p class="text-xs text-gray-500 mt-2">این کلید برای احراز هویت درخواست‌های API خارجی استفاده می‌شود</p>
 						</div>
@@ -820,11 +808,11 @@
 
 						<div class="flex items-center justify-between pt-4 border-t">
 							{#if saved}
-								<span class="text-sm text-green-600">ذخیره شد</span>
+								<span class="text-sm" style="color: var(--color-lush-meadow);">ذخیره شد</span>
 							{:else}
 								<span></span>
 							{/if}
-							<button onclick={saveSettings} disabled={saving} class="px-6 py-2.5 bg-blue-600 text-white rounded-lg font-medium text-sm hover:bg-blue-700 transition-colors disabled:opacity-50">
+							<button onclick={saveSettings} disabled={saving} class="sky-btn sky-btn-primary">
 								{saving ? 'در حال ذخیره...' : 'ذخیره تنظیمات'}
 							</button>
 						</div>
@@ -840,45 +828,30 @@
 {#if showWebhookModal}
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<div class="fixed inset-0 z-50 flex items-center justify-center p-4" onclick={closeWebhookModal}>
-		<div class="fixed inset-0 bg-black/40 backdrop-blur-sm"></div>
-		<div
-			class="relative bg-white rounded-2xl w-full max-w-lg shadow-xl animate-slide-up"
-			onclick={(e) => e.stopPropagation()}
-		>
-			<div class="px-6 pt-6 pb-2">
-				<h2 class="font-bold text-lg text-gray-900">
-					{editingWebhook ? 'ویرایش وب‌هوک' : 'ایجاد وب‌هوک جدید'}
-				</h2>
+	<div class="modal-overlay" role="button" tabindex="-1" onclick={closeWebhookModal}>
+		<div class="modal-content" onclick={(e) => e.stopPropagation()}>
+			<div class="sky-modal-header">
+				<h2>{editingWebhook ? 'ویرایش وب‌هوک' : 'ایجاد وب‌هوک جدید'}</h2>
+				<button onclick={closeWebhookModal} class="sky-btn-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
 			</div>
-			<div class="px-6 pb-6 space-y-4">
+			<div class="sky-modal-body space-y-4">
 				<!-- URL Input -->
 				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-1">آدرس URL</label>
-					<input
-						type="url"
-						bind:value={webhookForm.url}
-						placeholder="https://example.com/webhook"
-						class="w-full px-4 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-					/>
-					<p class="mt-1 text-xs text-gray-500">آدرس سروری که رویدادها به آن ارسال می‌شوند</p>
+					<label class="sky-label">آدرس URL</label>
+					<input type="url" bind:value={webhookForm.url} placeholder="https://example.com/webhook" class="sky-input" dir="ltr" />
+					<p class="mt-1 text-xs" style="color: var(--color-moonlit-mist);">آدرس سروری که رویدادها به آن ارسال می‌شوند</p>
 				</div>
 
 				<!-- Events Selection -->
 				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-2">رویدادها</label>
+					<label class="sky-label">رویدادها</label>
 					<div class="space-y-2">
 						{#each Object.entries(WEBHOOK_EVENTS) as [eventKey, eventLabel]}
-							<label class="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors {webhookForm.events.includes(eventKey) ? 'border-blue-500 bg-blue-50' : ''}">
-								<input
-									type="checkbox"
-									checked={webhookForm.events.includes(eventKey)}
-									onchange={() => toggleEvent(eventKey as WebhookEventType)}
-									class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-								/>
+							<label class="flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors" style="border: 1px solid {webhookForm.events.includes(eventKey) ? 'var(--color-crystal-clear)' : 'var(--color-zen-garden)'}; background: {webhookForm.events.includes(eventKey) ? 'var(--color-polar-ice)' : 'transparent'};">
+								<input type="checkbox" checked={webhookForm.events.includes(eventKey)} onchange={() => toggleEvent(eventKey as WebhookEventType)} class="w-4 h-4 rounded" style="accent-color: var(--color-crystal-clear);" />
 								<div>
-									<span class="text-sm font-medium text-gray-900">{eventLabel}</span>
-									<span class="text-xs text-gray-500 font-mono mr-2">({eventKey})</span>
+									<span class="text-sm font-medium" style="color: var(--color-midnight-sky);">{eventLabel}</span>
+									<span class="text-xs font-mono mr-2" style="color: var(--color-moonlit-mist);">({eventKey})</span>
 								</div>
 							</label>
 						{/each}
@@ -886,28 +859,19 @@
 				</div>
 
 				<!-- Active Toggle -->
-				<div class="flex items-center justify-between p-3 border rounded-lg">
+				<div class="flex items-center justify-between p-3 rounded-lg" style="border: 1px solid var(--color-zen-garden);">
 					<div>
-						<span class="text-sm font-medium text-gray-900">وضعیت فعال</span>
-						<p class="text-xs text-gray-500">وب‌هوک فقط در حالت فعال رویدادها را ارسال می‌کند</p>
+						<span class="text-sm font-medium" style="color: var(--color-midnight-sky);">وضعیت فعال</span>
+						<p class="text-xs" style="color: var(--color-moonlit-mist);">وب‌هوک فقط در حالت فعال رویدادها را ارسال می‌کند</p>
 					</div>
-					<button
-						onclick={() => webhookActive = !webhookActive}
-						class="relative w-11 h-6 rounded-full transition-colors {webhookActive ? 'bg-blue-600' : 'bg-gray-300'}"
-					>
+					<button onclick={() => webhookActive = !webhookActive} class="relative w-11 h-6 rounded-full transition-colors {webhookActive ? 'bg-[var(--color-crystal-clear)]' : 'bg-[var(--color-muted-mountain)]'}">
 						<span class="absolute top-0.5 right-0.5 w-5 h-5 bg-white rounded-full transition-transform {webhookActive ? 'translate-x-[-20px]' : ''}"></span>
 					</button>
 				</div>
 			</div>
-			<div class="px-6 py-4 border-t flex justify-end gap-3">
-				<button onclick={closeWebhookModal} class="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
-					انصراف
-				</button>
-				<button
-					onclick={saveWebhook}
-					disabled={webhookSaving || !webhookForm.url || webhookForm.events.length === 0}
-					class="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-				>
+			<div class="sky-modal-footer">
+				<button onclick={closeWebhookModal} class="sky-btn sky-btn-secondary">انصراف</button>
+				<button onclick={saveWebhook} disabled={webhookSaving || !webhookForm.url || webhookForm.events.length === 0} class="sky-btn sky-btn-primary">
 					{webhookSaving ? 'در حال ذخیره...' : (editingWebhook ? 'بروزرسانی' : 'ایجاد')}
 				</button>
 			</div>
