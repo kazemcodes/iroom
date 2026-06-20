@@ -190,7 +190,7 @@
 	let showWhiteboard = $state(false);
 	let showEntryModal = $state(false);
 	let entryMode = $state<'speaker' | 'listener'>('speaker');
-	let remoteStreams = $state<Array<{id: string; stream: MediaStream}>>([]);
+	let remoteStreams = $state<Array<{id: string; stream: MediaStream; isScreen: boolean}>>([]);
 
 	const currentUserRole = $derived(($auth.user?.role || 'student') as UserRole);
 	const perms = $derived(ROLE_PERMISSIONS[currentUserRole] || ROLE_PERMISSIONS.student);
@@ -358,16 +358,22 @@
 				});
 			};
 			pion.onRemoteStream = (stream, participantId) => {
-				chatDebug('onRemoteStream', { participantId, tracks: stream.getTracks().map(t => t.kind) });
-				const existing = remoteStreams.find(r => r.id === participantId);
-				if (existing) {
-					existing.stream = stream;
+				const hasVideo = stream.getVideoTracks().length > 0;
+				const hasAudio = stream.getAudioTracks().length > 0;
+				const isScreen = hasVideo && remoteStreams.some(r => r.id === participantId && !r.isScreen && r.stream.getVideoTracks().length > 0);
+				chatDebug('onRemoteStream', { participantId, tracks: stream.getTracks().map(t => t.kind), isScreen });
+				const key = isScreen ? participantId + '_screen' : participantId;
+				const existingIdx = remoteStreams.findIndex(r => r.id === key);
+				if (existingIdx >= 0) {
+					const updated = [...remoteStreams];
+					updated[existingIdx] = { id: key, stream, isScreen };
+					remoteStreams = updated;
 				} else {
-					remoteStreams = [...remoteStreams, { id: participantId, stream }];
+					remoteStreams = [...remoteStreams, { id: key, stream, isScreen }];
 				}
 				participants = participants.map(p => {
 					if (p.id === participantId) {
-						return { ...p, hasVideo: stream.getVideoTracks().length > 0, hasAudio: stream.getAudioTracks().length > 0 };
+						return { ...p, hasVideo: p.hasVideo || hasVideo, hasAudio: p.hasAudio || hasAudio, hasScreen: p.hasScreen || isScreen };
 					}
 					return p;
 				});
@@ -885,15 +891,14 @@
 									</div>
 								</div>
 							{:else}
-							<div class="absolute bottom-4 left-3 w-36 h-28 rounded overflow-hidden border border-[#3a3a5a]"><video bind:this={localVideoEl} autoplay muted playsinline class="w-full h-full object-cover"></video></div>
 							{#each remoteStreams as remote (remote.id)}
-								<video
-									autoplay
-									playsinline
-									class="absolute inset-0 w-full h-full object-cover rounded-lg"
-									use:srcObject={remote.stream}
-								></video>
+								{#if remote.isScreen}
+									<video autoplay playsinline class="absolute inset-0 w-full h-full object-cover rounded-lg" use:srcObject={remote.stream}></video>
+								{:else}
+									<video autoplay playsinline class="absolute top-4 right-4 w-36 h-24 object-cover rounded-lg border border-[#3a3a5a] z-10" use:srcObject={remote.stream}></video>
+								{/if}
 							{/each}
+							<div class="absolute bottom-4 right-4 w-28 h-20 rounded-lg overflow-hidden border border-[#3a3a5a] z-10"><video bind:this={localVideoEl} autoplay muted playsinline class="w-full h-full object-cover"></video></div>
 				{/if}
 				</div>
 				{/if}
