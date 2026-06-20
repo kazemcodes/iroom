@@ -21,6 +21,35 @@
 	const slug = $derived(page.params.slug!);
 	const isLoggedIn = $derived($auth.isLoggedIn);
 
+	async function fetchParticipants() {
+		if (!roomId) return;
+		try {
+			const res = await api.get<any[]>(`/sessions/${roomId}/classroom/participants`);
+			if (res.success && Array.isArray(res.data)) {
+				const serverIds = new Set(res.data.map((p: any) => p.id));
+				participants = [
+					...participants.filter(p => serverIds.has(p.id)).map(p => {
+						const serverP = res.data?.find((s: any) => s.id === p.id);
+						return {
+							...p,
+							name: serverP?.name ?? p.name,
+							role: (serverP?.role ?? p.role) as UserRole,
+							isSpeaking: p.isSpeaking,
+							isLocal: p.isLocal,
+							handRaised: p.handRaised,
+						};
+					}),
+					...res.data.filter((p: any) => !participants.find(ep => ep.id === p.id)).map((p: any) => ({
+						id: p.id, name: p.name, role: (p.role || 'student') as UserRole,
+						isSpeaking: false, hasVideo: !p.is_video_off, hasAudio: !p.is_muted,
+						hasScreen: p.is_screen_sharing || false, hasWhiteboard: false, handRaised: false,
+					})),
+				];
+				if (pion) pion.updateParticipantCount(participants.length);
+			}
+		} catch (e) {}
+	}
+
 	onMount(async () => {
 		// If already logged in, try to join room directly
 		if (isLoggedIn) {
@@ -50,7 +79,7 @@
 
 		const res = await api.get<any>('/rooms/slug/' + slug);
 		if (res.success && res.data) {
-			room = res.data.room;
+			room = res.data.room ?? null;
 		}
 		loading = false;
 	});
@@ -61,7 +90,7 @@
 			loading = false;
 			return;
 		}
-		room = res.data.room;
+		room = res.data.room ?? null;
 
 		// Find or create session
 		let foundSession = null;
@@ -188,6 +217,9 @@
 	let localVideoEl: HTMLVideoElement;
 	let chatWs: WebSocket | null = null;
 	let showWhiteboard = $state(false);
+	let showPdf = $state(false);
+	let pdfUrl = $state('');
+	let pdfFileName = $state('');
 	let showEntryModal = $state(false);
 	let entryMode = $state<'speaker' | 'listener'>('speaker');
 	let remoteStreams = $state<Array<{id: string; stream: MediaStream; isScreen: boolean}>>([]);
@@ -243,10 +275,17 @@
 		chatWs.onopen = () => { chatDebug('WS connected', { readyState: chatWs?.readyState }); };
 		chatWs.onmessage = (event) => {
 			if (event.data instanceof ArrayBuffer || event.data instanceof Blob) {
+				const handleBinary = (buf: ArrayBuffer) => {
+					if (buf.byteLength < 1) return;
+					const marker = new Uint8Array(buf)[0];
+					if (marker === 1) {
+						pion?.handleBinaryMessage(buf);
+					}
+				};
 				if (event.data instanceof Blob) {
-					event.data.arrayBuffer().then(buf => pion?.handleBinaryMessage(buf));
+					event.data.arrayBuffer().then(handleBinary);
 				} else {
-					pion?.handleBinaryMessage(event.data);
+					handleBinary(event.data);
 				}
 				return;
 			}
@@ -320,6 +359,15 @@
 						data.command === 'webcam_on' || data.command === 'webcam_off' ||
 						data.command === 'screenshare_on' || data.command === 'screenshare_off') {
 						chatDebug('media command', { command: data.command, user_id: data.user_id });
+					} else if (data.command === 'pdf_open') {
+						showPdf = true;
+						showWhiteboard = false;
+						pdfFileName = data.file_name || 'document.pdf';
+						if (data.file_url) {
+							pdfUrl = data.file_url;
+						}
+					} else if (data.command === 'pdf_close') {
+						showPdf = false;
 					}
 				} else if (data.type === 'whiteboard') {
 					if (data.action === 'toggle') {
@@ -332,19 +380,20 @@
 				}
 			} catch (e) { chatDebug('parse error', e); }
 		};
-		chatWs.onclose = (e) => {
+		
+		chatWs!.onclose = (e) => {
 			chatDebug('WS closed', { code: e.code, reason: e.reason });
 			chatWs = null;
 			if (roomId) setTimeout(connectChatWs, 3000);
 		};
-		chatWs.onerror = (e) => { chatDebug('WS error', e); };
+		chatWs!.onerror = (e) => { chatDebug('WS error', e); };
 	}
 
 	async function joinClassroom() {
 		if (!roomId) return;
-		const joinRes = await api.get(`/sessions/${roomId}/classroom`);
+		const joinRes = await api.get<any>('/sessions/' + roomId + '/classroom');
 		if (!joinRes.success || !joinRes.data) return;
-		const { user_id } = joinRes.data;
+		const { user_id } = joinRes.data as { user_id: number };
 		const isListener = entryMode === 'listener';
 		try {
 			if (!chatWs || chatWs.readyState !== WebSocket.OPEN) {
@@ -541,35 +590,6 @@
 	}
 	function showJoinNotification(name: string) { joinNotification = { name, show: true }; setTimeout(() => { joinNotification = { name: '', show: false }; }, 3000); }
 
-	async function fetchParticipants() {
-		if (!roomId) return;
-		try {
-			const res = await api.get<any[]>(`/sessions/${roomId}/classroom/participants`);
-			if (res.success && Array.isArray(res.data)) {
-				const serverIds = new Set(res.data.map((p: any) => p.id));
-				// Merge: keep local state for existing participants, add new ones from server
-				participants = [
-					...participants.filter(p => serverIds.has(p.id)).map(p => {
-						const serverP = res.data.find((s: any) => s.id === p.id);
-						return {
-							...p,
-							name: serverP?.name ?? p.name,
-							role: (serverP?.role ?? p.role) as UserRole,
-							isSpeaking: p.isSpeaking,
-							isLocal: p.isLocal,
-							handRaised: p.handRaised,
-						};
-					}),
-					...res.data.filter((p: any) => !participants.find(ep => ep.id === p.id)).map((p: any) => ({
-						id: p.id, name: p.name, role: (p.role || 'student') as UserRole,
-						isSpeaking: false, hasVideo: !p.is_video_off, hasAudio: !p.is_muted,
-						hasScreen: p.is_screen_sharing || false, hasWhiteboard: false, handRaised: false,
-					})),
-				];
-			}
-		} catch (e) {}
-	}
-
 	async function startSession() {
 		if (!roomId) return;
 		const res = await api.post(`/sessions/${roomId}/start`);
@@ -674,6 +694,53 @@
 		if (!ctx) return;
 		ctx.fillStyle = '#1c2a3a';
 		ctx.fillRect(0, 0, whiteboardCanvas.width, whiteboardCanvas.height);
+	}
+
+	function openPdfFile() {
+		const input = document.createElement('input');
+		input.type = 'file';
+		input.accept = '.pdf';
+		input.onchange = async (e: Event) => {
+			const file = (e.target as HTMLInputElement).files?.[0];
+			if (!file) return;
+			try {
+				const formData = new FormData();
+				formData.append('file', file);
+				const token = localStorage.getItem('access_token');
+				const res = await fetch('/api/v1/pdf/upload', {
+					method: 'POST',
+					headers: { 'Authorization': `Bearer ${token}` },
+					body: formData,
+				});
+				const data = await res.json();
+				if (data.success && data.data) {
+					const pdfUrlFull = data.data.url;
+					pdfUrl = pdfUrlFull;
+					pdfFileName = file.name;
+					showPdf = true;
+					showWhiteboard = false;
+					wsSend({ type: 'command', command: 'pdf_open', file_name: file.name, file_url: pdfUrlFull });
+				}
+			} catch (err) {
+				console.error('PDF upload failed:', err);
+			}
+		};
+		input.click();
+	}
+
+	function handlePdfUrl(url: string, fileName: string) {
+		pdfUrl = url;
+		pdfFileName = fileName;
+		showPdf = true;
+		showWhiteboard = false;
+	}
+
+	function closePdf() {
+		if (pdfUrl) URL.revokeObjectURL(pdfUrl);
+		pdfUrl = '';
+		pdfFileName = '';
+		showPdf = false;
+		wsSend({ type: 'command', command: 'pdf_close' });
 	}
 
 	async function loadChatHistory(sid: number) {
@@ -786,15 +853,16 @@
 			</header>
 			<div id="workspace" class="skyroom-col" style="flex:1;overflow:hidden;">
 				<div class="skyroom-room-nav" style="position:relative;">
-					<div class="skyroom-row" style="flex-shrink:0;gap:4px;">
+					<div class="skyroom-row" style="flex-shrink:0;gap:4px;overflow-x:auto;">
 						<button class="skyroom-icon-square" title="منو" onclick={() => showAppMenu = !showAppMenu}><svg width="18" height="18"><use xlink:href="#shape_menu"></use></svg></button>
 						<button class="skyroom-icon-square" class:active={showChatPanel} title="پیام‌ها" onclick={() => { showChatPanel = !showChatPanel; syncChatPanel(showChatPanel); }}><svg width="18" height="18"><use xlink:href="#shape_chat"></use></svg></button>
 						<button class="skyroom-icon-square" class:active={showUsersPanel} title="کاربران" onclick={() => { showUsersPanel = !showUsersPanel; syncUsersPanel(showUsersPanel); }}><svg width="18" height="18"><use xlink:href="#shape_group"></use></svg></button>
 					</div>
 					<div style="flex:1;"></div>
-					<div class="skyroom-row" style="flex-shrink:0;gap:4px;">
+					<div class="skyroom-row" style="flex-shrink:0;gap:4px;overflow-x:auto;">
 						{#if perms.canHandRaise}<button class="skyroom-icon-square" class:active={handRaised} title="بالا بردن دست" onclick={toggleHand}><svg width="18" height="18"><use xlink:href="#shape_hand"></use></svg></button>{/if}
 						{#if perms.canWhiteboard}<button class="skyroom-icon-square" class:active={showWhiteboard} title="تخته" onclick={toggleWhiteboard}><svg width="18" height="18"><use xlink:href="#shape_brush"></use></svg></button>{/if}
+						{#if perms.canWhiteboard}<button class="skyroom-icon-square" class:active={showPdf} title="فایل PDF" onclick={openPdfFile}><svg width="18" height="18"><use xlink:href="#shape_slideshow"></use></svg></button>{/if}
 						{#if perms.canScreenShare}<button class="skyroom-icon-square" class:active={screenShareOn} title="اشتراک‌گذاری صفحه" onclick={toggleScreenShare}><svg width="18" height="18"><use xlink:href="#shape_laptop"></use></svg></button>{/if}
 						{#if perms.canWebcam}<button class="skyroom-icon-square" class:active={webcamOn} title="وبکم" onclick={toggleWebcam}><svg width="18" height="18"><use xlink:href={webcamOn ? '#shape_videocam' : '#shape_videocamoff'}></use></svg></button>{/if}
 						{#if perms.canMic}<button class="skyroom-icon-square" class:active={micOn} title="میکروفون" onclick={toggleMic}><svg width="18" height="18"><use xlink:href={micOn ? '#shape_mic' : '#shape_mic_off'}></use></svg></button>{/if}
@@ -894,37 +962,128 @@
 						{/if}
 						<div class="skyroom-mainbar">
 							{#if showWhiteboard}
-								<div class="whiteboard-container">
-									<canvas id="whiteboard-canvas" class="whiteboard-canvas"></canvas>
-									<div class="whiteboard-tools">
-										<button class="skyroom-icon-square" class:active={whiteboardTool === 'pen'} onclick={() => whiteboardTool = 'pen'} title="مداد">
-											<svg width="18" height="18"><use xlink:href="#shape_brush"></use></svg>
-										</button>
-										<button class="skyroom-icon-square" class:active={whiteboardTool === 'eraser'} onclick={() => whiteboardTool = 'eraser'} title="پاک‌کن">
-											<svg width="18" height="18"><use xlink:href="#shape_clear"></use></svg>
-										</button>
-										<input type="color" bind:value={whiteboardColor} class="w-8 h-8 rounded cursor-pointer" title="رنگ" />
-										<button class="skyroom-icon-square" onclick={clearWhiteboard} title="پاک کردن همه">
-											<svg width="18" height="18"><use xlink:href="#shape_power_settings_new"></use></svg>
-										</button>
-										<button class="skyroom-icon-square" onclick={() => showWhiteboard = false} title="بستن تخته">
-											<svg width="18" height="18"><use xlink:href="#shape_exit"></use></svg>
-										</button>
+								<div class="layout-main">
+									<div class="layout-center">
+										<div class="whiteboard-container">
+											<canvas id="whiteboard-canvas" class="whiteboard-canvas"></canvas>
+											<div class="whiteboard-tools">
+												<button class="wb-btn" class:active={whiteboardTool === 'pen'} onclick={() => whiteboardTool = 'pen'} title="مداد">
+													<svg width="18" height="18"><use xlink:href="#shape_brush"></use></svg>
+												</button>
+												<button class="wb-btn" class:active={whiteboardTool === 'eraser'} onclick={() => whiteboardTool = 'eraser'} title="پاک‌کن">
+													<svg width="18" height="18"><use xlink:href="#shape_clear"></use></svg>
+												</button>
+												<input type="color" bind:value={whiteboardColor} class="wb-color" title="رنگ" />
+												<div class="wb-sep"></div>
+												<button class="wb-btn" onclick={clearWhiteboard} title="پاک کردن همه">
+													<svg width="16" height="16"><use xlink:href="#shape_power_settings_new"></use></svg>
+												</button>
+												<button class="wb-btn wb-close" onclick={() => showWhiteboard = false} title="بستن">
+													<svg width="16" height="16"><use xlink:href="#shape_exit"></use></svg>
+												</button>
+											</div>
+										</div>
+									</div>
+									{#if webcamOn || remoteStreams.length > 0}
+										<div class="layout-camstrip">
+											{#each remoteStreams as remote (remote.id)}
+												{#if !remote.isScreen}
+													<div class="cam-tile">
+														<video autoplay playsinline use:srcObject={remote.stream} class="w-full h-full object-cover"></video>
+														<div class="cam-label">{participants.find(p => p.id === remote.id)?.name || ''}</div>
+													</div>
+												{/if}
+											{/each}
+											{#if webcamOn}
+												<div class="cam-tile local"><video bind:this={localVideoEl} autoplay muted playsinline class="w-full h-full object-cover"></video><div class="cam-label">شما</div></div>
+											{/if}
+										</div>
+									{/if}
+								</div>
+
+							{:else if showPdf}
+								<div class="layout-main">
+									<div class="layout-center">
+										<div class="pdf-viewer">
+											<div class="pdf-toolbar">
+												<span class="pdf-filename">{pdfFileName}</span>
+												<div class="pdf-actions">
+													<button class="pdf-btn" onclick={() => { const f = document.querySelector('.pdf-iframe') as HTMLIFrameElement; if(f) f.contentWindow?.postMessage({type:'zoom',delta:-0.2},'*'); }} title="کوچک‌تر">−</button>
+													<button class="pdf-btn" onclick={() => { const f = document.querySelector('.pdf-iframe') as HTMLIFrameElement; if(f) f.contentWindow?.postMessage({type:'zoom',delta:0},'*'); }} title="اندازه اصلی">↺</button>
+													<button class="pdf-btn" onclick={() => { const f = document.querySelector('.pdf-iframe') as HTMLIFrameElement; if(f) f.contentWindow?.postMessage({type:'zoom',delta:0.2},'*'); }} title="بزرگ‌تر">+</button>
+													{#if isPresenterOrAbove}
+														<div class="pdf-sep"></div>
+														<button class="pdf-btn pdf-close" onclick={closePdf} title="بستن">
+															<svg width="16" height="16"><use xlink:href="#shape_exit"></use></svg>
+														</button>
+													{/if}
+												</div>
+											</div>
+											{#if pdfUrl}
+												<iframe src={pdfUrl} class="pdf-iframe" title="PDF"></iframe>
+											{/if}
+										</div>
+									</div>
+									{#if webcamOn || remoteStreams.length > 0}
+										<div class="layout-camstrip">
+											{#each remoteStreams as remote (remote.id)}
+												{#if !remote.isScreen}
+													<div class="cam-tile"><video autoplay playsinline use:srcObject={remote.stream} class="w-full h-full object-cover"></video><div class="cam-label">{participants.find(p => p.id === remote.id)?.name || ''}</div></div>
+												{/if}
+											{/each}
+											{#if webcamOn}<div class="cam-tile local"><video bind:this={localVideoEl} autoplay muted playsinline class="w-full h-full object-cover"></video><div class="cam-label">شما</div></div>{/if}
+										</div>
+									{/if}
+								</div>
+
+							{:else if remoteStreams.some(r => r.isScreen)}
+								<div class="layout-main">
+									<div class="layout-center">
+										{#each remoteStreams as remote (remote.id)}
+											{#if remote.isScreen}
+												<video autoplay playsinline use:srcObject={remote.stream} class="w-full h-full object-contain"></video>
+											{/if}
+										{/each}
+									</div>
+									{#if webcamOn || remoteStreams.some(r => !r.isScreen)}
+										<div class="layout-camstrip">
+											{#each remoteStreams as remote (remote.id)}
+												{#if !remote.isScreen}
+													<div class="cam-tile"><video autoplay playsinline use:srcObject={remote.stream} class="w-full h-full object-cover"></video><div class="cam-label">{participants.find(p => p.id === remote.id)?.name || ''}</div></div>
+												{/if}
+											{/each}
+											{#if webcamOn}<div class="cam-tile local"><video bind:this={localVideoEl} autoplay muted playsinline class="w-full h-full object-cover"></video><div class="cam-label">شما</div></div>{/if}
+										</div>
+									{/if}
+								</div>
+
+							{:else}
+								<div class="layout-main">
+									<div class="layout-center layout-idle">
+										{#if remoteStreams.length === 0 && !webcamOn}
+											<div class="idle-message">
+												<svg width="48" height="48" style="fill:var(--inactive);opacity:0.3;"><use xlink:href="#shape_videocam"></use></svg>
+												<p>وبکم فعال نیست</p>
+												<p class="idle-hint">وبکم خود را روشن کنید یا منتظر دیگران باشید</p>
+											</div>
+										{:else}
+											<div class="cam-grid">
+												{#each remoteStreams as remote (remote.id)}
+													{#if !remote.isScreen}
+														<div class="cam-tile-large">
+															<video autoplay playsinline use:srcObject={remote.stream} class="w-full h-full object-cover"></video>
+															<div class="cam-label">{participants.find(p => p.id === remote.id)?.name || ''}</div>
+														</div>
+													{/if}
+												{/each}
+												{#if webcamOn}
+													<div class="cam-tile-large local"><video bind:this={localVideoEl} autoplay muted playsinline class="w-full h-full object-cover"></video><div class="cam-label">شما</div></div>
+												{/if}
+											</div>
+										{/if}
 									</div>
 								</div>
-							{:else}
-						{#each remoteStreams as remote (remote.id)}
-							{#if remote.isScreen}
-								<video autoplay playsinline class="absolute inset-0 w-full h-full object-cover rounded-lg" use:srcObject={remote.stream}></video>
-							{:else}
-								<div class="remote-video-container">
-									<video autoplay playsinline use:srcObject={remote.stream} class="w-full h-full object-cover"></video>
-									<div class="remote-video-label">{participants.find(p => p.id === remote.id)?.name || ''}</div>
-								</div>
 							{/if}
-						{/each}
-							<div class="absolute bottom-4 right-4 w-28 h-20 rounded-lg overflow-hidden border border-[#3a3a5a] z-10"><video bind:this={localVideoEl} autoplay muted playsinline class="w-full h-full object-cover"></video></div>
-				{/if}
 				</div>
 				{/if}
 			</div>
@@ -1009,7 +1168,58 @@
 	.skyroom-room-nav { background-color: var(--block-bg); border-radius: var(--radius); min-height: 44px; margin: 6px 8px 10px; padding: 6px 10px; display: flex; align-items: center; justify-content: space-between; }
 	.skyroom-layout { display: flex; flex: 1; overflow: hidden; gap: 6px; padding: 0 8px 8px; }
 	.skyroom-sidebar { flex-grow: 1; min-width: 260px; max-width: 320px; display: flex; flex-direction: column; gap: 6px; }
-	.skyroom-mainbar { flex: 1; position: relative; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; padding: 8px; }
+	.skyroom-mainbar { flex: 1; position: relative; display: flex; overflow: hidden; border-radius: var(--radius); background: #0a0e14; min-height: 200px; }
+
+	/* === Unified layout: content center + cam strip on right === */
+	.layout-main { display: flex; width: 100%; height: 100%; }
+	.layout-center { flex: 1; display: flex; align-items: center; justify-content: center; min-width: 0; position: relative; overflow: hidden; }
+	.layout-center video { max-width: 100%; max-height: 100%; }
+
+	/* Cam strip — vertical column on the right edge */
+	.layout-camstrip { width: 170px; display: flex; flex-direction: column; gap: 6px; padding: 8px 6px; overflow-y: auto; flex-shrink: 0; background: rgba(10,14,20,0.6); border-left: 1px solid rgba(255,255,255,0.05); }
+	.cam-tile { position: relative; width: 100%; aspect-ratio: 4/3; border-radius: var(--radius-sm); overflow: hidden; background: #000; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.08); }
+	.cam-tile video { width: 100%; height: 100%; object-fit: cover; }
+	.cam-tile.local { border-color: var(--accent); }
+	.cam-label { position: absolute; bottom: 3px; left: 3px; background: rgba(0,0,0,0.7); color: #e0e0e6; padding: 1px 6px; border-radius: 3px; font-size: 0.65rem; font-weight: 500; pointer-events: none; }
+
+	/* Webcam-only mode — small tiles at top-right, NOT centered */
+	.cam-grid { position: absolute; top: 12px; right: 12px; display: flex; flex-direction: column; gap: 8px; z-index: 5; max-height: calc(100% - 24px); overflow-y: auto; }
+	.cam-tile-large { position: relative; width: 200px; height: 150px; border-radius: var(--radius); overflow: hidden; background: #000; border: 2px solid rgba(255,255,255,0.08); flex-shrink: 0; }
+	.cam-tile-large video { width: 100%; height: 100%; object-fit: cover; }
+	.cam-tile-large.local { border-color: var(--accent); }
+	.cam-tile-large .cam-label { font-size: 0.75rem; padding: 2px 8px; }
+
+	/* Idle message when nothing is active */
+	.layout-idle { flex-direction: column; }
+	.idle-message { text-align: center; color: var(--inactive); }
+	.idle-message p { margin: 8px 0 0; font-size: 0.9rem; }
+	.idle-hint { font-size: 0.75rem !important; opacity: 0.6; }
+
+	/* === Whiteboard === */
+	.whiteboard-container { position: absolute; inset: 0; background: #1c2a3a; }
+	.whiteboard-canvas { width: 100%; height: 100%; cursor: crosshair; }
+	.whiteboard-tools { position: absolute; top: 12px; right: 12px; display: flex; align-items: center; gap: 4px; background: rgba(20,30,45,0.92); backdrop-filter: blur(8px); padding: 6px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08); z-index: 10; }
+	.wb-btn { width: 34px; height: 34px; border-radius: 8px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; background: transparent; color: var(--inactive); transition: all 0.15s; }
+	.wb-btn:hover { background: rgba(255,255,255,0.08); color: #e0e0e6; }
+	.wb-btn.active { background: var(--accent); color: #fff; }
+	.wb-btn.wb-close:hover { background: rgba(224,82,82,0.2); color: #e05252; }
+	.wb-color { width: 30px; height: 30px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.15); cursor: pointer; padding: 0; background: none; }
+	.wb-color::-webkit-color-swatch-wrapper { padding: 2px; }
+	.wb-color::-webkit-color-swatch { border-radius: 50%; border: none; }
+	.wb-sep { width: 1px; height: 20px; background: rgba(255,255,255,0.1); margin: 0 2px; }
+
+	/* === PDF Viewer === */
+	.pdf-viewer { width: 100%; height: 100%; display: flex; flex-direction: column; }
+	.pdf-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 6px 12px; background: var(--block-bg); border-bottom: 1px solid rgba(255,255,255,0.06); flex-shrink: 0; min-height: 40px; }
+	.pdf-filename { font-size: 0.8rem; color: var(--text-secondary); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px; }
+	.pdf-actions { display: flex; align-items: center; gap: 4px; }
+	.pdf-btn { width: 30px; height: 30px; border-radius: 6px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; background: transparent; color: var(--inactive); font-size: 1rem; font-weight: 600; transition: all 0.15s; }
+	.pdf-btn:hover { background: rgba(255,255,255,0.08); color: #e0e0e6; }
+	.pdf-btn.pdf-close:hover { background: rgba(224,82,82,0.2); color: #e05252; }
+	.pdf-sep { width: 1px; height: 18px; background: rgba(255,255,255,0.1); margin: 0 4px; }
+	.pdf-iframe { flex: 1; width: 100%; border: none; background: #fff; }
+
+	/* Legacy kept for compatibility */
 	.remote-video-container { position: relative; flex: 1 1 300px; max-width: 640px; aspect-ratio: 16/9; border-radius: var(--radius); overflow: hidden; border: 2px solid #3a3a5a; background: #000; }
 	.remote-video-container video { width: 100%; height: 100%; object-fit: cover; }
 	.remote-video-label { position: absolute; bottom: 8px; left: 8px; background: rgba(0,0,0,0.6); color: #fff; padding: 2px 8px; border-radius: 4px; font-size: var(--font-size-sm); }
@@ -1043,9 +1253,7 @@
 	.media-icon svg { fill: #40bf7f; }
 	.media-icon.muted svg { fill: #5a6070; opacity: 0.5; }
 	.media-icon.hand-raised svg { fill: #f59e0b; }
-	.whiteboard-container { position: absolute; inset: 0; background: #1c2a3a; }
-	.whiteboard-canvas { width: 100%; height: 100%; cursor: crosshair; }
-	.whiteboard-tools { position: absolute; top: 8px; right: 8px; display: flex; gap: 4px; background: rgba(28,42,58,0.9); padding: 4px; border-radius: 8px; z-index: 10; }
+	.media-icon.speaking svg { fill: #3b82f6; }
 	.join-toast { position: fixed; top: 60px; left: 50%; transform: translateX(-50%); background: #1c2a3a; border: 1px solid rgba(35, 185, 215, 0.3); color: #e0e0e6; padding: 8px 16px; border-radius: 8px; font-size: 0.8rem; display: flex; align-items: center; gap: 8px; z-index: 150; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
 	.entry-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 200; animation: fadeIn 0.15s ease; }
 	.entry-modal { background: #1c2a3a; border-radius: 12px; width: 380px; max-width: 90vw; box-shadow: 0 12px 40px rgba(0,0,0,0.5); animation: slideUp 0.2s ease; }
@@ -1078,4 +1286,32 @@
 	}
 	.skyroom-user-row:hover .kick-btn { opacity: 1; }
 	.kick-btn:hover { background: rgba(224,82,82,0.15); }
+
+	/* Mobile responsive */
+	@media (max-width: 768px) {
+		.skyroom-layout { flex-direction: column; padding: 0 4px 4px; gap: 0; }
+		.skyroom-sidebar { min-width: 0; max-width: none; flex-direction: row; min-height: 120px; max-height: 160px; border-top: 1px solid rgba(255,255,255,0.06); padding: 4px; order: 2; }
+		.skyroom-mainbar { order: 1; }
+		.skyroom-block { min-height: 0; flex: 1; }
+		.skyroom-room-nav { margin: 4px; padding: 4px 8px; min-height: 38px; }
+		.skyroom-icon-square { width: 32px; height: 32px; }
+		.skyroom-icon-square svg { width: 16px; height: 16px; }
+		.skyroom-header { padding: 0 8px; min-height: 36px; }
+		.layout-camstrip { width: 100px; padding: 4px; gap: 4px; border-left: none; border-top: 1px solid rgba(255,255,255,0.05); }
+		.cam-tile { aspect-ratio: 16/10; }
+		.layout-main { flex-direction: column; }
+		.layout-main .layout-camstrip { flex-direction: row; width: auto; height: 75px; overflow-x: auto; overflow-y: hidden; }
+		.layout-main .cam-tile { width: 90px; height: 67px; flex-shrink: 0; }
+		.cam-grid { top: 8px; right: 8px; }
+		.cam-tile-large { width: 140px; height: 105px; }
+		.whiteboard-tools { top: 8px; right: 8px; padding: 4px; gap: 3px; }
+		.wb-btn { width: 30px; height: 30px; }
+		.pdf-toolbar { padding: 4px 8px; min-height: 36px; }
+	}
+	@media (max-width: 480px) {
+		.skyroom-header span:not(:first-child) { display: none; }
+		.skyroom-layout { gap: 0; }
+		.cam-tile-large { width: 120px; height: 90px; }
+		.layout-main .cam-tile { width: 70px; height: 52px; }
+	}
 </style>

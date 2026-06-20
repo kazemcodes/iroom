@@ -126,16 +126,16 @@ describe('Chat functionality', () => {
 		});
 
 		it('other message shows display name', () => {
-			const currentUserId = 1;
-			const msgUserId = 2;
+			const currentUserId: number = 1;
+			const msgUserId: number = 2;
 			const displayName = 'Ali';
 			const sender = msgUserId === currentUserId ? 'شما' : (displayName || 'کاربر');
 			expect(sender).toBe('Ali');
 		});
 
 		it('falls back to کاربر if no display name', () => {
-			const currentUserId = 1;
-			const msgUserId = 2;
+			const currentUserId: number = 1;
+			const msgUserId: number = 2;
 			const displayName = '';
 			const sender = msgUserId === currentUserId ? 'شما' : (displayName || 'کاربر');
 			expect(sender).toBe('کاربر');

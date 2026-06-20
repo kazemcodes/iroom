@@ -4,16 +4,18 @@ import (
 	"strconv"
 
 	"github.com/iroom/iroom/internal/pkg/response"
+	"github.com/iroom/iroom/internal/services"
 	"github.com/iroom/iroom/internal/webrtc"
 	"github.com/labstack/echo/v4"
 )
 
 type WebRTCHandler struct {
 	signaling *webrtc.SignalingServer
+	hub       *services.Hub
 }
 
-func NewWebRTCHandler(signaling *webrtc.SignalingServer) *WebRTCHandler {
-	return &WebRTCHandler{signaling: signaling}
+func NewWebRTCHandler(signaling *webrtc.SignalingServer, hub *services.Hub) *WebRTCHandler {
+	return &WebRTCHandler{signaling: signaling, hub: hub}
 }
 
 func (h *WebRTCHandler) GetJoinInfo(c echo.Context) error {
@@ -76,12 +78,20 @@ func (h *WebRTCHandler) GetParticipants(c echo.Context) error {
 		return response.BadRequest(c, "شناسه اتاق نامعتبر")
 	}
 
-	participants := h.signaling.GetRoomManager().GetRoomParticipants(roomID)
-	if participants == nil {
-		participants = []webrtc.ParticipantInfo{}
+	clients := h.hub.GetRoomClients(roomID)
+	result := make([]webrtc.ParticipantInfo, 0, len(clients))
+	for _, cl := range clients {
+		result = append(result, webrtc.ParticipantInfo{
+			ID:   strconv.FormatInt(cl.ID, 10),
+			Name: cl.DisplayName,
+			Role: cl.Role,
+		})
+	}
+	if result == nil {
+		result = []webrtc.ParticipantInfo{}
 	}
 
-	return response.Success(c, participants)
+	return response.Success(c, result)
 }
 
 func (h *WebRTCHandler) MuteParticipant(c echo.Context) error {

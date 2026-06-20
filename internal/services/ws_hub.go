@@ -251,6 +251,36 @@ func (h *Hub) BroadcastBinaryToRoom(roomID string, excludeUserID int64, data []b
 	}
 }
 
+// GetRoomClients returns info about all clients in a room
+type RoomClientInfo struct {
+	ID          int64  `json:"id"`
+	DisplayName string `json:"name"`
+	Role        string `json:"role"`
+}
+
+func (h *Hub) GetRoomClients(roomID string) []RoomClientInfo {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	seen := make(map[int64]bool)
+	var result []RoomClientInfo
+	for _, clients := range h.clients {
+		for client := range clients {
+			if client.RoomID == roomID {
+				if !seen[client.UserID] {
+					seen[client.UserID] = true
+					result = append(result, RoomClientInfo{
+						ID:          client.UserID,
+						DisplayName: client.DisplayName,
+						Role:        client.Role,
+					})
+				}
+			}
+		}
+	}
+	return result
+}
+
 // Register adds a client to the hub
 func (h *Hub) Register(client *Client) {
 	slog.Info("hub register", "user_id", client.UserID, "room_id", client.RoomID, "display_name", client.DisplayName)

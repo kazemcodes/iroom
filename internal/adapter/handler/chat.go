@@ -36,9 +36,7 @@ func NewChatHandler(messageRepo interface {
 	Create(m *entity.Message) error
 }, userRepo interface {
 	GetByID(id int64) (*entity.User, error)
-}, secret string) *ChatHandler {
-	hub := services.NewHub()
-	go hub.Run()
+}, secret string, hub *services.Hub) *ChatHandler {
 	return &ChatHandler{messageRepo: messageRepo, userRepo: userRepo, hub: hub, secret: secret}
 }
 

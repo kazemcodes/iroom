@@ -28,7 +28,7 @@ class MockRTCPeerConnection {
 }
 
 describe('PionClient', () => {
-	const mockConfig = {
+	const mockConfig: { roomId: string; userId: string; role: string; displayName: string; userRole: string; listener?: boolean } = {
 		roomId: 'room-1',
 		userId: 'user-1',
 		role: 'operator',

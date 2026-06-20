@@ -5,12 +5,37 @@
  * Chrome-only. No WebRTC, no STUN/TURN, no ICE.
  *
  * Binary message format: [userId: uint32 BE][WebM chunk]
+ *
+ * Adaptive quality: bitrate adjusts based on participant count.
  */
 
 const MIME_TYPE = 'video/webm;codecs=vp8,opus';
-const VIDEO_BITRATE = 250000;
-const AUDIO_BITRATE = 32000;
+
+interface QualityTier {
+	maxUsers: number;
+	videoBitrate: number;
+	audioBitrate: number;
+	width: number;
+	height: number;
+	frameRate: number;
+}
+
+const QUALITY_TIERS: QualityTier[] = [
+	{ maxUsers: 5,   videoBitrate: 1_500_000, audioBitrate: 64_000, width: 1280, height: 720,  frameRate: 30 },
+	{ maxUsers: 15,  videoBitrate: 800_000,   audioBitrate: 48_000, width: 960,  height: 540,  frameRate: 24 },
+	{ maxUsers: 30,  videoBitrate: 400_000,   audioBitrate: 32_000, width: 640,  height: 360,  frameRate: 20 },
+	{ maxUsers: 60,  videoBitrate: 250_000,   audioBitrate: 24_000, width: 480,  height: 270,  frameRate: 15 },
+	{ maxUsers: 999, videoBitrate: 128_000,   audioBitrate: 16_000, width: 320,  height: 180,  frameRate: 10 },
+];
+
 const CHUNK_INTERVAL_MS = 200;
+
+function getTier(userCount: number): QualityTier {
+	for (const tier of QUALITY_TIERS) {
+		if (userCount <= tier.maxUsers) return tier;
+	}
+	return QUALITY_TIERS[QUALITY_TIERS.length - 1];
+}
 
 export class MediaClient {
 	private ws: WebSocket;
@@ -19,6 +44,9 @@ export class MediaClient {
 	private recorder: MediaRecorder | null = null;
 	private videoEnabled = true;
 	private audioEnabled = true;
+	private currentTier: QualityTier = QUALITY_TIERS[3];
+	private participantCount = 1;
+	private localConstraints: { video: boolean; audio: boolean } = { video: true, audio: true };
 
 	private remoteEntries = new Map<string, {
 		ms: MediaSource;
@@ -31,6 +59,7 @@ export class MediaClient {
 	onLocalStream?: (stream: MediaStream) => void;
 	onRemoteStream?: (stream: MediaStream, participantId: string) => void;
 	onRemoteStreamEnd?: (participantId: string) => void;
+	onQualityChange?: (tier: QualityTier, userCount: number) => void;
 
 	constructor(ws: WebSocket, userId: number) {
 		this.ws = ws;
@@ -38,17 +67,35 @@ export class MediaClient {
 	}
 
 	async start(video = true, audio = true): Promise<void> {
-		this.localStream = await navigator.mediaDevices.getUserMedia({ video, audio });
+		this.localConstraints = { video, audio };
+		const tier = getTier(this.participantCount);
+		this.currentTier = tier;
+
+		const constraints: MediaStreamConstraints = {
+			video: video ? { width: { ideal: tier.width }, height: { ideal: tier.height }, frameRate: { ideal: tier.frameRate } } : false,
+			audio: audio ? { echoCancellation: true, noiseSuppression: true, autoGainControl: true } : false,
+		};
+
+		this.localStream = await navigator.mediaDevices.getUserMedia(constraints);
 		if (this.onLocalStream) this.onLocalStream(this.localStream);
 
+		this.startRecorder();
+		console.log('[Media] Started', { tier: tier.width + 'p', videoBitrate: tier.videoBitrate, audioBitrate: tier.audioBitrate });
+	}
+
+	private startRecorder(): void {
+		if (!this.localStream) return;
 		if (!MediaRecorder.isTypeSupported(MIME_TYPE)) {
 			console.error('[Media] MIME type not supported:', MIME_TYPE);
 			return;
 		}
 
+		const tier = this.currentTier;
+
 		this.recorder = new MediaRecorder(this.localStream, {
 			mimeType: MIME_TYPE,
-			videoBitsPerSecond: VIDEO_BITRATE,
+			videoBitsPerSecond: tier.videoBitrate,
+			audioBitsPerSecond: tier.audioBitrate,
 		});
 
 		this.recorder.ondataavailable = async (e) => {
@@ -67,13 +114,53 @@ export class MediaClient {
 			console.error('[Media] Recorder error:', e);
 		};
 
-		this.recorder.onstop = () => {
-			console.log('[Media] Recorder stopped');
+		this.recorder.start(CHUNK_INTERVAL_MS);
+	}
+
+	updateParticipantCount(count: number): void {
+		if (count === this.participantCount) return;
+		this.participantCount = count;
+
+		const newTier = getTier(count);
+		if (newTier.videoBitrate !== this.currentTier.videoBitrate) {
+			console.log('[Media] Quality change', {
+				from: this.currentTier.width + 'p@' + (this.currentTier.videoBitrate / 1000) + 'kbps',
+				to: newTier.width + 'p@' + (newTier.videoBitrate / 1000) + 'kbps',
+				users: count,
+			});
+			this.currentTier = newTier;
+			this.restartWithNewConstraints();
+			if (this.onQualityChange) this.onQualityChange(newTier, count);
+		}
+	}
+
+	private async restartWithNewConstraints(): Promise<void> {
+		if (!this.localStream || !this.localConstraints.video) return;
+
+		const tier = this.currentTier;
+		const newConstraints: MediaStreamConstraints = {
+			video: { width: { ideal: tier.width }, height: { ideal: tier.height }, frameRate: { ideal: tier.frameRate } },
+			audio: this.localConstraints.audio ? { echoCancellation: true, noiseSuppression: true, autoGainControl: true } : false,
 		};
 
-		this.recorder.start(CHUNK_INTERVAL_MS);
-		console.log('[Media] Started recording', { video, audio, mimeType: MIME_TYPE });
+		try {
+			const newStream = await navigator.mediaDevices.getUserMedia(newConstraints);
+			const oldTracks = this.localStream.getVideoTracks();
+			oldTracks.forEach(t => { t.stop(); this.localStream!.removeTrack(t); });
+			newStream.getVideoTracks().forEach(t => this.localStream!.addTrack(t));
+
+			if (this.localVideoCallback) this.localVideoCallback(this.localStream);
+
+			if (this.recorder && this.recorder.state !== 'inactive') {
+				this.recorder.stop();
+			}
+			this.startRecorder();
+		} catch (e) {
+			console.warn('[Media] Failed to resize:', e);
+		}
 	}
+
+	private localVideoCallback?: (stream: MediaStream) => void;
 
 	handleBinaryMessage(data: ArrayBuffer): void {
 		if (data.byteLength < 4) return;
@@ -99,13 +186,7 @@ export class MediaClient {
 		}
 	}
 
-	private createRemoteEntry(senderId: string): {
-		ms: MediaSource;
-		video: HTMLVideoElement;
-		sb: SourceBuffer | null;
-		ready: boolean;
-		pendingChunks: ArrayBuffer[];
-	} {
+	private createRemoteEntry(senderId: string) {
 		const ms = new MediaSource();
 		const video = document.createElement('video');
 		video.autoplay = true;
@@ -121,9 +202,7 @@ export class MediaClient {
 			try {
 				entry.sb = ms.addSourceBuffer(MIME_TYPE);
 				entry.sb.mode = 'sequence';
-				entry.sb.onupdateend = () => {
-					this.drainQueue(entry);
-				};
+				entry.sb.onupdateend = () => this.drainQueue(entry);
 				entry.ready = true;
 				this.drainQueue(entry);
 			} catch (e) {
@@ -131,15 +210,14 @@ export class MediaClient {
 			}
 		});
 
-		ms.addEventListener('error', (e) => {
-			console.error('[Media] MediaSource error:', e);
-		});
-
 		video.onloadeddata = () => {
 			try {
-				const stream = video.captureStream ? (video as any).captureStream() : (video as any).mozCaptureStream();
-				if (stream && this.onRemoteStream) {
-					this.onRemoteStream(stream, senderId);
+				const capFn = (video as any).captureStream || (video as any).mozCaptureStream;
+				if (capFn) {
+					const stream = capFn.call(video);
+					if (stream && this.onRemoteStream) {
+						this.onRemoteStream(stream, senderId);
+					}
 				}
 			} catch (e) {
 				console.warn('[Media] captureStream failed:', e);
@@ -186,25 +264,13 @@ export class MediaClient {
 			...this.localStream.getAudioTracks()
 		]);
 
-		screenTrack.onended = () => {
-			this.stopScreenShare();
-		};
+		screenTrack.onended = () => this.stopScreenShare();
 
-		this.recorder.stop();
-		this.startRecorder(composedStream, VIDEO_BITRATE * 2);
-	}
+		if (this.recorder.state !== 'inactive') this.recorder.stop();
 
-	stopScreenShare(): void {
-		if (!this.localStream || !this.recorder) return;
-
-		this.recorder.stop();
-		this.startRecorder(this.localStream, VIDEO_BITRATE);
-	}
-
-	private startRecorder(stream: MediaStream, bitrate: number): void {
-		this.recorder = new MediaRecorder(stream, {
+		this.recorder = new MediaRecorder(composedStream, {
 			mimeType: MIME_TYPE,
-			videoBitsPerSecond: bitrate,
+			videoBitsPerSecond: this.currentTier.videoBitrate * 2,
 		});
 
 		this.recorder.ondataavailable = async (e) => {
@@ -219,11 +285,13 @@ export class MediaClient {
 			}
 		};
 
-		this.recorder.onerror = (e) => {
-			console.error('[Media] Recorder error:', e);
-		};
-
 		this.recorder.start(CHUNK_INTERVAL_MS);
+	}
+
+	stopScreenShare(): void {
+		if (!this.localStream) return;
+		if (this.recorder && this.recorder.state !== 'inactive') this.recorder.stop();
+		this.startRecorder();
 	}
 
 	stop(): void {

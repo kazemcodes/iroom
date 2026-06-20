@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"time"
@@ -15,6 +16,7 @@ import (
 	"github.com/iroom/iroom/internal/middleware"
 	"github.com/iroom/iroom/internal/pkg/debug"
 	"github.com/iroom/iroom/internal/pkg/response"
+	"github.com/iroom/iroom/internal/services"
 	iroomwebrtc "github.com/iroom/iroom/internal/webrtc"
 	"github.com/labstack/echo/v4"
 	echoMiddleware "github.com/labstack/echo/v4/middleware"
@@ -87,6 +89,9 @@ func main() {
 	activityLogHandler := handler.NewActivityLogHandler(logRepo)
 	healthHandler := handler.NewHealthHandler(db, cfg.Database.Path)
 
+	wsHub := services.NewHub()
+	go wsHub.Run()
+
 	rtcConfig := webrtc.Configuration{
 		ICEServers: []webrtc.ICEServer{},
 	}
@@ -136,7 +141,7 @@ func main() {
 		signaling.SetTURNConfig(turnServer.GetURL(), turnSecret)
 		defer turnServer.Close()
 	}
-	webrtcHandler := handler.NewWebRTCHandler(signaling)
+	webrtcHandler := handler.NewWebRTCHandler(signaling, wsHub)
 
 	classURLHandler := handler.NewClassURLHandler(roomUC, userUC)
 
@@ -155,6 +160,43 @@ func main() {
 	e.GET("/api/v1/sessions/:id/info", sessionHandler.GetPublicInfo)
 	e.GET("/api/v1/rooms/slug/:slug", roomHandler.GetBySlug)
 	e.GET("/api/v1/classes/slug/:slug", classURLHandler.ResolveSlug)
+
+	e.POST("/api/v1/pdf/upload", func(c echo.Context) error {
+		file, header, err := c.Request().FormFile("file")
+		if err != nil {
+			return response.BadRequest(c, "فایل ارسال نشده")
+		}
+		defer file.Close()
+
+		cfg2, _ := config.Load("config.yaml")
+		uploadDir := cfg2.Upload.UploadDir
+		if uploadDir == "" {
+			uploadDir = "uploads"
+		}
+
+		filename := fmt.Sprintf("pdf_%d_%s", time.Now().UnixNano(), header.Filename)
+		filepath := uploadDir + "/" + filename
+
+		dst, err := os.Create(filepath)
+		if err != nil {
+			return response.InternalError(c, err.Error())
+		}
+		defer dst.Close()
+
+		written, err := io.Copy(dst, file)
+		if err != nil {
+			return response.InternalError(c, err.Error())
+		}
+
+		return response.Created(c, map[string]interface{}{
+			"id":       filename,
+			"url":      "/uploads/" + filename,
+			"filename": header.Filename,
+			"size":     written,
+		})
+	})
+
+	e.Static("/uploads", "uploads")
 
 	authGroup := e.Group("/api/v1/auth")
 	authGroup.Use(middleware.AuthRateLimit())
@@ -225,7 +267,7 @@ func main() {
 	api.GET("/sessions/:id/messages", messageHandler.List)
 	api.POST("/sessions/:id/messages", messageHandler.Send)
 
-	chatHandler := handler.NewChatHandler(messageRepo, userRepo, cfg.JWT.Secret)
+	chatHandler := handler.NewChatHandler(messageRepo, userRepo, cfg.JWT.Secret, wsHub)
 	wsGroup := e.Group("/ws")
 	wsGroup.Use(middleware.RateLimit(30, time.Minute))
 	wsGroup.GET("/sessions/:id", chatHandler.HandleWS)

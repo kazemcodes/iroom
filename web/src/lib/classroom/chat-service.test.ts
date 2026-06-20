@@ -19,9 +19,9 @@ describe('ChatService', () => {
 			const result = parseIncoming(raw, 2);
 			expect(result).not.toBeNull();
 			expect(result!.type).toBe('message');
-			expect(result!.chatMessage.sender).toBe('Ali');
-			expect(result!.chatMessage.content).toBe('Hi');
-			expect(result!.chatMessage.isOwn).toBe(false);
+			expect((result as { type: 'message'; chatMessage: ChatMessage }).chatMessage.sender).toBe('Ali');
+			expect((result as { type: 'message'; chatMessage: ChatMessage }).chatMessage.content).toBe('Hi');
+			expect((result as { type: 'message'; chatMessage: ChatMessage }).chatMessage.isOwn).toBe(false);
 		});
 
 		it('marks message as own when user_id matches', () => {
@@ -38,8 +38,8 @@ describe('ChatService', () => {
 				},
 			});
 			const result = parseIncoming(raw, 1);
-			expect(result!.chatMessage.isOwn).toBe(true);
-			expect(result!.chatMessage.sender).toBe('شما');
+			expect((result as { type: 'message'; chatMessage: ChatMessage }).chatMessage.isOwn).toBe(true);
+			expect((result as { type: 'message'; chatMessage: ChatMessage }).chatMessage.sender).toBe('شما');
 		});
 
 		it('falls back to کاربر when display name is empty', () => {
@@ -56,7 +56,7 @@ describe('ChatService', () => {
 				},
 			});
 			const result = parseIncoming(raw, 1);
-			expect(result!.chatMessage.sender).toBe('کاربر');
+			expect((result as { type: 'message'; chatMessage: ChatMessage }).chatMessage.sender).toBe('کاربر');
 		});
 
 		it('formats time using fa-IR locale', () => {
@@ -73,7 +73,7 @@ describe('ChatService', () => {
 				},
 			});
 			const result = parseIncoming(raw, 1);
-			expect(result!.chatMessage.time).toContain(':');
+			expect((result as { type: 'message'; chatMessage: ChatMessage }).chatMessage.time).toContain(':');
 		});
 
 		it('handles the lower_hands command', () => {
@@ -87,7 +87,7 @@ describe('ChatService', () => {
 			const result = parseIncoming(raw, 1);
 			expect(result).not.toBeNull();
 			expect(result!.type).toBe('command');
-			expect(result!.command).toBe('lower_hands');
+			expect((result as { type: 'command'; command: string }).command).toBe('lower_hands');
 		});
 
 		it('returns null for malformed JSON', () => {
@@ -182,7 +182,9 @@ describe('ChatService', () => {
 		});
 
 		it('other message shows display name', () => {
-			const sender = 1 !== 2 ? 'Ali' : 'شما';
+			const userId = 1 as number;
+			const currentUserId = 2 as number;
+			const sender = userId !== currentUserId ? 'Ali' : 'شما';
 			expect(sender).toBe('Ali');
 		});
 
