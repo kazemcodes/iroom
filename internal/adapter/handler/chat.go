@@ -121,6 +121,7 @@ func (h *ChatHandler) readPump(client *services.Client, sessionID int64) {
 			Type    string `json:"type"`
 			Content string `json:"content"`
 			Command string `json:"command"`
+			Private bool   `json:"private"`
 			ReplyTo *struct {
 				Sender  string `json:"sender"`
 				Content string `json:"content"`
@@ -144,6 +145,7 @@ func (h *ChatHandler) readPump(client *services.Client, sessionID int64) {
 		if msg.Type == "whiteboard" {
 			var wbMsg struct {
 				Action string  `json:"action"`
+				Show   *bool   `json:"show"`
 				X1     float64 `json:"x1"`
 				Y1     float64 `json:"y1"`
 				X2     float64 `json:"x2"`
@@ -155,10 +157,16 @@ func (h *ChatHandler) readPump(client *services.Client, sessionID int64) {
 				broadcast := map[string]interface{}{
 					"type":   "whiteboard",
 					"action": wbMsg.Action,
-					"x1":     wbMsg.X1, "y1": wbMsg.Y1,
-					"x2":     wbMsg.X2, "y2": wbMsg.Y2,
-					"color":  wbMsg.Color, "width": wbMsg.Width,
 				}
+				if wbMsg.Show != nil {
+					broadcast["show"] = *wbMsg.Show
+				}
+				broadcast["x1"] = wbMsg.X1
+				broadcast["y1"] = wbMsg.Y1
+				broadcast["x2"] = wbMsg.X2
+				broadcast["y2"] = wbMsg.Y2
+				broadcast["color"] = wbMsg.Color
+				broadcast["width"] = wbMsg.Width
 				h.hub.BroadcastToRoom(strconv.FormatInt(sessionID, 10), "chat", broadcast, 0)
 			}
 			continue
@@ -188,6 +196,7 @@ func (h *ChatHandler) readPump(client *services.Client, sessionID int64) {
 					"user_display_name": client.DisplayName,
 					"content":           msg.Content,
 					"created_at":        time.Now().Format(time.RFC3339),
+					"is_private":        msg.Private,
 				},
 			}
 			if msg.ReplyTo != nil {

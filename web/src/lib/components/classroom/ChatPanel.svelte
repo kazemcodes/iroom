@@ -4,11 +4,13 @@
 	let {
 		messages = [],
 		isAdmin = false,
+		disabled = false,
 		onSend,
 		onClose,
 	}: {
 		messages: ChatMessage[];
 		isAdmin: boolean;
+		disabled: boolean;
 		onSend: (content: string, replyTo?: { sender: string; content: string }) => void;
 		onClose: () => void;
 	} = $props();
@@ -87,16 +89,20 @@
 	{/if}
 
 	<div class="chat-input-area">
-		<input
-			type="text"
-			bind:value={chatInput}
-			class="chat-input"
-			placeholder="پیام خود را وارد کنید"
-			onkeydown={handleKeydown}
-		/>
-		<button onclick={sendMessage} disabled={!chatInput.trim()} class="send-btn" class:active={chatInput.trim()}>
-			<svg width="16" height="16"><use xlink:href="#shape_send"></use></svg>
-		</button>
+		{#if disabled}
+			<p class="chat-disabled-msg">چت غیرفعال شده است</p>
+		{:else}
+			<input
+				type="text"
+				bind:value={chatInput}
+				class="chat-input"
+				placeholder="پیام خود را وارد کنید"
+				onkeydown={handleKeydown}
+			/>
+			<button onclick={sendMessage} disabled={!chatInput.trim()} class="send-btn" class:active={chatInput.trim()}>
+				<svg width="16" height="16"><use xlink:href="#shape_send"></use></svg>
+			</button>
+		{/if}
 	</div>
 </div>
 
@@ -271,4 +277,12 @@
 	.send-btn.active:hover { background: #1a9fc0; }
 
 	.send-btn svg { fill: currentColor; }
+
+	.chat-disabled-msg {
+		flex: 1;
+		text-align: center;
+		font-size: 0.75rem;
+		color: #5a6070;
+		padding: 8px 0;
+	}
 </style>

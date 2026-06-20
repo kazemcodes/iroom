@@ -173,6 +173,7 @@
 	let showChatMenu = $state(false);
 	let chatDisabled = $state(false);
 	let chatPrivate = $state(false);
+	let chatExpanded = $state(false);
 	let whiteboardTool = $state<'pen' | 'eraser'>('pen');
 	let whiteboardColor = $state('#ffffff');
 	let whiteboardCanvas: HTMLCanvasElement | null = null;
@@ -249,6 +250,11 @@
 				if (data.type === 'message') {
 					const msg = data.message;
 					const isOwn = msg.user_id === $auth.user?.id;
+					const isAdminUser = currentUserRole === 'admin' || currentUserRole === 'teacher';
+					if (msg.is_private && !isOwn && !isAdminUser) {
+						chatDebug('private message filtered');
+						return;
+					}
 					const chatMsg: ChatMessage = {
 						id: String(Date.now()) + '-' + String(msg.user_id),
 						sender: isOwn ? 'شما' : (msg.user_display_name || 'کاربر'),
@@ -266,9 +272,15 @@
 					if (data.command === 'lower_hands') {
 						participants = participants.map(p => ({ ...p, handRaised: false }));
 						if (handRaised) handRaised = false;
+					} else if (data.command === 'chat_disabled') {
+						chatDisabled = true;
+					} else if (data.command === 'chat_enabled') {
+						chatDisabled = false;
 					}
 				} else if (data.type === 'whiteboard') {
-					if (data.action === 'draw') {
+					if (data.action === 'toggle') {
+						showWhiteboard = data.show;
+					} else if (data.action === 'draw') {
 						applyWhiteboardDraw(data);
 					} else if (data.action === 'clear') {
 						applyWhiteboardClear();
@@ -354,6 +366,20 @@
 	function toggleWebcam() { if (!perms.canWebcam) return; if (pion) pion.toggleVideo(); webcamOn = !webcamOn; }
 	function toggleScreenShare() { if (!perms.canScreenShare) return; if (pion && !screenShareOn) pion.shareScreen(); screenShareOn = !screenShareOn; }
 	function toggleHand() { if (!perms.canHandRaise) return; handRaised = !handRaised; }
+	function toggleWhiteboard() {
+		if (!perms.canWhiteboard) return;
+		showWhiteboard = !showWhiteboard;
+		if (chatWs && chatWs.readyState === WebSocket.OPEN) {
+			chatWs.send(JSON.stringify({ type: 'whiteboard', action: 'toggle', show: showWhiteboard }));
+		}
+	}
+	function toggleChatDisabled() {
+		if (currentUserRole !== 'admin' && currentUserRole !== 'teacher') return;
+		chatDisabled = !chatDisabled;
+		if (chatWs && chatWs.readyState === WebSocket.OPEN) {
+			chatWs.send(JSON.stringify({ type: 'command', command: chatDisabled ? 'chat_disabled' : 'chat_enabled' }));
+		}
+	}
 	function lowerAllHands() {
 		if (chatWs && chatWs.readyState === WebSocket.OPEN) {
 			chatWs.send(JSON.stringify({ type: 'command', command: 'lower_hands' }));
@@ -368,6 +394,7 @@
 		}
 		const payload: any = { type: 'message', content: text };
 		if (replyTo) payload.reply_to = replyTo;
+		if (chatPrivate && (currentUserRole === 'admin' || currentUserRole === 'teacher')) payload.private = true;
 		chatDebug('sendChatMessage', payload);
 		chatWs.send(JSON.stringify(payload));
 	}
@@ -633,7 +660,7 @@
 					<div style="flex:1;"></div>
 					<div class="skyroom-row" style="flex-shrink:0;gap:4px;">
 						{#if perms.canHandRaise}<button class="skyroom-icon-square" class:active={handRaised} title="بالا بردن دست" onclick={toggleHand}><svg width="18" height="18"><use xlink:href="#shape_hand"></use></svg></button>{/if}
-						{#if perms.canWhiteboard}<button class="skyroom-icon-square" class:active={showWhiteboard} title="تخته" onclick={() => showWhiteboard = !showWhiteboard}><svg width="18" height="18"><use xlink:href="#shape_brush"></use></svg></button>{/if}
+						{#if perms.canWhiteboard}<button class="skyroom-icon-square" class:active={showWhiteboard} title="تخته" onclick={toggleWhiteboard}><svg width="18" height="18"><use xlink:href="#shape_brush"></use></svg></button>{/if}
 						{#if perms.canScreenShare}<button class="skyroom-icon-square" class:active={screenShareOn} title="اشتراک‌گذاری صفحه" onclick={toggleScreenShare}><svg width="18" height="18"><use xlink:href="#shape_laptop"></use></svg></button>{/if}
 						{#if perms.canWebcam}<button class="skyroom-icon-square" class:active={webcamOn} title="وبکم" onclick={toggleWebcam}><svg width="18" height="18"><use xlink:href={webcamOn ? '#shape_videocam' : '#shape_videocamoff'}></use></svg></button>{/if}
 						{#if perms.canMic}<button class="skyroom-icon-square" class:active={micOn} title="میکروفون" onclick={toggleMic}><svg width="18" height="18"><use xlink:href={micOn ? '#shape_mic' : '#shape_mic_off'}></use></svg></button>{/if}
@@ -641,104 +668,118 @@
 					</div>
 				</div>
 				<div class="skyroom-layout">
-					{#if showUsersPanel || showChatPanel}
-						<div class="skyroom-sidebar">
-							{#if showUsersPanel}
-								<div class="skyroom-block skyroom-users-block">
-									<div class="skyroom-block-header">
-										<div class="skyroom-block-title"><div class="skyroom-block-title-content">کاربران</div></div>
-										<span class="skyroom-users-count">{participants.length}</span>
-										<div style="position:relative;">
-											<button class="skyroom-dots-btn" onclick={(e) => { e.stopPropagation(); positionMenu(e); showUsersMenu = !showUsersMenu; }}>
-												<svg width="16" height="16"><use xlink:href="#shape_more_vert"></use></svg>
-											</button>
-											{#if showUsersMenu}
-												<div class="skyroom-context-menu" style="top:{menuPos.top}px;left:{menuPos.left}px;" onclick={(e) => e.stopPropagation()}>
-													<div class="ctx-item" onclick={() => { showUsersMenu = false; showUsersPanel = true; }}>نمایش کاربران</div>
-													<div class="ctx-item" onclick={() => { showUsersMenu = false; lowerAllHands(); }}>پایین آوردن دست‌ها</div>
-													<div class="ctx-item" onclick={() => { showUsersMenu = false; showModal = 'attendance'; }}>حضور و غیاب</div>
-													<div class="ctx-separator"></div>
-													<div class="ctx-item" onclick={() => { showUsersMenu = false; showUsersPanel = false; }}>بستن</div>
-												</div>
-											{/if}
-										</div>
-									</div>
-									<div class="skyroom-block-content">
-										<div class="skyroom-users-list-wrapper"><div class="skyroom-users-list">
-											{#each participants as p}
-												<div class="skyroom-user-row">
-													<div class="skyroom-user-icon"><svg width="24" height="24" style="vertical-align:middle;fill:var(--text-color);width:16px;height:16px;display:inline-block;"><use xlink:href="#shape_person"></use></svg></div>
-													<div class="skyroom-user-nickname">{p.name}{#if p.isLocal} <span style="font-size:10px;color:var(--accent);">(شما)</span>{/if}</div>
-													<div class="skyroom-user-media">
-														<span class="media-icon" class:muted={!p.hasAudio} class:speaking={p.isSpeaking && p.hasAudio} title={p.hasAudio ? 'میکروفون فعال' : 'میکروفون خاموش'}>
-															<svg width="14" height="14"><use xlink:href={p.hasAudio ? '#shape_mic' : '#shape_mic_off'}></use></svg>
-														</span>
-														<span class="media-icon" class:muted={!p.hasVideo} title={p.hasVideo ? 'وبکم فعال' : 'وبکم خاموش'}>
-															<svg width="14" height="14"><use xlink:href={p.hasVideo ? '#shape_videocam' : '#shape_videocamoff'}></use></svg>
-														</span>
-														{#if p.handRaised}
-															<span class="media-icon hand-raised" title="دست بلند">
-																<svg width="14" height="14" style="fill:#f59e0b;"><use xlink:href="#shape_hand"></use></svg>
-															</span>
-														{/if}
-													</div>
-												</div>
-											{/each}
-										</div></div>
-									</div>
+					{#if chatExpanded && showChatPanel}
+						<div class="skyroom-sidebar" style="max-width:none;min-width:0;flex:1;">
+							<div class="skyroom-block skyroom-chat-block" style="flex:1;min-height:0;">
+								<div class="skyroom-block-header">
+									<div class="skyroom-block-title"><div class="skyroom-block-title-content">پیام‌ها {#if chatPrivate}<span style="color:#23b9d7;font-size:0.65rem;">(خصوصی)</span>{/if}{#if chatDisabled}<span style="color:#e05252;font-size:0.65rem;">(غیرفعال)</span>{/if}</div></div>
+									<button class="skyroom-dots-btn" onclick={() => chatExpanded = false} title="بازگشت">
+										<svg width="16" height="16"><use xlink:href="#shape_exit"></use></svg>
+									</button>
 								</div>
-							{/if}
-							{#if showChatPanel}
-								<div class="skyroom-block skyroom-chat-block" style="flex:1;min-height:0;">
-									<div class="skyroom-block-header">
-										<div class="skyroom-block-title"><div class="skyroom-block-title-content">پیام‌ها</div></div>
-										<div style="position:relative;">
-											<button class="skyroom-dots-btn" onclick={(e) => { e.stopPropagation(); positionMenu(e); showChatMenu = !showChatMenu; }}>
-												<svg width="16" height="16"><use xlink:href="#shape_more_vert"></use></svg>
-											</button>
-											{#if showChatMenu}
-												<div class="skyroom-context-menu" style="top:{menuPos.top}px;left:{menuPos.left}px;" onclick={(e) => e.stopPropagation()}>
-													<div class="ctx-item" onclick={() => { showChatMenu = false; }}>نمایش بزرگتر</div>
-													<div class="ctx-item" onclick={() => { showChatMenu = false; chatDisabled = !chatDisabled; }}>غیرفعال‌سازی چت</div>
-													<div class="ctx-item" onclick={() => { showChatMenu = false; chatPrivate = !chatPrivate; }}>حالت خصوصی</div>
-													<div class="ctx-item" onclick={() => { showChatMenu = false; chatMessages = []; }}>پاک کردن همه پیام‌ها</div>
-													<div class="ctx-separator"></div>
-													<div class="ctx-item" onclick={() => { showChatMenu = false; }}>بستن</div>
-												</div>
-											{/if}
-										</div>
-									</div>
-									<div class="skyroom-block-content" style="flex:1;min-height:0;"><ChatPanel messages={chatMessages} isAdmin={perms.canMic} onSend={sendChatMessage} onClose={() => showChatPanel = false} /></div>
-								</div>
-							{/if}
-						</div>
-					{/if}
-				<div class="skyroom-mainbar">
-					{#if showWhiteboard}
-						<div class="whiteboard-container">
-							<canvas id="whiteboard-canvas" class="whiteboard-canvas"></canvas>
-							<div class="whiteboard-tools">
-								<button class="skyroom-icon-square" class:active={whiteboardTool === 'pen'} onclick={() => whiteboardTool = 'pen'} title="مداد">
-									<svg width="18" height="18"><use xlink:href="#shape_brush"></use></svg>
-								</button>
-								<button class="skyroom-icon-square" class:active={whiteboardTool === 'eraser'} onclick={() => whiteboardTool = 'eraser'} title="پاک‌کن">
-									<svg width="18" height="18"><use xlink:href="#shape_clear"></use></svg>
-								</button>
-								<input type="color" bind:value={whiteboardColor} class="w-8 h-8 rounded cursor-pointer" title="رنگ" />
-								<button class="skyroom-icon-square" onclick={clearWhiteboard} title="پاک کردن همه">
-									<svg width="18" height="18"><use xlink:href="#shape_power_settings_new"></use></svg>
-								</button>
-								<button class="skyroom-icon-square" onclick={() => showWhiteboard = false} title="بستن تخته">
-									<svg width="18" height="18"><use xlink:href="#shape_exit"></use></svg>
-								</button>
+								<div class="skyroom-block-content" style="flex:1;min-height:0;"><ChatPanel messages={chatMessages} isAdmin={perms.canMic} disabled={chatDisabled} onSend={sendChatMessage} onClose={() => showChatPanel = false} /></div>
 							</div>
 						</div>
 					{:else}
-						<div bind:this={remoteContainer} style="position:absolute;inset:0;display:grid;{gridCols};gap:4px;padding:4px;pointer-events:{connected ? 'auto' : 'none'};"></div>
-						<div class="absolute bottom-4 left-3 w-36 h-28 rounded overflow-hidden border border-[#3a3a5a]"><video bind:this={localVideoEl} autoplay muted playsinline class="w-full h-full object-cover"></video></div>
-					{/if}
+						{#if showUsersPanel || showChatPanel}
+							<div class="skyroom-sidebar">
+								{#if showUsersPanel}
+									<div class="skyroom-block skyroom-users-block">
+										<div class="skyroom-block-header">
+											<div class="skyroom-block-title"><div class="skyroom-block-title-content">کاربران</div></div>
+											<span class="skyroom-users-count">{participants.length}</span>
+											<div style="position:relative;">
+												<button class="skyroom-dots-btn" onclick={(e) => { e.stopPropagation(); positionMenu(e); showUsersMenu = !showUsersMenu; }}>
+													<svg width="16" height="16"><use xlink:href="#shape_more_vert"></use></svg>
+												</button>
+												{#if showUsersMenu}
+													<div class="skyroom-context-menu" style="top:{menuPos.top}px;left:{menuPos.left}px;" onclick={(e) => e.stopPropagation()}>
+														<div class="ctx-item" onclick={() => { showUsersMenu = false; showUsersPanel = true; }}>نمایش کاربران</div>
+														<div class="ctx-item" onclick={() => { showUsersMenu = false; lowerAllHands(); }}>پایین آوردن دست‌ها</div>
+														<div class="ctx-item" onclick={() => { showUsersMenu = false; showModal = 'attendance'; }}>حضور و غیاب</div>
+														<div class="ctx-separator"></div>
+														<div class="ctx-item" onclick={() => { showUsersMenu = false; showUsersPanel = false; }}>بستن</div>
+													</div>
+												{/if}
+											</div>
+										</div>
+										<div class="skyroom-block-content">
+											<div class="skyroom-users-list-wrapper"><div class="skyroom-users-list">
+												{#each participants as p}
+													<div class="skyroom-user-row">
+														<div class="skyroom-user-icon"><svg width="24" height="24" style="vertical-align:middle;fill:var(--text-color);width:16px;height:16px;display:inline-block;"><use xlink:href="#shape_person"></use></svg></div>
+														<div class="skyroom-user-nickname">{p.name}{#if p.isLocal} <span style="font-size:10px;color:var(--accent);">(شما)</span>{/if}</div>
+														<div class="skyroom-user-media">
+															<span class="media-icon" class:muted={!p.hasAudio} class:speaking={p.isSpeaking && p.hasAudio} title={p.hasAudio ? 'میکروفون فعال' : 'میکروفون خاموش'}>
+																<svg width="14" height="14"><use xlink:href={p.hasAudio ? '#shape_mic' : '#shape_mic_off'}></use></svg>
+															</span>
+															<span class="media-icon" class:muted={!p.hasVideo} title={p.hasVideo ? 'وبکم فعال' : 'وبکم خاموش'}>
+																<svg width="14" height="14"><use xlink:href={p.hasVideo ? '#shape_videocam' : '#shape_videocamoff'}></use></svg>
+															</span>
+															{#if p.handRaised}
+																<span class="media-icon hand-raised" title="دست بلند">
+																	<svg width="14" height="14" style="fill:#f59e0b;"><use xlink:href="#shape_hand"></use></svg>
+																</span>
+															{/if}
+														</div>
+													</div>
+												{/each}
+											</div></div>
+										</div>
+									</div>
+								{/if}
+								{#if showChatPanel}
+									<div class="skyroom-block skyroom-chat-block" style="flex:1;min-height:0;">
+										<div class="skyroom-block-header">
+											<div class="skyroom-block-title"><div class="skyroom-block-title-content">پیام‌ها {#if chatPrivate}<span style="color:#23b9d7;font-size:0.65rem;">(خصوصی)</span>{/if}{#if chatDisabled}<span style="color:#e05252;font-size:0.65rem;">(غیرفعال)</span>{/if}</div></div>
+											<div style="position:relative;">
+												<button class="skyroom-dots-btn" onclick={(e) => { e.stopPropagation(); positionMenu(e); showChatMenu = !showChatMenu; }}>
+													<svg width="16" height="16"><use xlink:href="#shape_more_vert"></use></svg>
+												</button>
+												{#if showChatMenu}
+													<div class="skyroom-context-menu" style="top:{menuPos.top}px;left:{menuPos.left}px;" onclick={(e) => e.stopPropagation()}>
+														<div class="ctx-item" onclick={() => { showChatMenu = false; chatExpanded = !chatExpanded; }}>{chatExpanded ? 'بازگشت به حالت عادی' : 'نمایش بزرگتر'}</div>
+														<div class="ctx-item" onclick={() => { showChatMenu = false; toggleChatDisabled(); }}>{chatDisabled ? 'فعال‌سازی چت' : 'غیرفعال‌سازی چت'}</div>
+														<div class="ctx-item" onclick={() => { showChatMenu = false; chatPrivate = !chatPrivate; }}>{chatPrivate ? 'حالت عمومی' : 'حالت خصوصی'}</div>
+														<div class="ctx-item" onclick={() => { showChatMenu = false; chatMessages = []; }}>پاک کردن همه پیام‌ها</div>
+														<div class="ctx-separator"></div>
+														<div class="ctx-item" onclick={() => { showChatMenu = false; showChatPanel = false; }}>بستن</div>
+													</div>
+												{/if}
+											</div>
+										</div>
+										<div class="skyroom-block-content" style="flex:1;min-height:0;"><ChatPanel messages={chatMessages} isAdmin={perms.canMic} disabled={chatDisabled} onSend={sendChatMessage} onClose={() => showChatPanel = false} /></div>
+									</div>
+								{/if}
+							</div>
+						{/if}
+						<div class="skyroom-mainbar">
+							{#if showWhiteboard}
+								<div class="whiteboard-container">
+									<canvas id="whiteboard-canvas" class="whiteboard-canvas"></canvas>
+									<div class="whiteboard-tools">
+										<button class="skyroom-icon-square" class:active={whiteboardTool === 'pen'} onclick={() => whiteboardTool = 'pen'} title="مداد">
+											<svg width="18" height="18"><use xlink:href="#shape_brush"></use></svg>
+										</button>
+										<button class="skyroom-icon-square" class:active={whiteboardTool === 'eraser'} onclick={() => whiteboardTool = 'eraser'} title="پاک‌کن">
+											<svg width="18" height="18"><use xlink:href="#shape_clear"></use></svg>
+										</button>
+										<input type="color" bind:value={whiteboardColor} class="w-8 h-8 rounded cursor-pointer" title="رنگ" />
+										<button class="skyroom-icon-square" onclick={clearWhiteboard} title="پاک کردن همه">
+											<svg width="18" height="18"><use xlink:href="#shape_power_settings_new"></use></svg>
+										</button>
+										<button class="skyroom-icon-square" onclick={() => showWhiteboard = false} title="بستن تخته">
+											<svg width="18" height="18"><use xlink:href="#shape_exit"></use></svg>
+										</button>
+									</div>
+								</div>
+							{:else}
+								<div bind:this={remoteContainer} style="position:absolute;inset:0;display:grid;{gridCols};gap:4px;padding:4px;pointer-events:{connected ? 'auto' : 'none'};"></div>
+								<div class="absolute bottom-4 left-3 w-36 h-28 rounded overflow-hidden border border-[#3a3a5a]"><video bind:this={localVideoEl} autoplay muted playsinline class="w-full h-full object-cover"></video></div>
+				{/if}
 				</div>
-				</div>
+				{/if}
+			</div>
 			</div>
 		{/if}
 		{#if showAppMenu}<AppMenu userRole={currentUserRole} onUserInfo={() => showModal = 'userInfo'} onConnectionStatus={() => showModal = 'connection'} onSettings={() => showModal = 'settings'} onLayout={() => showModal = 'layout'} onLeave={leaveRoom} onCloseRoom={closeRoom} onDismiss={() => showAppMenu = false} />{/if}
