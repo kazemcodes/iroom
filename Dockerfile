@@ -20,5 +20,5 @@ COPY --from=backend /server .
 COPY --from=frontend /app/web/.svelte-kit/output/client ./static
 COPY config.yaml .
 RUN mkdir -p uploads recordings data
-EXPOSE 8080
+EXPOSE 8080 3478/udp 3479/udp 8081/udp
 CMD ["./server"]

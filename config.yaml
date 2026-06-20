@@ -24,3 +24,10 @@ smtp:
   password: ""
   from: "noreply@iroom.ir"
   enabled: false
+
+webrtc:
+  public_ip: ""
+  stun_port: 3478
+  turn_port: 3479
+  turn_secret: ""
+  udp_port: 8081

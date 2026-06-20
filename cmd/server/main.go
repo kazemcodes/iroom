@@ -18,6 +18,7 @@ import (
 	iroomwebrtc "github.com/iroom/iroom/internal/webrtc"
 	"github.com/labstack/echo/v4"
 	echoMiddleware "github.com/labstack/echo/v4/middleware"
+	"github.com/pion/ice/v4"
 	"github.com/pion/webrtc/v4"
 )
 
@@ -87,13 +88,54 @@ func main() {
 	healthHandler := handler.NewHealthHandler(db, cfg.Database.Path)
 
 	rtcConfig := webrtc.Configuration{
-		ICEServers: []webrtc.ICEServer{
-			{URLs: []string{"stun:stun.l.google.com:19302"}},
-			{URLs: []string{"stun:stun1.l.google.com:19302"}},
-			{URLs: []string{"stun:stun2.l.google.com:19302"}},
-		},
+		ICEServers: []webrtc.ICEServer{},
 	}
-	signaling := iroomwebrtc.NewSignalingServer(rtcConfig)
+
+	var udpMux *ice.MultiUDPMuxDefault
+	var settingEngine webrtc.SettingEngine
+
+	publicIP := cfg.WebRTC.PublicIP
+	if publicIP == "" {
+		publicIP = "127.0.0.1"
+	}
+
+	slog.Info("WebRTC using NAT1To1IPs", "public_ip", publicIP, "udp_port", cfg.WebRTC.UDPPort)
+
+	udpMux, err = ice.NewMultiUDPMuxFromPort(cfg.WebRTC.UDPPort, ice.UDPMuxFromPortWithLoopback())
+	if err != nil {
+		slog.Error("failed to create UDP mux for WebRTC", "error", err, "port", cfg.WebRTC.UDPPort)
+		os.Exit(1)
+	}
+	settingEngine.SetICEUDPMux(udpMux)
+	settingEngine.SetNAT1To1IPs([]string{publicIP}, webrtc.ICECandidateTypeHost)
+	settingEngine.SetNetworkTypes([]webrtc.NetworkType{webrtc.NetworkTypeUDP4})
+
+	rtcAPI := webrtc.NewAPI(webrtc.WithSettingEngine(settingEngine))
+	signaling := iroomwebrtc.NewSignalingServer(rtcConfig, rtcAPI)
+
+	stunPort := cfg.WebRTC.STUNPort
+	if stunPort == 0 {
+		stunPort = 3478
+	}
+	go iroomwebrtc.StartSTUNServer(fmt.Sprintf("0.0.0.0:%d", stunPort))
+	slog.Info("self-hosted STUN server started", "addr", fmt.Sprintf("%s:%d", publicIP, stunPort))
+	signaling.SetSTUNURL(fmt.Sprintf("stun:%s:%d", publicIP, stunPort))
+
+	turnPort := cfg.WebRTC.TurnPort
+	if turnPort == 0 {
+		turnPort = 3479
+	}
+	turnSecret := cfg.WebRTC.TurnSecret
+	if turnSecret == "" {
+		turnSecret = cfg.JWT.Secret
+	}
+	turnServer := iroomwebrtc.NewTURNServer(publicIP, turnPort, turnSecret)
+	if err := turnServer.Start(); err != nil {
+		slog.Error("failed to start TURN server", "error", err)
+	} else {
+		signaling.SetTURNConfig(turnServer.GetURL(), turnSecret)
+		defer turnServer.Close()
+	}
 	webrtcHandler := handler.NewWebRTCHandler(signaling)
 
 	classURLHandler := handler.NewClassURLHandler(roomUC, userUC)

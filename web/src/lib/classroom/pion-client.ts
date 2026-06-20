@@ -29,6 +29,10 @@ export interface PionRoomConfig {
 	displayName: string;
 	userRole: string;
 	listener?: boolean;
+	stunUrl?: string;
+	turnUrl?: string;
+	turnUsername?: string;
+	turnCredential?: string;
 }
 
 export class PionClient {
@@ -39,6 +43,13 @@ export class PionClient {
 	private userRole: string;
 	private localStream: MediaStream | null = null;
 	private listener: boolean;
+	private stunUrl: string | null = null;
+	private turnUrl: string | null = null;
+	private turnUsername: string | null = null;
+	private turnCredential: string | null = null;
+	private screenTrack: MediaStreamTrack | null = null;
+	private screenStream: MediaStream | null = null;
+	private isRenegotiating = false;
 
 	onRemoteStream?: (stream: MediaStream, participantId: string) => void;
 	onLocalStream?: (stream: MediaStream) => void;
@@ -49,6 +60,10 @@ export class PionClient {
 		this.displayName = config.displayName;
 		this.userRole = config.userRole || 'student';
 		this.listener = config.listener || false;
+		this.stunUrl = config.stunUrl || null;
+		this.turnUrl = config.turnUrl || null;
+		this.turnUsername = config.turnUsername || null;
+		this.turnCredential = config.turnCredential || null;
 	}
 
 	async connect(): Promise<void> {
@@ -71,16 +86,18 @@ export class PionClient {
 		if (!token) throw new Error('No auth token');
 		console.log('[Pion] Got token');
 
-		this.pc = new RTCPeerConnection({
-			iceServers: [
-				{ urls: 'stun:stun.l.google.com:19302' },
-				{ urls: 'stun:stun1.l.google.com:19302' },
-				{ urls: 'stun:stun2.l.google.com:19302' },
-				{ urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-				{ urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
-				{ urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
-			]
-		});
+		const iceServers: RTCIceServer[] = [];
+		if (this.turnUrl && this.turnUsername && this.turnCredential) {
+			iceServers.push({
+				urls: this.turnUrl,
+				username: this.turnUsername,
+				credential: this.turnCredential,
+			});
+		}
+		if (this.stunUrl) {
+			iceServers.push({ urls: this.stunUrl });
+		}
+		this.pc = new RTCPeerConnection({ iceServers });
 		console.log('[Pion] Created RTCPeerConnection');
 
 		this.localStream?.getTracks().forEach(track => {
@@ -125,19 +142,20 @@ export class PionClient {
 					const data = JSON.parse(msg.data);
 					console.log('[Pion] datachannel message', data);
 					if (data.type === 'track_added') {
+						// Store the mapping for future ontrack events
+						streamIdToUserId.set(data.track_id, data.user_id);
+
 						// Match pending track by track_id
 						const pending = pendingTracks.get(data.track_id);
 						if (pending) {
 							pendingTracks.delete(data.track_id);
 							console.log('[Pion] track_added matched pending track', { trackId: data.track_id, userId: data.user_id });
-							if (this.onRemoteStream) {
+							if (this.onRemoteStream && pending.stream) {
 								this.onRemoteStream(pending.stream, data.user_id);
 							}
 						} else {
-							console.log('[Pion] track_added no pending track for', data.track_id);
+							console.log('[Pion] track_added no pending track for', data.track_id, '- waiting for ontrack');
 						}
-						// Store the mapping for future ontrack events
-						streamIdToUserId.set(data.track_id, data.user_id);
 					}
 				} catch {}
 			};
@@ -146,21 +164,24 @@ export class PionClient {
 		const streamIdToUserId = new Map<string, string>();
 
 		this.pc.ontrack = (event) => {
-			const streamId = event.streams[0]?.id || 'unknown';
+			const stream = event.streams[0];
+			const streamId = stream?.id || 'unknown';
 			const trackId = event.track.id;
-			console.log('[Pion] ontrack', { trackId, kind: event.track.kind, streamId });
+			console.log('[Pion] ontrack', { trackId, kind: event.track.kind, streamId, hasStream: !!stream });
 
 			// Server sets streamID = sender's userID for direct identification
-			const userId = streamIdToUserId.get(trackId) || streamIdToUserId.get(streamId) || streamId;
-			if (userId && userId !== 'unknown') {
+			const userId = streamIdToUserId.get(trackId) || streamIdToUserId.get(streamId) || (streamId !== 'unknown' ? streamId : null);
+			if (userId) {
 				console.log('[Pion] ontrack resolved', { userId, source: streamIdToUserId.has(trackId) ? 'signaling' : 'streamId' });
-				if (this.onRemoteStream) {
-					this.onRemoteStream(event.streams[0], userId);
+				if (this.onRemoteStream && stream) {
+					this.onRemoteStream(stream, userId);
 				}
 			} else {
 				console.log('[Pion] ontrack pending', { trackId, streamId });
-				pendingTracks.set(trackId, { stream: event.streams[0], track: event.track });
-				pendingTracks.set(streamId, { stream: event.streams[0], track: event.track });
+				if (stream) {
+					pendingTracks.set(trackId, { stream, track: event.track });
+					pendingTracks.set(streamId, { stream, track: event.track });
+				}
 			}
 		};
 
@@ -212,12 +233,70 @@ export class PionClient {
 
 	async shareScreen(): Promise<void> {
 		const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-		const screenTrack = screenStream.getVideoTracks()[0];
-		if (this.pc && screenTrack) {
-			// Add as a new track (not replace) so the server can distinguish
-			// screen share from camera video. The server identifies screen shares
-			// as a second video track from the same participant.
-			this.pc.addTrack(screenTrack, screenStream);
+		this.screenStream = screenStream;
+		this.screenTrack = screenStream.getVideoTracks()[0];
+		if (this.pc && this.screenTrack) {
+			this.pc.addTrack(this.screenTrack, screenStream);
+			this.screenTrack.onended = () => {
+				this.stopScreenShare();
+			};
+			await this.renegotiate();
+		}
+	}
+
+	async stopScreenShare(): Promise<void> {
+		if (this.screenTrack) {
+			this.screenTrack.stop();
+			this.screenTrack = null;
+		}
+		this.screenStream = null;
+
+		if (this.pc) {
+			const senders = this.pc.getSenders();
+			for (const sender of senders) {
+				if (sender.track && !this.localStream?.getTracks().includes(sender.track)) {
+					this.pc.removeTrack(sender);
+				}
+			}
+			await this.renegotiate();
+		}
+	}
+
+	private async renegotiate(): Promise<void> {
+		if (!this.pc || this.isRenegotiating) return;
+		this.isRenegotiating = true;
+		try {
+			const offer = await this.pc.createOffer();
+			await this.pc.setLocalDescription(offer);
+
+			const token = localStorage.getItem('access_token');
+			if (!token) throw new Error('No auth token');
+
+			const offerRes = await fetch(`/api/v1/sessions/${this.roomId}/classroom/offer`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'Authorization': `Bearer ${token}`
+				},
+				body: JSON.stringify({
+					sdp: offer.sdp,
+					room_id: this.roomId,
+					user_id: this.userId,
+					name: this.displayName,
+					role: this.userRole
+				})
+			});
+
+			const offerData = await offerRes.json();
+			if (!offerData.success) throw new Error(offerData.error || 'Failed to renegotiate');
+
+			const answer = new RTCSessionDescription({ type: 'answer', sdp: offerData.data.sdp });
+			await this.pc.setRemoteDescription(answer);
+		} catch (e) {
+			console.error('[Pion] Renegotiation failed:', e);
+			throw e;
+		} finally {
+			this.isRenegotiating = false;
 		}
 	}
 

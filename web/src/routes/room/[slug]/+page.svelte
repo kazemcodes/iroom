@@ -143,7 +143,7 @@
 
 	// --- Classroom State ---
 	import { onMount as onClassroomMount, onDestroy } from 'svelte';
-	import { PionClient } from '$lib/classroom/pion-client';
+	import { MediaClient } from '$lib/classroom/media-client';
 	import type { UserRole, Participant, ChatMessage } from '$lib/classroom/types';
 	import { ROLE_PERMISSIONS } from '$lib/classroom/types';
 	import ChatPanel from '$lib/components/classroom/ChatPanel.svelte';
@@ -157,7 +157,7 @@
 
 	let roomId = $state<number | null>(null);
 	let currentSession = $state<any>(null);
-	let pion = $state<PionClient | null>(null);
+	let pion = $state<MediaClient | null>(null);
 	let connected = $state(false);
 	let audioOn = $state(true);
 	let micOn = $state(false);
@@ -242,6 +242,14 @@
 		chatWs = new WebSocket(url);
 		chatWs.onopen = () => { chatDebug('WS connected', { readyState: chatWs?.readyState }); };
 		chatWs.onmessage = (event) => {
+			if (event.data instanceof ArrayBuffer || event.data instanceof Blob) {
+				if (event.data instanceof Blob) {
+					event.data.arrayBuffer().then(buf => pion?.handleBinaryMessage(buf));
+				} else {
+					pion?.handleBinaryMessage(event.data);
+				}
+				return;
+			}
 			chatDebug('WS recv', event.data);
 			try {
 				const raw = JSON.parse(event.data);
@@ -336,20 +344,26 @@
 		if (!roomId) return;
 		const joinRes = await api.get(`/sessions/${roomId}/classroom`);
 		if (!joinRes.success || !joinRes.data) return;
-		const { room_id, user_id, role } = joinRes.data;
+		const { user_id } = joinRes.data;
 		const isListener = entryMode === 'listener';
 		try {
-			pion = new PionClient({
-				roomId: String(room_id), userId: String(user_id), role,
-				displayName: $auth.user?.display_name || 'کاربر',
-				userRole: role || 'student',
-				listener: isListener,
-			});
+			if (!chatWs || chatWs.readyState !== WebSocket.OPEN) {
+				chatDebug('WebSocket not ready, waiting...');
+				await new Promise<void>((resolve) => {
+					const check = setInterval(() => {
+						if (chatWs && chatWs.readyState === WebSocket.OPEN) {
+							clearInterval(check);
+							resolve();
+						}
+					}, 100);
+					setTimeout(() => { clearInterval(check); resolve(); }, 5000);
+				});
+			}
+			pion = new MediaClient(chatWs!, Number(user_id));
 			pion.onLocalStream = (stream) => {
 				if (localVideoEl) localVideoEl.srcObject = stream;
 				micOn = stream.getAudioTracks().length > 0 && stream.getAudioTracks()[0].enabled;
 				webcamOn = stream.getVideoTracks().length > 0 && stream.getVideoTracks()[0].enabled;
-				// Update local user media state
 				participants = participants.map(p => {
 					if (p.id === String(user_id)) {
 						return { ...p, hasAudio: micOn, hasVideo: webcamOn, isLocal: true };
@@ -360,25 +374,23 @@
 			pion.onRemoteStream = (stream, participantId) => {
 				const hasVideo = stream.getVideoTracks().length > 0;
 				const hasAudio = stream.getAudioTracks().length > 0;
-				const isScreen = hasVideo && remoteStreams.some(r => r.id === participantId && !r.isScreen && r.stream.getVideoTracks().length > 0);
-				chatDebug('onRemoteStream', { participantId, tracks: stream.getTracks().map(t => t.kind), isScreen });
-				const key = isScreen ? participantId + '_screen' : participantId;
-				const existingIdx = remoteStreams.findIndex(r => r.id === key);
+				chatDebug('onRemoteStream', { participantId, tracks: stream.getTracks().map(t => t.kind), hasVideo, hasAudio });
+				const existingIdx = remoteStreams.findIndex(r => r.id === participantId && !r.isScreen);
 				if (existingIdx >= 0) {
 					const updated = [...remoteStreams];
-					updated[existingIdx] = { id: key, stream, isScreen };
+					updated[existingIdx] = { id: participantId, stream, isScreen: false };
 					remoteStreams = updated;
 				} else {
-					remoteStreams = [...remoteStreams, { id: key, stream, isScreen }];
+					remoteStreams = [...remoteStreams, { id: participantId, stream, isScreen: false }];
 				}
 				participants = participants.map(p => {
 					if (p.id === participantId) {
-						return { ...p, hasVideo: p.hasVideo || hasVideo, hasAudio: p.hasAudio || hasAudio, hasScreen: p.hasScreen || isScreen };
+						return { ...p, hasVideo: p.hasVideo || hasVideo, hasAudio: p.hasAudio || hasAudio };
 					}
 					return p;
 				});
 			};
-			await pion.connect();
+			await pion.start(!isListener, !isListener);
 			connected = true;
 			startTimer();
 			startParticipantRefresh();
@@ -389,7 +401,7 @@
 	}
 
 	function disconnect() {
-		if (pion) { pion.disconnect(); pion = null; }
+		if (pion) { pion.stop(); pion = null; }
 		connected = false;
 		if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
 		if (participantInterval) { clearInterval(participantInterval); participantInterval = null; }
@@ -413,12 +425,22 @@
 		chatDebug('toggleWebcam', { webcamOn });
 		wsSend({ type: 'command', command: webcamOn ? 'webcam_on' : 'webcam_off' });
 	}
-	function toggleScreenShare() {
+	async function toggleScreenShare() {
 		if (!perms.canScreenShare) return;
-		if (pion && !screenShareOn) pion.shareScreen();
-		screenShareOn = !screenShareOn;
-		chatDebug('toggleScreenShare', { screenShareOn });
-		wsSend({ type: 'command', command: screenShareOn ? 'screenshare_on' : 'screenshare_off' });
+		try {
+			if (!screenShareOn) {
+				await pion?.shareScreen();
+				screenShareOn = true;
+			} else {
+				await pion?.stopScreenShare();
+				screenShareOn = false;
+			}
+			chatDebug('toggleScreenShare', { screenShareOn });
+			wsSend({ type: 'command', command: screenShareOn ? 'screenshare_on' : 'screenshare_off' });
+		} catch (e) {
+			chatDebug('screen share error', e);
+			screenShareOn = false;
+		}
 	}
 	function toggleHand() {
 		if (!perms.canHandRaise) return;
@@ -891,13 +913,16 @@
 									</div>
 								</div>
 							{:else}
-							{#each remoteStreams as remote (remote.id)}
-								{#if remote.isScreen}
-									<video autoplay playsinline class="absolute inset-0 w-full h-full object-cover rounded-lg" use:srcObject={remote.stream}></video>
-								{:else}
-									<video autoplay playsinline class="absolute top-4 right-4 w-36 h-24 object-cover rounded-lg border border-[#3a3a5a] z-10" use:srcObject={remote.stream}></video>
-								{/if}
-							{/each}
+						{#each remoteStreams as remote (remote.id)}
+							{#if remote.isScreen}
+								<video autoplay playsinline class="absolute inset-0 w-full h-full object-cover rounded-lg" use:srcObject={remote.stream}></video>
+							{:else}
+								<div class="remote-video-container">
+									<video autoplay playsinline use:srcObject={remote.stream} class="w-full h-full object-cover"></video>
+									<div class="remote-video-label">{participants.find(p => p.id === remote.id)?.name || ''}</div>
+								</div>
+							{/if}
+						{/each}
 							<div class="absolute bottom-4 right-4 w-28 h-20 rounded-lg overflow-hidden border border-[#3a3a5a] z-10"><video bind:this={localVideoEl} autoplay muted playsinline class="w-full h-full object-cover"></video></div>
 				{/if}
 				</div>
@@ -984,7 +1009,10 @@
 	.skyroom-room-nav { background-color: var(--block-bg); border-radius: var(--radius); min-height: 44px; margin: 6px 8px 10px; padding: 6px 10px; display: flex; align-items: center; justify-content: space-between; }
 	.skyroom-layout { display: flex; flex: 1; overflow: hidden; gap: 6px; padding: 0 8px 8px; }
 	.skyroom-sidebar { flex-grow: 1; min-width: 260px; max-width: 320px; display: flex; flex-direction: column; gap: 6px; }
-	.skyroom-mainbar { flex: 1; position: relative; }
+	.skyroom-mainbar { flex: 1; position: relative; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; padding: 8px; }
+	.remote-video-container { position: relative; flex: 1 1 300px; max-width: 640px; aspect-ratio: 16/9; border-radius: var(--radius); overflow: hidden; border: 2px solid #3a3a5a; background: #000; }
+	.remote-video-container video { width: 100%; height: 100%; object-fit: cover; }
+	.remote-video-label { position: absolute; bottom: 8px; left: 8px; background: rgba(0,0,0,0.6); color: #fff; padding: 2px 8px; border-radius: 4px; font-size: var(--font-size-sm); }
 	.skyroom-block { background-color: var(--block-bg); border-radius: var(--radius); min-height: 120px; padding: 0 6px 6px; display: flex; flex-direction: column; overflow: hidden; }
 	.skyroom-block-header { display: flex; align-items: center; padding: 8px 4px 4px; gap: 6px; }
 	.skyroom-block-title { padding: 0; font-size: var(--font-size-sm); flex: 1; color: var(--text-secondary); font-weight: 500; }

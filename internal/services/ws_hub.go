@@ -227,6 +227,30 @@ func (h *Hub) getClientCount() int {
 	return count
 }
 
+// BroadcastBinaryToRoom sends a binary message to all users in a room except the sender
+func (h *Hub) BroadcastBinaryToRoom(roomID string, excludeUserID int64, data []byte) {
+	msg := make([]byte, 1+len(data))
+	msg[0] = 1
+	copy(msg[1:], data)
+
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	for userID, clients := range h.clients {
+		if userID == excludeUserID {
+			continue
+		}
+		for client := range clients {
+			if client.RoomID == roomID {
+				select {
+				case client.Send <- msg:
+				default:
+				}
+			}
+		}
+	}
+}
+
 // Register adds a client to the hub
 func (h *Hub) Register(client *Client) {
 	slog.Info("hub register", "user_id", client.UserID, "room_id", client.RoomID, "display_name", client.DisplayName)

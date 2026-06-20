@@ -28,11 +28,30 @@ func (h *WebRTCHandler) GetJoinInfo(c echo.Context) error {
 	}
 	role := getUserRole(c)
 
-	return response.Success(c, map[string]interface{}{
+	resp := map[string]interface{}{
 		"room_id": strconv.FormatInt(sessionID, 10),
 		"user_id": strconv.FormatInt(userID, 10),
 		"role":    role,
-	})
+	}
+
+	if stunURL := h.signaling.GetSTUNURL(); stunURL != "" {
+		resp["stun_url"] = stunURL
+	}
+
+	if turnURL := h.signaling.GetTURNURL(); turnURL != "" {
+		resp["turn_url"] = turnURL
+		if turnSecret := h.signaling.GetTURNSecret(); turnSecret != "" {
+			turnUsername, turnCredential := generateTurnCredentials(userID, turnSecret)
+			resp["turn_username"] = turnUsername
+			resp["turn_credential"] = turnCredential
+		}
+	}
+
+	return response.Success(c, resp)
+}
+
+func generateTurnCredentials(userID int64, secret string) (string, string) {
+	return strconv.FormatInt(userID, 10), secret
 }
 
 func (h *WebRTCHandler) HandleOffer(c echo.Context) error {

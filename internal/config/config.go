@@ -16,6 +16,15 @@ type Config struct {
 	Upload   UploadConfig   `yaml:"upload"`
 	External ExternalConfig `yaml:"external"`
 	SMTP     SMTPConfig     `yaml:"smtp"`
+	WebRTC   WebRTCConfig   `yaml:"webrtc"`
+}
+
+type WebRTCConfig struct {
+	PublicIP string `yaml:"public_ip"`
+	STUNPort int    `yaml:"stun_port"`
+	TurnPort int    `yaml:"turn_port"`
+	UDPPort  int    `yaml:"udp_port"`
+	TurnSecret string `yaml:"turn_secret"`
 }
 
 type ServerConfig struct {
@@ -134,6 +143,27 @@ func applyEnvOverrides(cfg *Config) {
 	if v := os.Getenv("SMTP_ENABLED"); v != "" {
 		cfg.SMTP.Enabled = v == "true" || v == "1"
 	}
+	if v := os.Getenv("WEBRTC_PUBLIC_IP"); v != "" {
+		cfg.WebRTC.PublicIP = v
+	}
+	if v := os.Getenv("WEBRTC_STUN_PORT"); v != "" {
+		if p, err := strconv.Atoi(v); err == nil {
+			cfg.WebRTC.STUNPort = p
+		}
+	}
+	if v := os.Getenv("WEBRTC_TURN_PORT"); v != "" {
+		if p, err := strconv.Atoi(v); err == nil {
+			cfg.WebRTC.TurnPort = p
+		}
+	}
+	if v := os.Getenv("WEBRTC_TURN_SECRET"); v != "" {
+		cfg.WebRTC.TurnSecret = v
+	}
+	if v := os.Getenv("WEBRTC_UDP_PORT"); v != "" {
+		if p, err := strconv.Atoi(v); err == nil {
+			cfg.WebRTC.UDPPort = p
+		}
+	}
 }
 
 func Default() *Config {
@@ -164,6 +194,13 @@ func Default() *Config {
 			Password: "",
 			From:     "noreply@iroom.ir",
 			Enabled:  false,
+		},
+		WebRTC: WebRTCConfig{
+			PublicIP:   "",
+			STUNPort:   3478,
+			TurnPort:   3479,
+			UDPPort:    8081,
+			TurnSecret: "",
 		},
 	}
 }

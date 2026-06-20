@@ -107,12 +107,18 @@ func (h *ChatHandler) readPump(client *services.Client, sessionID int64) {
 	}()
 
 	for {
-		_, raw, err := client.Conn.ReadMessage()
+		msgType, raw, err := client.Conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 				slog.Error("websocket read error", "error", err, "user_id", client.UserID)
 			}
 			break
+		}
+
+		// Binary messages = media chunks — relay to room
+		if msgType == websocket.BinaryMessage {
+			h.hub.BroadcastBinaryToRoom(strconv.FormatInt(sessionID, 10), client.UserID, raw)
+			continue
 		}
 
 		debug.Log("chat WS recv", "user_id", client.UserID, "raw", string(raw))
@@ -230,12 +236,35 @@ func (h *ChatHandler) writePump(client *services.Client) {
 				return
 			}
 
-			if err := client.Conn.WriteMessage(websocket.TextMessage, message); err != nil {
-				debug.Log("chat writePump error", "error", err, "user_id", client.UserID)
-				return
+			if len(message) > 1 && message[0] == 1 {
+				if err := client.Conn.WriteMessage(websocket.BinaryMessage, message[1:]); err != nil {
+					return
+				}
+				continue
 			}
 
-			debug.Log("chat writePump sent", "user_id", client.UserID, "bytes", len(message))
+			w, err := client.Conn.NextWriter(websocket.TextMessage)
+			if err != nil {
+				return
+			}
+			w.Write(message)
+
+			n := len(client.Send)
+			for i := 0; i < n; i++ {
+				next := <-client.Send
+				if len(next) > 1 && next[0] == 1 {
+					w.Close()
+					client.Conn.WriteMessage(websocket.BinaryMessage, next[1:])
+					w, _ = client.Conn.NextWriter(websocket.TextMessage)
+					continue
+				}
+				w.Write([]byte{'\n'})
+				w.Write(next)
+			}
+
+			if err := w.Close(); err != nil {
+				return
+			}
 
 		case <-ticker.C:
 			client.Conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
@@ -245,3 +274,4 @@ func (h *ChatHandler) writePump(client *services.Client) {
 		}
 	}
 }
+
