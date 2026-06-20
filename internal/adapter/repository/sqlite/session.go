@@ -33,7 +33,7 @@ func (r *SessionRepo) Create(s *entity.Session) error {
 func (r *SessionRepo) GetByID(id int64) (*entity.Session, error) {
 	s := &entity.Session{}
 	err := r.db.QueryRow(
-		`SELECT id, room_id, class_id, title, scheduled_at, duration, status, livekit_room, recording_url, created_at, updated_at
+		`SELECT id, COALESCE(room_id, 0), COALESCE(class_id, 0), title, scheduled_at, duration, status, livekit_room, recording_url, created_at, updated_at
 		 FROM sessions WHERE id = ?`, id,
 	).Scan(&s.ID, &s.RoomID, &s.ClassID, &s.Title, &s.ScheduledAt, &s.Duration,
 		&s.Status, &s.LivekitRoom, &s.RecordingURL, &s.CreatedAt, &s.UpdatedAt)
@@ -45,7 +45,7 @@ func (r *SessionRepo) GetByID(id int64) (*entity.Session, error) {
 
 func (r *SessionRepo) ListByRoom(roomID int64) ([]entity.Session, error) {
 	rows, err := r.db.Query(
-		`SELECT id, room_id, class_id, title, scheduled_at, duration, status, livekit_room, recording_url, created_at, updated_at
+		`SELECT id, COALESCE(room_id, 0), COALESCE(class_id, 0), title, scheduled_at, duration, status, livekit_room, recording_url, created_at, updated_at
 		 FROM sessions WHERE room_id = ? ORDER BY scheduled_at DESC`, roomID,
 	)
 	if err != nil {
@@ -84,7 +84,7 @@ func (r *SessionRepo) ListAll(page, perPage int, search string) ([]entity.Sessio
 	}
 
 	offset := (page - 1) * perPage
-	query := `SELECT id, room_id, class_id, title, scheduled_at, duration, status, livekit_room, recording_url, created_at, updated_at FROM sessions WHERE 1=1`
+	query := `SELECT id, COALESCE(room_id, 0), COALESCE(class_id, 0), title, scheduled_at, duration, status, livekit_room, recording_url, created_at, updated_at FROM sessions WHERE 1=1`
 	if search != "" {
 		query += ` AND title LIKE ?`
 	}

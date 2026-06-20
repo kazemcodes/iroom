@@ -4,6 +4,7 @@ import (
 	"strconv"
 
 	"github.com/iroom/iroom/internal/domain/usecase"
+	"github.com/iroom/iroom/internal/pkg/errors"
 	"github.com/iroom/iroom/internal/pkg/response"
 	"github.com/labstack/echo/v4"
 )
@@ -19,6 +20,7 @@ func NewSessionHandler(sessionUC *usecase.SessionUseCase) *SessionHandler {
 func (h *SessionHandler) Create(c echo.Context) error {
 	var req struct {
 		RoomID      int64  `json:"room_id"`
+		ClassID     int64  `json:"class_id"`
 		Title       string `json:"title"`
 		ScheduledAt string `json:"scheduled_at"`
 		Duration    int    `json:"duration"`
@@ -27,8 +29,16 @@ func (h *SessionHandler) Create(c echo.Context) error {
 		return response.BadRequest(c, "داده‌های نامعتبر")
 	}
 
-	session, err := h.sessionUC.Create(req.RoomID, req.Title, req.ScheduledAt, req.Duration)
+	roomID := req.RoomID
+	if roomID == 0 {
+		roomID = req.ClassID
+	}
+
+	session, err := h.sessionUC.Create(roomID, req.Title, req.ScheduledAt, req.Duration)
 	if err != nil {
+		if err == errors.ErrNotFound {
+			return response.NotFound(c, "اتاق یافت نشد")
+		}
 		return response.InternalError(c, err.Error())
 	}
 

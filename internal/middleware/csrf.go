@@ -78,6 +78,10 @@ func CSRF() echo.MiddlewareFunc {
 				return next(c)
 			}
 
+			if c.Request().Header.Get("Authorization") != "" {
+				return next(c)
+			}
+
 			token := c.Request().Header.Get("X-CSRF-Token")
 			if token == "" {
 				if cookie, err := c.Cookie("csrf_token"); err == nil {

@@ -20,12 +20,33 @@ docker compose up -d
 
 ### Development
 
-```bash
-# Backend
-cd iroom && go build -o server ./cmd/server && ./server
+#### Prerequisites
 
-# Frontend (new terminal)
-cd iroom/web && npm install && npm run dev
+- Go 1.22+
+- Node.js 18+
+
+#### Backend
+
+**Option A — Manual build:**
+
+```bash
+go build -o server ./cmd/server && ./server
+```
+
+**Option B — Auto-reload with [air](https://github.com/air-verse/air) (recommended):**
+
+```bash
+# Install air (one-time)
+go install github.com/air-verse/air@latest
+
+# Run — watches .go/.sql/.yaml files and rebuilds on change
+air
+```
+
+#### Frontend (new terminal)
+
+```bash
+cd web && npm install && npm run dev
 # → http://localhost:5173
 ```
 

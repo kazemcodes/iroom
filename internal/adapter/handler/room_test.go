@@ -460,12 +460,13 @@ func TestRoomHandler_GetBySlug_ResponseHasAllFields(t *testing.T) {
 	var resp map[string]interface{}
 	require.NoError(t, json.Unmarshal(rec2.Body.Bytes(), &resp))
 	data := resp["data"].(map[string]interface{})
+	room := data["room"].(map[string]interface{})
 
-	assert.NotZero(t, data["id"])
-	assert.Equal(t, float64(5), data["owner_id"])
-	assert.Equal(t, "Slug All", data["name"])
-	assert.Equal(t, "slug-all", data["slug"])
-	assert.NotEmpty(t, data["created_at"])
+	assert.NotZero(t, room["id"])
+	assert.Equal(t, float64(5), room["owner_id"])
+	assert.Equal(t, "Slug All", room["name"])
+	assert.Equal(t, "slug-all", room["slug"])
+	assert.NotEmpty(t, room["created_at"])
 }
 
 func TestRoomHandler_List_ResponseItemsHaveAllFields(t *testing.T) {

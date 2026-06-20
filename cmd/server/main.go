@@ -222,6 +222,7 @@ func main() {
 	admin.GET("/recordings", recordingHandler.ListAll)
 	admin.DELETE("/recordings/:id", recordingHandler.Delete)
 	admin.GET("/activity-logs", activityLogHandler.List)
+	admin.GET("/logs", activityLogHandler.List)
 	admin.PUT("/settings", settingsHandler.Update)
 	admin.GET("/settings", settingsHandler.Get)
 	admin.POST("/webhooks", webhookHandler.Create)

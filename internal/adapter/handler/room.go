@@ -62,7 +62,9 @@ func (h *RoomHandler) GetBySlug(c echo.Context) error {
 	if err != nil {
 		return response.NotFound(c, "اتاق یافت نشد")
 	}
-	return response.Success(c, room)
+	return response.Success(c, map[string]interface{}{
+		"room": room,
+	})
 }
 
 func (h *RoomHandler) List(c echo.Context) error {

@@ -36,8 +36,15 @@ func (h *WebhookHandler) Create(c echo.Context) error {
 }
 
 func (h *WebhookHandler) List(c echo.Context) error {
-	userID, _ := getUserID(c)
-	webhooks, err := h.webhookUC.ListByUser(userID)
+	role := getUserRole(c)
+	var webhooks interface{}
+	var err error
+	if role == "admin" {
+		webhooks, err = h.webhookUC.ListAll()
+	} else {
+		userID, _ := getUserID(c)
+		webhooks, err = h.webhookUC.ListByUser(userID)
+	}
 	if err != nil {
 		return response.InternalError(c, err.Error())
 	}
@@ -50,6 +57,7 @@ func (h *WebhookHandler) Update(c echo.Context) error {
 		return response.BadRequest(c, "شناسه نامعتبر")
 	}
 	userID, _ := getUserID(c)
+	role := getUserRole(c)
 
 	var req struct {
 		URL      string   `json:"url"`
@@ -60,7 +68,7 @@ func (h *WebhookHandler) Update(c echo.Context) error {
 		return response.BadRequest(c, "داده‌های نامعتبر")
 	}
 
-	if err := h.webhookUC.Update(id, userID, req.URL, req.Events, req.IsActive); err != nil {
+	if err := h.webhookUC.Update(id, userID, role, req.URL, req.Events, req.IsActive); err != nil {
 		return response.Forbidden(c, err.Error())
 	}
 
@@ -73,7 +81,8 @@ func (h *WebhookHandler) Delete(c echo.Context) error {
 		return response.BadRequest(c, "شناسه نامعتبر")
 	}
 	userID, _ := getUserID(c)
-	if err := h.webhookUC.Delete(id, userID); err != nil {
+	role := getUserRole(c)
+	if err := h.webhookUC.Delete(id, userID, role); err != nil {
 		return response.Forbidden(c, err.Error())
 	}
 	return response.Success(c, map[string]string{"message": "وب‌هوک حذف شد"})
@@ -85,6 +94,7 @@ func (h *WebhookHandler) ListDeliveries(c echo.Context) error {
 		return response.BadRequest(c, "شناسه نامعتبر")
 	}
 	userID, _ := getUserID(c)
+	role := getUserRole(c)
 	page, _ := strconv.Atoi(c.QueryParam("page"))
 	perPage, _ := strconv.Atoi(c.QueryParam("per_page"))
 	if page < 1 {
@@ -94,7 +104,7 @@ func (h *WebhookHandler) ListDeliveries(c echo.Context) error {
 		perPage = 20
 	}
 
-	deliveries, total, err := h.webhookUC.ListDeliveries(webhookID, userID, page, perPage)
+	deliveries, total, err := h.webhookUC.ListDeliveries(webhookID, userID, role, page, perPage)
 	if err != nil {
 		return response.Forbidden(c, err.Error())
 	}

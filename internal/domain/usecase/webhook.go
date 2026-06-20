@@ -38,12 +38,16 @@ func (uc *WebhookUseCase) ListByUser(userID int64) ([]entity.Webhook, error) {
 	return uc.webhookRepo.ListByUserID(userID)
 }
 
-func (uc *WebhookUseCase) Update(id, userID int64, url string, events []string, isActive *bool) error {
+func (uc *WebhookUseCase) ListAll() ([]entity.Webhook, error) {
+	return uc.webhookRepo.ListAll()
+}
+
+func (uc *WebhookUseCase) Update(id, userID int64, role, url string, events []string, isActive *bool) error {
 	w, err := uc.webhookRepo.GetByID(id)
 	if err != nil {
 		return errors.ErrNotFound
 	}
-	if w.UserID != userID {
+	if role != "admin" && w.UserID != userID {
 		return errors.ErrForbidden
 	}
 	if url != "" {
@@ -58,23 +62,23 @@ func (uc *WebhookUseCase) Update(id, userID int64, url string, events []string, 
 	return uc.webhookRepo.Update(w)
 }
 
-func (uc *WebhookUseCase) Delete(id, userID int64) error {
+func (uc *WebhookUseCase) Delete(id, userID int64, role string) error {
 	w, err := uc.webhookRepo.GetByID(id)
 	if err != nil {
 		return errors.ErrNotFound
 	}
-	if w.UserID != userID {
+	if role != "admin" && w.UserID != userID {
 		return errors.ErrForbidden
 	}
 	return uc.webhookRepo.Delete(id)
 }
 
-func (uc *WebhookUseCase) ListDeliveries(webhookID, userID int64, page, perPage int) ([]entity.WebhookDelivery, int64, error) {
+func (uc *WebhookUseCase) ListDeliveries(webhookID, userID int64, role string, page, perPage int) ([]entity.WebhookDelivery, int64, error) {
 	w, err := uc.webhookRepo.GetByID(webhookID)
 	if err != nil {
 		return nil, 0, errors.ErrNotFound
 	}
-	if w.UserID != userID {
+	if role != "admin" && w.UserID != userID {
 		return nil, 0, errors.ErrForbidden
 	}
 	return uc.deliveryRepo.ListByWebhookID(webhookID, page, perPage)

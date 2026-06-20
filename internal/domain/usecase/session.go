@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/iroom/iroom/internal/domain/entity"
 	"github.com/iroom/iroom/internal/pkg/errors"
@@ -23,9 +24,21 @@ func (uc *SessionUseCase) Create(roomID int64, title, scheduledAt string, durati
 	}
 	s := &entity.Session{
 		RoomID:    roomID,
+		ClassID:   roomID,
 		Title:     title,
 		Duration:  duration,
 		Status:    entity.SessionScheduled,
+	}
+	if scheduledAt != "" {
+		if t, err := time.Parse(time.RFC3339, scheduledAt); err == nil {
+			s.ScheduledAt = t
+		} else if t, err := time.Parse("2006-01-02T15:04:05.000Z", scheduledAt); err == nil {
+			s.ScheduledAt = t
+		} else {
+			s.ScheduledAt = time.Now()
+		}
+	} else {
+		s.ScheduledAt = time.Now()
 	}
 	if err := uc.sessionRepo.Create(s); err != nil {
 		return nil, fmt.Errorf("failed to create session: %w", err)
