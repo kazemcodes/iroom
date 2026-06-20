@@ -167,40 +167,50 @@ func (ss *SignalingServer) HandleOffer(c echo.Context) error {
 	// so the client can map tracks to participant IDs via signaling
 	// (more reliable than relying on StreamID)
 	if signalDC != nil {
-		room.mu.RLock()
-		for _, existing := range room.Participants {
-			if existing.ID == req.UserID {
-				continue
-			}
-			if existing.AudioTrack != nil {
-				trackInfo, _ := json.Marshal(map[string]interface{}{
-					"type":       "track_added",
-					"user_id":    existing.ID,
-					"track_id":   existing.AudioTrack.ID(),
-					"track_kind": webrtc.RTPCodecTypeAudio.String(),
-				})
-				signalDC.SendText(string(trackInfo))
-			}
-			if existing.VideoTrack != nil {
-				trackInfo, _ := json.Marshal(map[string]interface{}{
-					"type":       "track_added",
-					"user_id":    existing.ID,
-					"track_id":   existing.VideoTrack.ID(),
-					"track_kind": webrtc.RTPCodecTypeVideo.String(),
-				})
-				signalDC.SendText(string(trackInfo))
-			}
-			if existing.ScreenTrack != nil {
-				trackInfo, _ := json.Marshal(map[string]interface{}{
-					"type":       "track_added",
-					"user_id":    existing.ID,
-					"track_id":   existing.ScreenTrack.ID(),
-					"track_kind": webrtc.RTPCodecTypeVideo.String(),
-				})
-				signalDC.SendText(string(trackInfo))
+		sendExistingTracks := func() {
+			room.mu.RLock()
+			defer room.mu.RUnlock()
+			for _, existing := range room.Participants {
+				if existing.ID == req.UserID {
+					continue
+				}
+				if existing.AudioTrack != nil {
+					trackInfo, _ := json.Marshal(map[string]interface{}{
+						"type":       "track_added",
+						"user_id":    existing.ID,
+						"track_id":   existing.AudioTrack.ID(),
+						"track_kind": webrtc.RTPCodecTypeAudio.String(),
+					})
+					signalDC.SendText(string(trackInfo))
+				}
+				if existing.VideoTrack != nil {
+					trackInfo, _ := json.Marshal(map[string]interface{}{
+						"type":       "track_added",
+						"user_id":    existing.ID,
+						"track_id":   existing.VideoTrack.ID(),
+						"track_kind": webrtc.RTPCodecTypeVideo.String(),
+					})
+					signalDC.SendText(string(trackInfo))
+				}
+				if existing.ScreenTrack != nil {
+					trackInfo, _ := json.Marshal(map[string]interface{}{
+						"type":       "track_added",
+						"user_id":    existing.ID,
+						"track_id":   existing.ScreenTrack.ID(),
+						"track_kind": webrtc.RTPCodecTypeVideo.String(),
+					})
+					signalDC.SendText(string(trackInfo))
+				}
 			}
 		}
-		room.mu.RUnlock()
+		if signalDC.ReadyState() == webrtc.DataChannelStateOpen {
+			sendExistingTracks()
+		} else {
+			signalDC.OnOpen(func() {
+				slog.Info(">>> signal DC opened, sending existing tracks", "user_id", req.UserID)
+				sendExistingTracks()
+			})
+		}
 	}
 
 	return response.Success(c, AnswerResponse{

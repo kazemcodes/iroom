@@ -190,7 +190,7 @@
 	let showWhiteboard = $state(false);
 	let showEntryModal = $state(false);
 	let entryMode = $state<'speaker' | 'listener'>('speaker');
-	let remoteStreams = $state<Map<string, MediaStream>>(new Map());
+	let remoteStreams = $state<Array<{id: string; stream: MediaStream}>>([]);
 
 	const currentUserRole = $derived(($auth.user?.role || 'student') as UserRole);
 	const perms = $derived(ROLE_PERMISSIONS[currentUserRole] || ROLE_PERMISSIONS.student);
@@ -272,6 +272,16 @@
 					if (data.command === 'lower_hands') {
 						participants = participants.map(p => ({ ...p, handRaised: false }));
 						if (handRaised) handRaised = false;
+					} else if (data.command === 'hand_up') {
+						participants = participants.map(p => {
+							if (String(p.id) === String(data.user_id)) return { ...p, handRaised: true };
+							return p;
+						});
+					} else if (data.command === 'hand_down') {
+						participants = participants.map(p => {
+							if (String(p.id) === String(data.user_id)) return { ...p, handRaised: false };
+							return p;
+						});
 					} else if (data.command === 'chat_disabled') {
 						chatDisabled = true;
 					} else if (data.command === 'chat_enabled') {
@@ -290,6 +300,18 @@
 						showUsersPanel = true;
 					} else if (data.command === 'hide_users') {
 						showUsersPanel = false;
+					} else if (data.command === 'kick') {
+						const kickedUserId = String(data.user_id);
+						if (kickedUserId === String($auth.user?.id)) {
+							chatDebug('kicked from room');
+							disconnect();
+							alert('شما از کلاس اخراج شدید');
+							goto('/');
+						}
+					} else if (data.command === 'mic_on' || data.command === 'mic_off' ||
+						data.command === 'webcam_on' || data.command === 'webcam_off' ||
+						data.command === 'screenshare_on' || data.command === 'screenshare_off') {
+						chatDebug('media command', { command: data.command, user_id: data.user_id });
 					}
 				} else if (data.type === 'whiteboard') {
 					if (data.action === 'toggle') {
@@ -336,9 +358,13 @@
 				});
 			};
 			pion.onRemoteStream = (stream, participantId) => {
-				chatDebug('onRemoteStream', { participantId, streamId: stream.id, tracks: stream.getTracks().length });
-				remoteStreams.set(participantId, stream);
-				remoteStreams = new Map(remoteStreams);
+				chatDebug('onRemoteStream', { participantId, tracks: stream.getTracks().map(t => t.kind) });
+				const existing = remoteStreams.find(r => r.id === participantId);
+				if (existing) {
+					existing.stream = stream;
+				} else {
+					remoteStreams = [...remoteStreams, { id: participantId, stream }];
+				}
 				participants = participants.map(p => {
 					if (p.id === participantId) {
 						return { ...p, hasVideo: stream.getVideoTracks().length > 0, hasAudio: stream.getAudioTracks().length > 0 };
@@ -367,10 +393,33 @@
 	let participantInterval: ReturnType<typeof setInterval> | null = null;
 	function startParticipantRefresh() { participantInterval = setInterval(() => { fetchParticipants(); }, 5000); }
 
-	function toggleMic() { if (!perms.canMic) return; if (pion) pion.toggleAudio(); micOn = !micOn; }
-	function toggleWebcam() { if (!perms.canWebcam) return; if (pion) pion.toggleVideo(); webcamOn = !webcamOn; }
-	function toggleScreenShare() { if (!perms.canScreenShare) return; if (pion && !screenShareOn) pion.shareScreen(); screenShareOn = !screenShareOn; }
-	function toggleHand() { if (!perms.canHandRaise) return; handRaised = !handRaised; }
+	function toggleMic() {
+		if (!perms.canMic) return;
+		if (pion) pion.toggleAudio();
+		micOn = !micOn;
+		chatDebug('toggleMic', { micOn });
+		wsSend({ type: 'command', command: micOn ? 'mic_on' : 'mic_off' });
+	}
+	function toggleWebcam() {
+		if (!perms.canWebcam) return;
+		if (pion) pion.toggleVideo();
+		webcamOn = !webcamOn;
+		chatDebug('toggleWebcam', { webcamOn });
+		wsSend({ type: 'command', command: webcamOn ? 'webcam_on' : 'webcam_off' });
+	}
+	function toggleScreenShare() {
+		if (!perms.canScreenShare) return;
+		if (pion && !screenShareOn) pion.shareScreen();
+		screenShareOn = !screenShareOn;
+		chatDebug('toggleScreenShare', { screenShareOn });
+		wsSend({ type: 'command', command: screenShareOn ? 'screenshare_on' : 'screenshare_off' });
+	}
+	function toggleHand() {
+		if (!perms.canHandRaise) return;
+		handRaised = !handRaised;
+		chatDebug('toggleHand', { handRaised });
+		wsSend({ type: 'command', command: handRaised ? 'hand_up' : 'hand_down' });
+	}
 	function toggleWhiteboard() {
 		if (!perms.canWhiteboard) return;
 		showWhiteboard = !showWhiteboard;
@@ -388,6 +437,20 @@
 			chatWs.send(JSON.stringify({ type: 'command', command: 'lower_hands' }));
 		}
 		participants = participants.map(p => ({ ...p, handRaised: false }));
+	}
+	function kickUser(userId: string, userName: string) {
+		if (currentUserRole !== 'admin' && currentUserRole !== 'teacher') return;
+		if (!confirm(`آیا از اخراج ${userName} اطمینان دارید؟`)) return;
+		wsSend({ type: 'command', command: 'kick', user_id: userId });
+		chatDebug('kickUser', { userId, userName });
+	}
+	function allowWhiteboardDraw(userId: string) {
+		if (currentUserRole !== 'admin' && currentUserRole !== 'teacher') return;
+		wsSend({ type: 'command', command: 'whiteboard_allow', user_id: userId });
+	}
+	function revokeWhiteboardDraw(userId: string) {
+		if (currentUserRole !== 'admin' && currentUserRole !== 'teacher') return;
+		wsSend({ type: 'command', command: 'whiteboard_deny', user_id: userId });
 	}
 	function sendChatMessage(text: string, replyTo?: { sender: string; content: string }) {
 		if (!chatWs || chatWs.readyState !== WebSocket.OPEN) {
@@ -519,6 +582,7 @@
 
 	function draw(e: MouseEvent) {
 		if (!isDrawing || !whiteboardCanvas) return;
+		if (!perms.canWhiteboard) return;
 		const ctx = whiteboardCanvas.getContext('2d');
 		if (!ctx) return;
 		const rect = whiteboardCanvas.getBoundingClientRect();
@@ -763,6 +827,11 @@
 																	<svg width="14" height="14" style="fill:#f59e0b;"><use xlink:href="#shape_hand"></use></svg>
 																</span>
 															{/if}
+															{#if !p.isLocal && (currentUserRole === 'admin' || currentUserRole === 'teacher')}
+																<button class="kick-btn" onclick={() => kickUser(p.id, p.name)} title="اخراج">
+																	<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#e05252" stroke-width="2"><path d="M9 17l-5-5 5-5"/><path d="M4 12h11a4 4 0 010 8h-1"/></svg>
+																</button>
+															{/if}
 														</div>
 													</div>
 												{/each}
@@ -817,13 +886,12 @@
 								</div>
 							{:else}
 							<div class="absolute bottom-4 left-3 w-36 h-28 rounded overflow-hidden border border-[#3a3a5a]"><video bind:this={localVideoEl} autoplay muted playsinline class="w-full h-full object-cover"></video></div>
-							{#each Array.from(remoteStreams.entries()) as [pid, stream] (pid)}
+							{#each remoteStreams as remote (remote.id)}
 								<video
 									autoplay
 									playsinline
 									class="absolute inset-0 w-full h-full object-cover rounded-lg"
-									use:srcObject={stream}
-									style="display: block;"
+									use:srcObject={remote.stream}
 								></video>
 							{/each}
 				{/if}
@@ -963,4 +1031,18 @@
 	.entry-option-desc { font-size: 0.75rem; color: #8a8a96; }
 	.entry-modal-footer { padding: 16px; border-top: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: center; }
 	.media-icon.speaking svg { fill: #3b82f6; }
+	.kick-btn {
+		background: none;
+		border: none;
+		cursor: pointer;
+		padding: 2px;
+		border-radius: 4px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		opacity: 0;
+		transition: opacity 0.15s;
+	}
+	.skyroom-user-row:hover .kick-btn { opacity: 1; }
+	.kick-btn:hover { background: rgba(224,82,82,0.15); }
 </style>

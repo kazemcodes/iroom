@@ -111,18 +111,23 @@ export class PionClient {
 		const pendingTracks = new Map<string, { stream: MediaStream; track: MediaStreamTrack }>();
 
 		this.pc.ondatachannel = (event) => {
+			console.log('[Pion] ondatachannel', { label: event.channel.label });
 			const dc = event.channel;
 			dc.onmessage = (msg) => {
 				try {
 					const data = JSON.parse(msg.data);
+					console.log('[Pion] datachannel message', data);
 					if (data.type === 'track_added') {
 						// Match pending track by track_id
 						const pending = pendingTracks.get(data.track_id);
 						if (pending) {
 							pendingTracks.delete(data.track_id);
+							console.log('[Pion] track_added matched pending track', { trackId: data.track_id, userId: data.user_id });
 							if (this.onRemoteStream) {
 								this.onRemoteStream(pending.stream, data.user_id);
 							}
+						} else {
+							console.log('[Pion] track_added no pending track for', data.track_id);
 						}
 						// Store the mapping for future ontrack events
 						streamIdToUserId.set(data.track_id, data.user_id);
@@ -136,17 +141,18 @@ export class PionClient {
 		this.pc.ontrack = (event) => {
 			const streamId = event.streams[0]?.id || 'unknown';
 			const trackId = event.track.id;
+			console.log('[Pion] ontrack', { trackId, kind: event.track.kind, streamId });
 
-			// Check if we already have the user ID from signaling
-			const userId = streamIdToUserId.get(trackId) || streamIdToUserId.get(streamId);
-			if (userId) {
+			// Server sets streamID = sender's userID for direct identification
+			const userId = streamIdToUserId.get(trackId) || streamIdToUserId.get(streamId) || streamId;
+			if (userId && userId !== 'unknown') {
+				console.log('[Pion] ontrack resolved', { userId, source: streamIdToUserId.has(trackId) ? 'signaling' : 'streamId' });
 				if (this.onRemoteStream) {
 					this.onRemoteStream(event.streams[0], userId);
 				}
 			} else {
-				// Store pending track, wait for signaling message
+				console.log('[Pion] ontrack pending', { trackId, streamId });
 				pendingTracks.set(trackId, { stream: event.streams[0], track: event.track });
-				// Fallback: also try stream ID
 				pendingTracks.set(streamId, { stream: event.streams[0], track: event.track });
 			}
 		};

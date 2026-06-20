@@ -137,6 +137,7 @@ func (h *ChatHandler) readPump(client *services.Client, sessionID int64) {
 			broadcast := map[string]interface{}{
 				"type":    "command",
 				"command": msg.Command,
+				"user_id": client.UserID,
 			}
 			h.hub.BroadcastToRoom(strconv.FormatInt(sessionID, 10), "chat", broadcast, 0)
 			continue
