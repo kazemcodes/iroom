@@ -5,12 +5,13 @@ import "time"
 // Message represents a chat message sent within a session.
 // Messages are broadcast to all connected participants via WebSocket.
 type Message struct {
-	ID        int64     `json:"id" db:"id"`
-	SessionID int64     `json:"session_id" db:"session_id"` // Parent session
-	UserID    int64     `json:"user_id" db:"user_id"`       // Sender
-	Content   string    `json:"content" db:"content"`       // Message text (max 10000 chars)
-	Type      string    `json:"type" db:"type"`             // "text", "file", or "system"
-	CreatedAt time.Time `json:"created_at" db:"created_at"`
+	ID          int64     `json:"id" db:"id"`
+	SessionID   int64     `json:"session_id" db:"session_id"` // Parent session
+	UserID      int64     `json:"user_id" db:"user_id"`       // Sender
+	DisplayName string    `json:"display_name" db:"display_name"`
+	Content     string    `json:"content" db:"content"`       // Message text (max 10000 chars)
+	Type        string    `json:"type" db:"type"`             // "text", "file", or "system"
+	CreatedAt   time.Time `json:"created_at" db:"created_at"`
 }
 
 // File represents an uploaded file within a session.

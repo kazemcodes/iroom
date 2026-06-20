@@ -35,7 +35,9 @@ func (r *MessageRepo) ListBySession(sessionID int64, limit, offset int) ([]entit
 		limit = 50
 	}
 	rows, err := r.db.Query(
-		`SELECT id, session_id, user_id, content, type, created_at FROM messages WHERE session_id = ? ORDER BY id DESC LIMIT ? OFFSET ?`,
+		`SELECT m.id, m.session_id, m.user_id, COALESCE(u.display_name, ''), m.content, m.type, m.created_at
+		 FROM messages m LEFT JOIN users u ON m.user_id = u.id
+		 WHERE m.session_id = ? ORDER BY m.id ASC LIMIT ? OFFSET ?`,
 		sessionID, limit, offset,
 	)
 	if err != nil {
@@ -46,7 +48,7 @@ func (r *MessageRepo) ListBySession(sessionID int64, limit, offset int) ([]entit
 	var messages []entity.Message
 	for rows.Next() {
 		var m entity.Message
-		if err := rows.Scan(&m.ID, &m.SessionID, &m.UserID, &m.Content, &m.Type, &m.CreatedAt); err != nil {
+		if err := rows.Scan(&m.ID, &m.SessionID, &m.UserID, &m.DisplayName, &m.Content, &m.Type, &m.CreatedAt); err != nil {
 			return nil, err
 		}
 		messages = append(messages, m)

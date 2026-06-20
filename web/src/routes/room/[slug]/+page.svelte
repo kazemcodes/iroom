@@ -235,8 +235,9 @@
 			chatWs = null;
 		}
 		const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-		const url = `${proto}//${window.location.host}/ws/sessions/${roomId}?token=${token}`;
-		chatDebug('connecting', { url: `/ws/sessions/${roomId}`, roomId });
+		const wsHost = dev ? `${window.location.hostname}:8080` : window.location.host;
+		const url = `${proto}//${wsHost}/ws/sessions/${roomId}?token=${token}`;
+		chatDebug('connecting', { url, roomId });
 		chatWs = new WebSocket(url);
 		chatWs.onopen = () => { chatDebug('WS connected', { readyState: chatWs?.readyState }); };
 		chatWs.onmessage = (event) => {
@@ -265,6 +266,12 @@
 					if (data.command === 'lower_hands') {
 						participants = participants.map(p => ({ ...p, handRaised: false }));
 						if (handRaised) handRaised = false;
+					}
+				} else if (data.type === 'whiteboard') {
+					if (data.action === 'draw') {
+						applyWhiteboardDraw(data);
+					} else if (data.action === 'clear') {
+						applyWhiteboardClear();
 					}
 				}
 			} catch (e) { chatDebug('parse error', e); }
@@ -458,13 +465,24 @@
 		const x = e.clientX - rect.left;
 		const y = e.clientY - rect.top;
 
+		const isEraser = whiteboardTool === 'eraser';
 		ctx.beginPath();
 		ctx.moveTo(lastX, lastY);
 		ctx.lineTo(x, y);
-		ctx.strokeStyle = whiteboardTool === 'eraser' ? '#1c2a3a' : whiteboardColor;
-		ctx.lineWidth = whiteboardTool === 'eraser' ? 20 : 2;
+		ctx.strokeStyle = isEraser ? '#1c2a3a' : whiteboardColor;
+		ctx.lineWidth = isEraser ? 20 : 2;
 		ctx.lineCap = 'round';
 		ctx.stroke();
+
+		if (chatWs && chatWs.readyState === WebSocket.OPEN) {
+			chatWs.send(JSON.stringify({
+				type: 'whiteboard',
+				action: 'draw',
+				x1: lastX, y1: lastY, x2: x, y2: y,
+				color: isEraser ? '#1c2a3a' : whiteboardColor,
+				width: isEraser ? 20 : 2
+			}));
+		}
 
 		lastX = x;
 		lastY = y;
@@ -480,12 +498,54 @@
 		if (!ctx) return;
 		ctx.fillStyle = '#1c2a3a';
 		ctx.fillRect(0, 0, whiteboardCanvas.width, whiteboardCanvas.height);
+		if (chatWs && chatWs.readyState === WebSocket.OPEN) {
+			chatWs.send(JSON.stringify({ type: 'whiteboard', action: 'clear' }));
+		}
+	}
+
+	function applyWhiteboardDraw(data: any) {
+		if (!whiteboardCanvas) return;
+		const ctx = whiteboardCanvas.getContext('2d');
+		if (!ctx) return;
+		ctx.beginPath();
+		ctx.moveTo(data.x1, data.y1);
+		ctx.lineTo(data.x2, data.y2);
+		ctx.strokeStyle = data.color;
+		ctx.lineWidth = data.width;
+		ctx.lineCap = 'round';
+		ctx.stroke();
+	}
+
+	function applyWhiteboardClear() {
+		if (!whiteboardCanvas) return;
+		const ctx = whiteboardCanvas.getContext('2d');
+		if (!ctx) return;
+		ctx.fillStyle = '#1c2a3a';
+		ctx.fillRect(0, 0, whiteboardCanvas.width, whiteboardCanvas.height);
+	}
+
+	async function loadChatHistory(sid: number) {
+		chatDebug('loading chat history', { sid });
+		const res = await api.get<{ items: any[] }>(`/sessions/${sid}/messages`, { per_page: '50' });
+		if (res.success && res.data?.items) {
+			const history: ChatMessage[] = res.data.items.map((m: any) => ({
+				id: String(m.id),
+				sender: m.user_id === $auth.user?.id ? 'شما' : (m.display_name || 'کاربر'),
+				senderId: String(m.user_id),
+				content: m.content,
+				time: new Date(m.created_at).toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' }),
+				isOwn: m.user_id === $auth.user?.id,
+			}));
+			chatMessages = history;
+			chatDebug('chat history loaded', { count: history.length });
+		}
 	}
 
 	$effect(() => {
 		if (roomId && !chatWs) {
 			chatDebug('roomId set, connecting chat WS', { roomId });
 			connectChatWs();
+			loadChatHistory(roomId);
 		}
 	});
 

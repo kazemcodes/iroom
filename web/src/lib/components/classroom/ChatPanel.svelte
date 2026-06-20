@@ -1,20 +1,3 @@
-<!--
-  ChatPanel — Real-time chat panel for classroom.
-  
-  Features:
-    - RTL (right-to-left) message alignment
-    - Sender name shown for all messages
-    - Long-press (500ms) or right-click to open context menu with reply
-    - Reply preview bar
-    - Auto-scroll to bottom on new messages
-    - Dark theme matching Skyroom design
-  
-  Props:
-    messages: Array of chat messages to display
-    isAdmin: Whether current user is admin/teacher (affects message styling)
-    onSend: Callback when user sends a message
-    onClose: Callback when panel should close
--->
 <script lang="ts">
 	import type { ChatMessage } from '$lib/classroom/types';
 
@@ -32,11 +15,7 @@
 
 	let chatInput = $state('');
 	let replyTo = $state<ChatMessage | null>(null);
-	let contextMenu = $state<{ show: boolean; x: number; y: number; message: ChatMessage | null }>({
-		show: false, x: 0, y: 0, message: null
-	});
 	let chatContainer: HTMLDivElement;
-	let longPressTimer: ReturnType<typeof setTimeout> | null = null;
 
 	function sendMessage() {
 		if (!chatInput.trim()) return;
@@ -49,26 +28,6 @@
 		replyTo = null;
 	}
 
-	function handleContextMenu(e: MouseEvent, message: ChatMessage) {
-		e.preventDefault();
-		contextMenu = { show: true, x: e.clientX, y: e.clientY, message };
-	}
-
-	function handleTouchStart(e: TouchEvent, message: ChatMessage) {
-		longPressTimer = setTimeout(() => {
-			const touch = e.touches[0];
-			contextMenu = { show: true, x: touch.clientX, y: touch.clientY, message };
-		}, 500);
-	}
-
-	function handleTouchEnd() {
-		if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
-	}
-
-	function closeContextMenu() {
-		contextMenu.show = false;
-	}
-
 	function handleKeydown(e: KeyboardEvent) {
 		if (e.key === 'Enter' && !e.shiftKey) {
 			e.preventDefault();
@@ -76,7 +35,6 @@
 		}
 		if (e.key === 'Escape') {
 			replyTo = null;
-			closeContextMenu();
 		}
 	}
 
@@ -93,62 +51,41 @@
 	});
 </script>
 
-<svelte:window onclick={closeContextMenu} />
-
 <div class="chat-panel">
-	<!-- Messages -->
 	<div bind:this={chatContainer} class="chat-messages">
 		{#each messages as msg (msg.id)}
-			<div
-				class="msg-row {msg.isOwn ? 'msg-own' : 'msg-other'}"
-				oncontextmenu={(e) => handleContextMenu(e, msg)}
-				ontouchstart={(e) => handleTouchStart(e, msg)}
-				ontouchend={handleTouchEnd}
-				ontouchcancel={handleTouchEnd}
-			>
+			<div class="msg-row">
 				{#if msg.replyTo}
 					<div class="reply-preview">
 						↩ پاسخ به {msg.replyTo.sender}: "{msg.replyTo.content}"
 					</div>
 				{/if}
-				<div class="msg-bubble {msg.isOwn ? 'bubble-own' : 'bubble-other'}">
-					{#if !msg.isOwn}
-						<p class="msg-sender">{msg.sender}</p>
-					{/if}
+				<div class="msg-bubble">
+				<div class="msg-bubble-top">
+					<p class="msg-sender">{msg.sender}</p>
+					<button class="reply-btn" onclick={() => { replyTo = msg; }} title="پاسخ">
+						<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 17l-5-5 5-5"/><path d="M4 12h11a4 4 0 010 8h-1"/></svg>
+					</button>
+				</div>
 					<p class="msg-text">{msg.content}</p>
-					<span class="msg-time {msg.isOwn ? 'time-own' : ''}">{msg.time}</span>
+					<span class="msg-time">{msg.time}</span>
 				</div>
 			</div>
 		{/each}
 	</div>
 
-	<!-- Context Menu -->
-	{#if contextMenu.show && contextMenu.message}
-		<div
-			class="ctx-menu"
-			style="left: {contextMenu.x}px; top: {contextMenu.y}px;"
-			role="menu"
-		>
-			<div class="ctx-item" onclick={() => { replyTo = contextMenu.message; closeContextMenu(); }}>
-				↩ پاسخ
-			</div>
-		</div>
-	{/if}
-
-	<!-- Reply Preview -->
 	{#if replyTo}
 		<div class="reply-bar">
 			<div class="reply-info">
 				<p class="reply-label">↩ پاسخ به {replyTo.sender}</p>
 				<p class="reply-text">{replyTo.content}</p>
 			</div>
-			<button onclick={() => replyTo = null} class="reply-close">
-				<svg width="14" height="14"><use xlink:href="#shape_clear"></use></svg>
+			<button onclick={() => replyTo = null} class="reply-close" title="لغو پاسخ">
+				<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
 			</button>
 		</div>
 	{/if}
 
-	<!-- Input -->
 	<div class="chat-input-area">
 		<input
 			type="text"
@@ -163,7 +100,6 @@
 	</div>
 </div>
 
-<!-- SVG send icon -->
 <svg style="display:none;" xmlns="http://www.w3.org/2000/svg">
 	<symbol id="shape_send" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></symbol>
 </svg>
@@ -191,14 +127,6 @@
 		align-items: flex-start;
 	}
 
-	.msg-other {
-		align-items: flex-start;
-	}
-
-	.msg-own {
-		align-items: flex-end;
-	}
-
 	.reply-preview {
 		font-size: 0.65rem;
 		color: #8a8a96;
@@ -207,31 +135,55 @@
 	}
 
 	.msg-bubble {
-		max-width: 85%;
+		max-width: 100%;
 		padding: 6px 10px;
 		border-radius: 10px;
 		font-size: 0.8rem;
 		line-height: 1.5;
 		word-wrap: break-word;
-	}
-
-	.bubble-other {
 		background: rgba(255,255,255,0.06);
 		color: #e0e0e6;
-		border-bottom-right-radius: 2px;
+		border-bottom-left-radius: 2px;
+		position: relative;
+		width: 100%;
+		box-sizing: border-box;
 	}
 
-	.bubble-own {
-		background: #23b9d7;
-		color: #fff;
-		border-bottom-left-radius: 2px;
+	.msg-bubble-top {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 8px;
+	}
+
+	.reply-btn {
+		background: none;
+		border: none;
+		cursor: pointer;
+		padding: 2px;
+		border-radius: 4px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		color: #5a6070;
+		opacity: 0;
+		transition: opacity 0.15s, color 0.15s;
+		flex-shrink: 0;
+	}
+
+	.msg-bubble:hover .reply-btn {
+		opacity: 1;
+	}
+
+	.reply-btn:hover {
+		color: #23b9d7;
 	}
 
 	.msg-sender {
 		font-size: 0.7rem;
 		font-weight: 600;
 		color: #23b9d7;
-		margin-bottom: 2px;
+		margin: 0 0 2px;
 	}
 
 	.msg-text {
@@ -245,33 +197,6 @@
 		display: block;
 		text-align: left;
 	}
-
-	.time-own {
-		color: rgba(255,255,255,0.6);
-	}
-
-	.ctx-menu {
-		position: fixed;
-		background: #1c2a3a;
-		border-radius: 8px;
-		box-shadow: 0 8px 24px rgba(0,0,0,0.4);
-		z-index: 200;
-		min-width: 140px;
-		padding: 4px 0;
-		animation: fadeIn 0.12s ease;
-	}
-
-	@keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
-
-	.ctx-item {
-		padding: 8px 14px;
-		cursor: pointer;
-		color: #e0e0e6;
-		font-size: 0.8rem;
-		transition: background 0.12s;
-	}
-
-	.ctx-item:hover { background: rgba(255,255,255,0.06); }
 
 	.reply-bar {
 		display: flex;
@@ -294,10 +219,11 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
+		color: #8a8a96;
+		flex-shrink: 0;
 	}
 
-	.reply-close svg { fill: #8a8a96; }
-	.reply-close:hover svg { fill: #e0e0e6; }
+	.reply-close:hover { color: #e0e0e6; }
 
 	.chat-input-area {
 		display: flex;

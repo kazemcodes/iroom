@@ -141,6 +141,29 @@ func (h *ChatHandler) readPump(client *services.Client, sessionID int64) {
 			continue
 		}
 
+		if msg.Type == "whiteboard" {
+			var wbMsg struct {
+				Action string  `json:"action"`
+				X1     float64 `json:"x1"`
+				Y1     float64 `json:"y1"`
+				X2     float64 `json:"x2"`
+				Y2     float64 `json:"y2"`
+				Color  string  `json:"color"`
+				Width  float64 `json:"width"`
+			}
+			if err := json.Unmarshal(raw, &wbMsg); err == nil {
+				broadcast := map[string]interface{}{
+					"type":   "whiteboard",
+					"action": wbMsg.Action,
+					"x1":     wbMsg.X1, "y1": wbMsg.Y1,
+					"x2":     wbMsg.X2, "y2": wbMsg.Y2,
+					"color":  wbMsg.Color, "width": wbMsg.Width,
+				}
+				h.hub.BroadcastToRoom(strconv.FormatInt(sessionID, 10), "chat", broadcast, 0)
+			}
+			continue
+		}
+
 		if msg.Type == "message" && msg.Content != "" {
 			if len(msg.Content) > 10000 {
 				debug.Log("chat message too long", "user_id", client.UserID, "len", len(msg.Content))
