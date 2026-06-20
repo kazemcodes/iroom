@@ -26,7 +26,7 @@
 	}: {
 		messages: ChatMessage[];
 		isAdmin: boolean;
-		onSend: (content: string) => void;
+		onSend: (content: string, replyTo?: { sender: string; content: string }) => void;
 		onClose: () => void;
 	} = $props();
 
@@ -40,7 +40,11 @@
 
 	function sendMessage() {
 		if (!chatInput.trim()) return;
-		onSend(chatInput.trim());
+		if (replyTo) {
+			onSend(chatInput.trim(), { sender: replyTo.sender, content: replyTo.content });
+		} else {
+			onSend(chatInput.trim());
+		}
 		chatInput = '';
 		replyTo = null;
 	}
@@ -184,11 +188,11 @@
 	.msg-row {
 		display: flex;
 		flex-direction: column;
-		align-items: flex-end;
+		align-items: flex-start;
 	}
 
 	.msg-other {
-		align-items: flex-end;
+		align-items: flex-start;
 	}
 
 	.msg-own {

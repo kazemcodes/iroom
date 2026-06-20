@@ -14,24 +14,20 @@ import (
 
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
-		origin := r.Header.Get("Origin")
-		if origin == "" {
-			return true
-		}
-		host := r.Host
-		return origin == "http://"+host || origin == "https://"+host
+		return true
 	},
 }
 
 // Client represents a single WebSocket connection for a user
 type Client struct {
-	Hub    *Hub
-	Conn   *websocket.Conn
-	Send   chan []byte
-	UserID int64
-	Email  string
-	Role   string
-	RoomID string
+	Hub         *Hub
+	Conn        *websocket.Conn
+	Send        chan []byte
+	UserID      int64
+	Email       string
+	DisplayName string
+	Role        string
+	RoomID      string
 }
 
 // BroadcastMessage represents a message to be broadcast to clients
@@ -175,6 +171,7 @@ func (h *Hub) BroadcastToRoom(roomID string, msgType string, payload interface{}
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
+	sent := 0
 	for userID, clients := range h.clients {
 		if userID == excludeUserID {
 			continue
@@ -185,11 +182,12 @@ func (h *Hub) BroadcastToRoom(roomID string, msgType string, payload interface{}
 			}
 			select {
 			case client.Send <- data:
+				sent++
 			default:
-				// Client buffer full, skip
 			}
 		}
 	}
+	slog.Debug("BroadcastToRoom", "room_id", roomID, "type", msgType, "sent_to", sent, "total_clients", h.getClientCount())
 }
 
 // GetOnlineUsers returns a list of currently connected user IDs
@@ -215,6 +213,10 @@ func (h *Hub) IsUserOnline(userID int64) bool {
 
 // GetClientCount returns the total number of connected clients
 func (h *Hub) GetClientCount() int {
+	return h.getClientCount()
+}
+
+func (h *Hub) getClientCount() int {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
@@ -227,11 +229,13 @@ func (h *Hub) GetClientCount() int {
 
 // Register adds a client to the hub
 func (h *Hub) Register(client *Client) {
+	slog.Info("hub register", "user_id", client.UserID, "room_id", client.RoomID, "display_name", client.DisplayName)
 	h.register <- client
 }
 
 // Unregister removes a client from the hub
 func (h *Hub) Unregister(client *Client) {
+	slog.Info("hub unregister", "user_id", client.UserID, "room_id", client.RoomID)
 	h.unregister <- client
 }
 

@@ -3,8 +3,11 @@
 	import { goto } from '$app/navigation';
 	import { api } from '$lib/api';
 	import { auth } from '$lib/stores';
+	import { dev } from '$app/environment';
 	import { onMount } from 'svelte';
 	import type { User, Tokens, Room } from '$lib/types';
+
+	const chatDebug = (...args: any[]) => { if (dev) console.debug('[chat]', ...args); };
 
 	let room = $state<Room | null>(null);
 	let loading = $state(true);
@@ -87,7 +90,6 @@
 			if (sessionRes.success) currentSession = sessionRes.data!;
 			loading = false;
 			if (currentSession?.status === 'live') startTimer();
-			connectChatWs();
 			fetchParticipants();
 		} else {
 			loading = false;
@@ -222,32 +224,57 @@
 
 	function connectChatWs() {
 		const token = localStorage.getItem('access_token');
-		if (!token || !roomId) return;
+		if (!token || !roomId) { chatDebug('connectChatWs skipped', { token: !!token, roomId }); return; }
+		if (chatWs && (chatWs.readyState === WebSocket.OPEN || chatWs.readyState === WebSocket.CONNECTING)) {
+			chatDebug('connectChatWs already connected/connecting', { readyState: chatWs.readyState });
+			return;
+		}
+		if (chatWs) {
+			chatWs.onclose = null;
+			chatWs.close();
+			chatWs = null;
+		}
 		const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-		chatWs = new WebSocket(`${proto}//${window.location.host}/ws/sessions/${roomId}?token=${token}`);
+		const url = `${proto}//${window.location.host}/ws/sessions/${roomId}?token=${token}`;
+		chatDebug('connecting', { url: `/ws/sessions/${roomId}`, roomId });
+		chatWs = new WebSocket(url);
+		chatWs.onopen = () => { chatDebug('WS connected', { readyState: chatWs?.readyState }); };
 		chatWs.onmessage = (event) => {
+			chatDebug('WS recv', event.data);
 			try {
 				const raw = JSON.parse(event.data);
 				const data = raw.payload || raw;
+				chatDebug('parsed', { type: data.type });
 				if (data.type === 'message') {
 					const msg = data.message;
 					const isOwn = msg.user_id === $auth.user?.id;
-					chatMessages = [...chatMessages, {
-						id: String(Date.now()),
+					const chatMsg: ChatMessage = {
+						id: String(Date.now()) + '-' + String(msg.user_id),
 						sender: isOwn ? 'شما' : (msg.user_display_name || 'کاربر'),
+						senderId: String(msg.user_id),
 						content: msg.content,
 						time: new Date(msg.created_at).toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' }),
 						isOwn
-					}];
+					};
+					if (msg.reply_to) {
+						chatMsg.replyTo = { sender: msg.reply_to.sender, content: msg.reply_to.content };
+					}
+					chatMessages = [...chatMessages, chatMsg];
+					chatDebug('message added', { isOwn, content: msg.content });
 				} else if (data.type === 'command') {
 					if (data.command === 'lower_hands') {
 						participants = participants.map(p => ({ ...p, handRaised: false }));
 						if (handRaised) handRaised = false;
 					}
 				}
-			} catch (e) {}
+			} catch (e) { chatDebug('parse error', e); }
 		};
-		chatWs.onclose = () => { if (connected) setTimeout(connectChatWs, 3000); };
+		chatWs.onclose = (e) => {
+			chatDebug('WS closed', { code: e.code, reason: e.reason });
+			chatWs = null;
+			if (roomId) setTimeout(connectChatWs, 3000);
+		};
+		chatWs.onerror = (e) => { chatDebug('WS error', e); };
 	}
 
 	async function joinClassroom() {
@@ -326,9 +353,16 @@
 		}
 		participants = participants.map(p => ({ ...p, handRaised: false }));
 	}
-	function sendChatMessage(text: string) {
-		if (!perms.canChat || chatDisabled || !chatWs || chatWs.readyState !== WebSocket.OPEN) return;
-		chatWs.send(JSON.stringify({ type: 'message', content: text }));
+	function sendChatMessage(text: string, replyTo?: { sender: string; content: string }) {
+		if (!chatWs || chatWs.readyState !== WebSocket.OPEN) {
+			chatDebug('sendChatMessage blocked', { wsReady: chatWs?.readyState });
+			connectChatWs();
+			return;
+		}
+		const payload: any = { type: 'message', content: text };
+		if (replyTo) payload.reply_to = replyTo;
+		chatDebug('sendChatMessage', payload);
+		chatWs.send(JSON.stringify(payload));
 	}
 	function leaveRoom() {
 		if (confirm('آیا از خروج از اتاق اطمینان دارید؟')) {
@@ -447,6 +481,13 @@
 		ctx.fillStyle = '#1c2a3a';
 		ctx.fillRect(0, 0, whiteboardCanvas.width, whiteboardCanvas.height);
 	}
+
+	$effect(() => {
+		if (roomId && !chatWs) {
+			chatDebug('roomId set, connecting chat WS', { roomId });
+			connectChatWs();
+		}
+	});
 
 	$effect(() => {
 		if (showWhiteboard) {

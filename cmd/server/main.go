@@ -13,6 +13,7 @@ import (
 	"github.com/iroom/iroom/internal/domain/usecase"
 	"github.com/iroom/iroom/internal/infrastructure"
 	"github.com/iroom/iroom/internal/middleware"
+	"github.com/iroom/iroom/internal/pkg/debug"
 	"github.com/iroom/iroom/internal/pkg/response"
 	iroomwebrtc "github.com/iroom/iroom/internal/webrtc"
 	"github.com/labstack/echo/v4"
@@ -26,6 +27,8 @@ func main() {
 		slog.Error("failed to load config", "error", err)
 		os.Exit(1)
 	}
+
+	debug.Init()
 
 	db, err := database.New(cfg.Database.Path)
 	if err != nil {
@@ -178,7 +181,7 @@ func main() {
 	api.GET("/sessions/:id/messages", messageHandler.List)
 	api.POST("/sessions/:id/messages", messageHandler.Send)
 
-	chatHandler := handler.NewChatHandler(messageRepo, cfg.JWT.Secret)
+	chatHandler := handler.NewChatHandler(messageRepo, userRepo, cfg.JWT.Secret)
 	wsGroup := e.Group("/ws")
 	wsGroup.Use(middleware.RateLimit(30, time.Minute))
 	wsGroup.GET("/sessions/:id", chatHandler.HandleWS)

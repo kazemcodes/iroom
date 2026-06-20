@@ -9,6 +9,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/iroom/iroom/internal/domain/entity"
+	"github.com/iroom/iroom/internal/pkg/debug"
 	"github.com/iroom/iroom/internal/pkg/jwt"
 	"github.com/iroom/iroom/internal/services"
 	"github.com/labstack/echo/v4"
@@ -16,12 +17,7 @@ import (
 
 var chatUpgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
-		origin := r.Header.Get("Origin")
-		if origin == "" {
-			return true
-		}
-		host := r.Host
-		return origin == "http://"+host || origin == "https://"+host
+		return true
 	},
 }
 
@@ -29,14 +25,21 @@ type ChatHandler struct {
 	messageRepo interface {
 		Create(m *entity.Message) error
 	}
+	userRepo interface {
+		GetByID(id int64) (*entity.User, error)
+	}
 	hub    *services.Hub
 	secret string
 }
 
 func NewChatHandler(messageRepo interface {
 	Create(m *entity.Message) error
+}, userRepo interface {
+	GetByID(id int64) (*entity.User, error)
 }, secret string) *ChatHandler {
-	return &ChatHandler{messageRepo: messageRepo, hub: services.NewHub(), secret: secret}
+	hub := services.NewHub()
+	go hub.Run()
+	return &ChatHandler{messageRepo: messageRepo, userRepo: userRepo, hub: hub, secret: secret}
 }
 
 func (h *ChatHandler) GetHub() *services.Hub {
@@ -75,6 +78,19 @@ func (h *ChatHandler) HandleWS(c echo.Context) error {
 		RoomID: strconv.FormatInt(sessionID, 10),
 	}
 
+	if user, err := h.userRepo.GetByID(claims.UserID); err == nil && user != nil {
+		client.DisplayName = user.DisplayName
+	}
+	if client.DisplayName == "" {
+		client.DisplayName = claims.Email
+	}
+
+	debug.Log("chat WS connect",
+		"user_id", client.UserID,
+		"display_name", client.DisplayName,
+		"session_id", sessionID,
+	)
+
 	h.hub.Register(client)
 
 	go h.writePump(client)
@@ -85,6 +101,7 @@ func (h *ChatHandler) HandleWS(c echo.Context) error {
 
 func (h *ChatHandler) readPump(client *services.Client, sessionID int64) {
 	defer func() {
+		debug.Log("chat WS disconnect", "user_id", client.UserID, "session_id", sessionID)
 		h.hub.Unregister(client)
 		client.Conn.Close()
 	}()
@@ -98,27 +115,35 @@ func (h *ChatHandler) readPump(client *services.Client, sessionID int64) {
 			break
 		}
 
+		debug.Log("chat WS recv", "user_id", client.UserID, "raw", string(raw))
+
 		var msg struct {
 			Type    string `json:"type"`
 			Content string `json:"content"`
 			Command string `json:"command"`
+			ReplyTo *struct {
+				Sender  string `json:"sender"`
+				Content string `json:"content"`
+			} `json:"reply_to"`
 		}
 		if err := json.Unmarshal(raw, &msg); err != nil {
+			debug.Log("chat WS unmarshal error", "error", err, "raw", string(raw))
 			continue
 		}
 
 		if msg.Type == "command" && msg.Command != "" {
+			debug.Log("chat command", "user_id", client.UserID, "command", msg.Command)
 			broadcast := map[string]interface{}{
 				"type":    "command",
 				"command": msg.Command,
 			}
-			data, _ := json.Marshal(broadcast)
-			h.hub.BroadcastToRoom(strconv.FormatInt(sessionID, 10), "chat", data, 0)
+			h.hub.BroadcastToRoom(strconv.FormatInt(sessionID, 10), "chat", broadcast, 0)
 			continue
 		}
 
 		if msg.Type == "message" && msg.Content != "" {
 			if len(msg.Content) > 10000 {
+				debug.Log("chat message too long", "user_id", client.UserID, "len", len(msg.Content))
 				continue
 			}
 
@@ -129,19 +154,29 @@ func (h *ChatHandler) readPump(client *services.Client, sessionID int64) {
 				Type:      "text",
 				CreatedAt: time.Now(),
 			}
-			h.messageRepo.Create(chatMsg)
+			if err := h.messageRepo.Create(chatMsg); err != nil {
+				debug.Log("chat message save error", "error", err)
+			}
 
 			broadcast := map[string]interface{}{
 				"type": "message",
 				"message": map[string]interface{}{
 					"user_id":           client.UserID,
-					"user_display_name": client.Email,
+					"user_display_name": client.DisplayName,
 					"content":           msg.Content,
 					"created_at":        time.Now().Format(time.RFC3339),
 				},
 			}
-			data, _ := json.Marshal(broadcast)
-			h.hub.BroadcastToRoom(strconv.FormatInt(sessionID, 10), "chat", data, 0)
+			if msg.ReplyTo != nil {
+				broadcast["message"].(map[string]interface{})["reply_to"] = msg.ReplyTo
+			}
+
+			debug.Log("chat broadcast",
+				"user_id", client.UserID,
+				"session_id", sessionID,
+				"content", msg.Content,
+			)
+			h.hub.BroadcastToRoom(strconv.FormatInt(sessionID, 10), "chat", broadcast, 0)
 		}
 	}
 }
@@ -162,21 +197,12 @@ func (h *ChatHandler) writePump(client *services.Client) {
 				return
 			}
 
-			w, err := client.Conn.NextWriter(websocket.TextMessage)
-			if err != nil {
+			if err := client.Conn.WriteMessage(websocket.TextMessage, message); err != nil {
+				debug.Log("chat writePump error", "error", err, "user_id", client.UserID)
 				return
 			}
-			w.Write(message)
 
-			n := len(client.Send)
-			for i := 0; i < n; i++ {
-				w.Write([]byte("\n"))
-				w.Write(<-client.Send)
-			}
-
-			if err := w.Close(); err != nil {
-				return
-			}
+			debug.Log("chat writePump sent", "user_id", client.UserID, "bytes", len(message))
 
 		case <-ticker.C:
 			client.Conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
