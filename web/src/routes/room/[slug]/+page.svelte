@@ -186,11 +186,11 @@
 	let participants = $state<Participant[]>([]);
 	let chatMessages = $state<ChatMessage[]>([]);
 	let localVideoEl: HTMLVideoElement;
-	let remoteContainer: HTMLDivElement;
 	let chatWs: WebSocket | null = null;
 	let showWhiteboard = $state(false);
 	let showEntryModal = $state(false);
 	let entryMode = $state<'speaker' | 'listener'>('speaker');
+	let remoteStreams = $state<Map<string, MediaStream>>(new Map());
 
 	const currentUserRole = $derived(($auth.user?.role || 'student') as UserRole);
 	const perms = $derived(ROLE_PERMISSIONS[currentUserRole] || ROLE_PERMISSIONS.student);
@@ -276,6 +276,20 @@
 						chatDisabled = true;
 					} else if (data.command === 'chat_enabled') {
 						chatDisabled = false;
+					} else if (data.command === 'chat_private') {
+						chatPrivate = true;
+					} else if (data.command === 'chat_public') {
+						chatPrivate = false;
+					} else if (data.command === 'clear_messages') {
+						chatMessages = [];
+					} else if (data.command === 'show_chat') {
+						showChatPanel = true;
+					} else if (data.command === 'hide_chat') {
+						showChatPanel = false;
+					} else if (data.command === 'show_users') {
+						showUsersPanel = true;
+					} else if (data.command === 'hide_users') {
+						showUsersPanel = false;
 					}
 				} else if (data.type === 'whiteboard') {
 					if (data.action === 'toggle') {
@@ -322,24 +336,15 @@
 				});
 			};
 			pion.onRemoteStream = (stream, participantId) => {
-				if (remoteContainer) {
-					const existingEl = document.getElementById(`track-${participantId}`);
-					if (existingEl) existingEl.remove();
-					const el = document.createElement('video');
-					el.id = `track-${participantId}`;
-					el.autoplay = true;
-					el.playsInline = true;
-					el.className = 'w-full h-full object-cover rounded-lg';
-					remoteContainer.appendChild(el);
-					el.srcObject = stream;
-					// Update remote user media state
-					participants = participants.map(p => {
-						if (p.id === participantId) {
-							return { ...p, hasAudio: stream.getAudioTracks().length > 0, hasVideo: stream.getVideoTracks().length > 0 };
-						}
-						return p;
-					});
-				}
+				chatDebug('onRemoteStream', { participantId, streamId: stream.id, tracks: stream.getTracks().length });
+				remoteStreams.set(participantId, stream);
+				remoteStreams = new Map(remoteStreams);
+				participants = participants.map(p => {
+					if (p.id === participantId) {
+						return { ...p, hasVideo: stream.getVideoTracks().length > 0, hasAudio: stream.getAudioTracks().length > 0 };
+					}
+					return p;
+				});
 			};
 			await pion.connect();
 			connected = true;
@@ -376,9 +381,7 @@
 	function toggleChatDisabled() {
 		if (currentUserRole !== 'admin' && currentUserRole !== 'teacher') return;
 		chatDisabled = !chatDisabled;
-		if (chatWs && chatWs.readyState === WebSocket.OPEN) {
-			chatWs.send(JSON.stringify({ type: 'command', command: chatDisabled ? 'chat_disabled' : 'chat_enabled' }));
-		}
+		syncChatDisabled(chatDisabled);
 	}
 	function lowerAllHands() {
 		if (chatWs && chatWs.readyState === WebSocket.OPEN) {
@@ -397,6 +400,36 @@
 		if (chatPrivate && (currentUserRole === 'admin' || currentUserRole === 'teacher')) payload.private = true;
 		chatDebug('sendChatMessage', payload);
 		chatWs.send(JSON.stringify(payload));
+	}
+
+	function wsSend(obj: any) {
+		if (chatWs && chatWs.readyState === WebSocket.OPEN) {
+			chatWs.send(JSON.stringify(obj));
+		}
+	}
+
+	function syncChatDisabled(disabled: boolean) {
+		wsSend({ type: 'command', command: disabled ? 'chat_disabled' : 'chat_enabled' });
+	}
+
+	function syncChatPrivate(privateMode: boolean) {
+		wsSend({ type: 'command', command: privateMode ? 'chat_private' : 'chat_public' });
+	}
+
+	function syncClearMessages() {
+		wsSend({ type: 'command', command: 'clear_messages' });
+	}
+
+	function syncChatPanel(show: boolean) {
+		wsSend({ type: 'command', command: show ? 'show_chat' : 'hide_chat' });
+	}
+
+	function syncUsersPanel(show: boolean) {
+		wsSend({ type: 'command', command: show ? 'show_users' : 'hide_users' });
+	}
+
+	function syncLayout(layout: string) {
+		wsSend({ type: 'command', command: 'layout', layout });
 	}
 	function leaveRoom() {
 		if (confirm('آیا از خروج از اتاق اطمینان دارید؟')) {
@@ -568,6 +601,15 @@
 		}
 	}
 
+	function srcObject(node: HTMLVideoElement, stream: MediaStream) {
+		node.srcObject = stream;
+		return {
+			update(newStream: MediaStream) {
+				node.srcObject = newStream;
+			}
+		};
+	}
+
 	$effect(() => {
 		if (roomId && !chatWs) {
 			chatDebug('roomId set, connecting chat WS', { roomId });
@@ -654,8 +696,8 @@
 				<div class="skyroom-room-nav" style="position:relative;">
 					<div class="skyroom-row" style="flex-shrink:0;gap:4px;">
 						<button class="skyroom-icon-square" title="منو" onclick={() => showAppMenu = !showAppMenu}><svg width="18" height="18"><use xlink:href="#shape_menu"></use></svg></button>
-						<button class="skyroom-icon-square" class:active={showChatPanel} title="پیام‌ها" onclick={() => showChatPanel = !showChatPanel}><svg width="18" height="18"><use xlink:href="#shape_chat"></use></svg></button>
-						<button class="skyroom-icon-square" class:active={showUsersPanel} title="کاربران" onclick={() => showUsersPanel = !showUsersPanel}><svg width="18" height="18"><use xlink:href="#shape_group"></use></svg></button>
+						<button class="skyroom-icon-square" class:active={showChatPanel} title="پیام‌ها" onclick={() => { showChatPanel = !showChatPanel; syncChatPanel(showChatPanel); }}><svg width="18" height="18"><use xlink:href="#shape_chat"></use></svg></button>
+						<button class="skyroom-icon-square" class:active={showUsersPanel} title="کاربران" onclick={() => { showUsersPanel = !showUsersPanel; syncUsersPanel(showUsersPanel); }}><svg width="18" height="18"><use xlink:href="#shape_group"></use></svg></button>
 					</div>
 					<div style="flex:1;"></div>
 					<div class="skyroom-row" style="flex-shrink:0;gap:4px;">
@@ -736,16 +778,16 @@
 												<button class="skyroom-dots-btn" onclick={(e) => { e.stopPropagation(); positionMenu(e); showChatMenu = !showChatMenu; }}>
 													<svg width="16" height="16"><use xlink:href="#shape_more_vert"></use></svg>
 												</button>
-												{#if showChatMenu}
-													<div class="skyroom-context-menu" style="top:{menuPos.top}px;left:{menuPos.left}px;" onclick={(e) => e.stopPropagation()}>
-														<div class="ctx-item" onclick={() => { showChatMenu = false; chatExpanded = !chatExpanded; }}>{chatExpanded ? 'بازگشت به حالت عادی' : 'نمایش بزرگتر'}</div>
-														<div class="ctx-item" onclick={() => { showChatMenu = false; toggleChatDisabled(); }}>{chatDisabled ? 'فعال‌سازی چت' : 'غیرفعال‌سازی چت'}</div>
-														<div class="ctx-item" onclick={() => { showChatMenu = false; chatPrivate = !chatPrivate; }}>{chatPrivate ? 'حالت عمومی' : 'حالت خصوصی'}</div>
-														<div class="ctx-item" onclick={() => { showChatMenu = false; chatMessages = []; }}>پاک کردن همه پیام‌ها</div>
-														<div class="ctx-separator"></div>
-														<div class="ctx-item" onclick={() => { showChatMenu = false; showChatPanel = false; }}>بستن</div>
-													</div>
-												{/if}
+											{#if showChatMenu}
+												<div class="skyroom-context-menu" style="top:{menuPos.top}px;left:{menuPos.left}px;" onclick={(e) => e.stopPropagation()}>
+													<div class="ctx-item" onclick={() => { showChatMenu = false; chatExpanded = !chatExpanded; }}>{chatExpanded ? 'بازگشت به حالت عادی' : 'نمایش بزرگتر'}</div>
+													<div class="ctx-item" onclick={() => { showChatMenu = false; toggleChatDisabled(); }}>{chatDisabled ? 'فعال‌سازی چت' : 'غیرفعال‌سازی چت'}</div>
+													<div class="ctx-item" onclick={() => { showChatMenu = false; chatPrivate = !chatPrivate; syncChatPrivate(chatPrivate); }}>{chatPrivate ? 'حالت عمومی' : 'حالت خصوصی'}</div>
+													<div class="ctx-item" onclick={() => { showChatMenu = false; chatMessages = []; syncClearMessages(); }}>پاک کردن همه پیام‌ها</div>
+													<div class="ctx-separator"></div>
+													<div class="ctx-item" onclick={() => { showChatMenu = false; showChatPanel = false; syncChatPanel(false); }}>بستن</div>
+												</div>
+											{/if}
 											</div>
 										</div>
 										<div class="skyroom-block-content" style="flex:1;min-height:0;"><ChatPanel messages={chatMessages} isAdmin={perms.canMic} disabled={chatDisabled} onSend={sendChatMessage} onClose={() => showChatPanel = false} /></div>
@@ -774,8 +816,16 @@
 									</div>
 								</div>
 							{:else}
-								<div bind:this={remoteContainer} style="position:absolute;inset:0;display:grid;{gridCols};gap:4px;padding:4px;pointer-events:{connected ? 'auto' : 'none'};"></div>
-								<div class="absolute bottom-4 left-3 w-36 h-28 rounded overflow-hidden border border-[#3a3a5a]"><video bind:this={localVideoEl} autoplay muted playsinline class="w-full h-full object-cover"></video></div>
+							<div class="absolute bottom-4 left-3 w-36 h-28 rounded overflow-hidden border border-[#3a3a5a]"><video bind:this={localVideoEl} autoplay muted playsinline class="w-full h-full object-cover"></video></div>
+							{#each Array.from(remoteStreams.entries()) as [pid, stream] (pid)}
+								<video
+									autoplay
+									playsinline
+									class="absolute inset-0 w-full h-full object-cover rounded-lg"
+									use:srcObject={stream}
+									style="display: block;"
+								></video>
+							{/each}
 				{/if}
 				</div>
 				{/if}
@@ -787,7 +837,7 @@
 		{#if showModal === 'userInfo'}<UserInfoModal onClose={() => showModal = null} />
 		{:else if showModal === 'connection'}<ConnectionStatusModal onClose={() => showModal = null} connected={connected} elapsedSeconds={elapsedSeconds} participantCount={participants.length} />
 		{:else if showModal === 'settings'}<SettingsModal onClose={() => showModal = null} />
-		{:else if showModal === 'layout'}<LayoutModal showUsers={showUsersPanel} showChat={showChatPanel} onToggleUsers={() => showUsersPanel = !showUsersPanel} onToggleChat={() => showChatPanel = !showChatPanel} onClose={() => showModal = null} />
+		{:else if showModal === 'layout'}<LayoutModal showUsers={showUsersPanel} showChat={showChatPanel} onToggleUsers={() => { showUsersPanel = !showUsersPanel; syncUsersPanel(showUsersPanel); }} onToggleChat={() => { showChatPanel = !showChatPanel; syncChatPanel(showChatPanel); }} onClose={() => showModal = null} />
 		{:else if showModal === 'attendance'}<AttendanceModal participants={participants} onClose={() => showModal = null} />{/if}
 	</div>
 {/if}
