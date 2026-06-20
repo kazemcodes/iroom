@@ -2,6 +2,8 @@ package repository
 
 import (
 	"database/sql"
+	"fmt"
+	"time"
 
 	"github.com/iroom/iroom/internal/domain/entity"
 )
@@ -15,6 +17,7 @@ func NewRoomRepo(db *sql.DB) *RoomRepo {
 }
 
 func (r *RoomRepo) Create(room *entity.Room) error {
+	room.Slug = r.uniqueSlug(room.Slug)
 	result, err := r.db.Exec(
 		`INSERT INTO rooms (owner_id, name, description, color, slug, guest_login_enabled) VALUES (?, ?, ?, ?, ?, ?)`,
 		room.OwnerID, room.Name, room.Description, room.Color, room.Slug, room.GuestLoginEnabled,
@@ -28,6 +31,19 @@ func (r *RoomRepo) Create(room *entity.Room) error {
 	}
 	room.ID = id
 	return nil
+}
+
+func (r *RoomRepo) uniqueSlug(base string) string {
+	slug := base
+	for i := 0; i < 100; i++ {
+		var count int
+		r.db.QueryRow(`SELECT COUNT(*) FROM rooms WHERE slug = ?`, slug).Scan(&count)
+		if count == 0 {
+			return slug
+		}
+		slug = fmt.Sprintf("%s-%d", base, i+1)
+	}
+	return fmt.Sprintf("%s-%d", base, time.Now().UnixMilli())
 }
 
 func (r *RoomRepo) GetByID(id int64) (*entity.Room, error) {
@@ -114,8 +130,8 @@ func (r *RoomRepo) ListByUser(userID int64) ([]entity.Room, error) {
 
 func (r *RoomRepo) Update(room *entity.Room) error {
 	_, err := r.db.Exec(
-		`UPDATE rooms SET name = ?, description = ?, color = ?, guest_login_enabled = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
-		room.Name, room.Description, room.Color, room.GuestLoginEnabled, room.ID,
+		`UPDATE rooms SET name = ?, description = ?, color = ?, slug = ?, guest_login_enabled = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+		room.Name, room.Description, room.Color, room.Slug, room.GuestLoginEnabled, room.ID,
 	)
 	return err
 }
@@ -196,6 +212,7 @@ func (r *RoomRepo) GetSettings(roomID int64) (*entity.RoomSettings, error) {
 			RoomID:                roomID,
 			MaxUsers:              50,
 			RecordingEnabled:      true,
+			AllowStudentVideo:     false,
 			AllowStudentAudio:     true,
 			AllowStudentChat:      true,
 			SessionAutoEndMinutes: 120,

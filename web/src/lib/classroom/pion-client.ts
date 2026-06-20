@@ -107,10 +107,47 @@ export class PionClient {
 			}
 		};
 
+		// Map to track pending tracks awaiting participant ID from signaling
+		const pendingTracks = new Map<string, { stream: MediaStream; track: MediaStreamTrack }>();
+
+		this.pc.ondatachannel = (event) => {
+			const dc = event.channel;
+			dc.onmessage = (msg) => {
+				try {
+					const data = JSON.parse(msg.data);
+					if (data.type === 'track_added') {
+						// Match pending track by track_id
+						const pending = pendingTracks.get(data.track_id);
+						if (pending) {
+							pendingTracks.delete(data.track_id);
+							if (this.onRemoteStream) {
+								this.onRemoteStream(pending.stream, data.user_id);
+							}
+						}
+						// Store the mapping for future ontrack events
+						streamIdToUserId.set(data.track_id, data.user_id);
+					}
+				} catch {}
+			};
+		};
+
+		const streamIdToUserId = new Map<string, string>();
+
 		this.pc.ontrack = (event) => {
-			const id = event.streams[0]?.id || 'unknown';
-			if (this.onRemoteStream) {
-				this.onRemoteStream(event.streams[0], id);
+			const streamId = event.streams[0]?.id || 'unknown';
+			const trackId = event.track.id;
+
+			// Check if we already have the user ID from signaling
+			const userId = streamIdToUserId.get(trackId) || streamIdToUserId.get(streamId);
+			if (userId) {
+				if (this.onRemoteStream) {
+					this.onRemoteStream(event.streams[0], userId);
+				}
+			} else {
+				// Store pending track, wait for signaling message
+				pendingTracks.set(trackId, { stream: event.streams[0], track: event.track });
+				// Fallback: also try stream ID
+				pendingTracks.set(streamId, { stream: event.streams[0], track: event.track });
 			}
 		};
 
@@ -164,10 +201,10 @@ export class PionClient {
 		const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
 		const screenTrack = screenStream.getVideoTracks()[0];
 		if (this.pc && screenTrack) {
-			const sender = this.pc.getSenders().find(s => s.track?.kind === 'video');
-			if (sender) {
-				await sender.replaceTrack(screenTrack);
-			}
+			// Add as a new track (not replace) so the server can distinguish
+			// screen share from camera video. The server identifies screen shares
+			// as a second video track from the same participant.
+			this.pc.addTrack(screenTrack, screenStream);
 		}
 	}
 

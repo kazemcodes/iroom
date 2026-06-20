@@ -250,6 +250,7 @@ func main() {
 	api.GET("/sessions/:id/classroom/participants", webrtcHandler.GetParticipants)
 	api.POST("/sessions/:id/classroom/mute/:participantId", webrtcHandler.MuteParticipant)
 	api.POST("/sessions/:id/classroom/kick/:participantId", webrtcHandler.KickParticipant)
+	api.GET("/sessions/:id/classroom/info", webrtcHandler.HandleRoomInfo)
 
 	// Messages
 	api.GET("/sessions/:id/messages", messageHandler.List)

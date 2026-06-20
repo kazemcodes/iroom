@@ -30,7 +30,10 @@ func (h *RoomHandler) Create(c echo.Context) error {
 		return response.BadRequest(c, "نام اتاق الزامی است")
 	}
 
-	userID, _ := getUserID(c)
+	userID, ok := getUserID(c)
+	if !ok {
+		return response.Unauthorized(c, "احراز هویت نامعتبر")
+	}
 	room, err := h.roomUC.Create(userID, req.Name, req.Description, req.Color)
 	if err != nil {
 		return response.InternalError(c, err.Error())
@@ -122,7 +125,10 @@ func (h *RoomHandler) Delete(c echo.Context) error {
 }
 
 func (h *RoomHandler) AddUser(c echo.Context) error {
-	roomID, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	roomID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return response.BadRequest(c, "شناسه نامعتبر")
+	}
 	var req struct {
 		UserID int64  `json:"user_id"`
 		Role   string `json:"role"`
@@ -137,8 +143,14 @@ func (h *RoomHandler) AddUser(c echo.Context) error {
 }
 
 func (h *RoomHandler) RemoveUser(c echo.Context) error {
-	roomID, _ := strconv.ParseInt(c.Param("id"), 10, 64)
-	userID, _ := strconv.ParseInt(c.Param("userId"), 10, 64)
+	roomID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return response.BadRequest(c, "شناسه نامعتبر")
+	}
+	userID, err := strconv.ParseInt(c.Param("userId"), 10, 64)
+	if err != nil {
+		return response.BadRequest(c, "شناسه کاربر نامعتبر")
+	}
 	if err := h.roomUC.RemoveUser(roomID, userID); err != nil {
 		return response.InternalError(c, err.Error())
 	}
@@ -146,7 +158,10 @@ func (h *RoomHandler) RemoveUser(c echo.Context) error {
 }
 
 func (h *RoomHandler) GetUsers(c echo.Context) error {
-	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return response.BadRequest(c, "شناسه نامعتبر")
+	}
 	users, err := h.roomUC.GetUsers(id)
 	if err != nil {
 		return response.InternalError(c, err.Error())
@@ -172,7 +187,10 @@ func (h *RoomHandler) GetInfo(c echo.Context) error {
 }
 
 func (h *RoomHandler) GetSettings(c echo.Context) error {
-	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return response.BadRequest(c, "شناسه نامعتبر")
+	}
 	settings, err := h.roomUC.GetSettings(id)
 	if err != nil {
 		return response.InternalError(c, err.Error())
@@ -181,7 +199,10 @@ func (h *RoomHandler) GetSettings(c echo.Context) error {
 }
 
 func (h *RoomHandler) UpdateSettings(c echo.Context) error {
-	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return response.BadRequest(c, "شناسه نامعتبر")
+	}
 
 	var req struct {
 		MaxUsers                  int  `json:"max_users"`

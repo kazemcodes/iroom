@@ -81,6 +81,7 @@ func (uc *RoomUseCase) Update(id int64, name, description, color string, guestLo
 	}
 	if name != "" {
 		room.Name = name
+		room.Slug = generateRoomSlug(name)
 	}
 	if description != "" {
 		room.Description = description

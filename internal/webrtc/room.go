@@ -71,12 +71,20 @@ func (rm *RoomManager) DeleteRoom(roomID string) {
 
 	if room, exists := rm.rooms[roomID]; exists {
 		room.mu.Lock()
+		// Collect connections to close after releasing the lock
+		// to avoid deadlock (Close() can trigger OnConnectionStateChange
+		// which calls RemoveParticipant, which acquires the same lock)
+		var connsToClose []*webrtc.PeerConnection
 		for _, p := range room.Participants {
 			if p.Conn != nil {
-				p.Conn.Close()
+				connsToClose = append(connsToClose, p.Conn)
 			}
 		}
 		room.mu.Unlock()
+
+		for _, conn := range connsToClose {
+			conn.Close()
+		}
 		delete(rm.rooms, roomID)
 		slog.Info("room deleted", "room_id", roomID)
 	}

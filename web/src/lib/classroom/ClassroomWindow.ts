@@ -24,8 +24,8 @@ function open(sessionId: string, title: string, slugUrl?: string): Window | null
 		return existing.window;
 	}
 
-	// Use slug URL if provided
-	const url = slugUrl || `/room/${sessionId}`;
+	// Use slug URL if provided, otherwise fall back to /
+	const url = slugUrl || '/';
 	const tab = window.open(url, `_blank`);
 
 	if (!tab) {

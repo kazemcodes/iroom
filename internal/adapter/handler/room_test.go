@@ -43,9 +43,15 @@ func newEchoContext(method, path string, body interface{}, params map[string]str
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	for k, v := range params {
-		c.SetParamNames(k)
-		c.SetParamValues(v)
+	if len(params) > 0 {
+		names := make([]string, 0, len(params))
+		values := make([]string, 0, len(params))
+		for k, v := range params {
+			names = append(names, k)
+			values = append(values, v)
+		}
+		c.SetParamNames(names...)
+		c.SetParamValues(values...)
 	}
 
 	return c, rec

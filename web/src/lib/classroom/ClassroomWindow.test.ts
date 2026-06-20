@@ -19,6 +19,9 @@ describe('classroomWindow', async () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		mockWindow.closed = false;
+		for (const [id] of classroomWindow.getAll()) {
+			classroomWindow.close(id);
+		}
 	});
 
 	it('open creates new window', () => {
@@ -28,19 +31,19 @@ describe('classroomWindow', async () => {
 	});
 
 	it('open without slug falls back to /', () => {
-		const result = classroomWindow.open('1', 'Test Session');
+		const result = classroomWindow.open('2', 'Test Session');
 		expect(window.open).toHaveBeenCalledWith('/', '_blank');
 	});
 
 	it('close closes the window', () => {
-		classroomWindow.open('1', 'Test Session');
-		classroomWindow.close('1');
+		classroomWindow.open('3', 'Test Session');
+		classroomWindow.close('3');
 		expect(mockWindow.close).toHaveBeenCalled();
 	});
 
 	it('getAll returns opened tabs', () => {
-		classroomWindow.open('1', 'Session 1');
-		classroomWindow.open('2', 'Session 2');
+		classroomWindow.open('4', 'Session 1');
+		classroomWindow.open('5', 'Session 2');
 		const all = classroomWindow.getAll();
 		expect(all.size).toBe(2);
 	});

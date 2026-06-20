@@ -455,9 +455,14 @@ func TestRoomRepo_SlugUniqueness(t *testing.T) {
 	defer db.Close()
 	repo := NewRoomRepo(db)
 
-	require.NoError(t, repo.Create(&entity.Room{OwnerID: 1, Name: "A", Slug: "same-slug"}))
-	err := repo.Create(&entity.Room{OwnerID: 1, Name: "B", Slug: "same-slug"})
-	assert.Error(t, err, "duplicate slug should fail")
+	r1 := &entity.Room{OwnerID: 1, Name: "A", Slug: "same-slug"}
+	require.NoError(t, repo.Create(r1))
+	assert.Equal(t, "same-slug", r1.Slug)
+
+	r2 := &entity.Room{OwnerID: 1, Name: "B", Slug: "same-slug"}
+	require.NoError(t, repo.Create(r2))
+	assert.NotEqual(t, "same-slug", r2.Slug, "slug must be made unique on conflict")
+	assert.NotEqual(t, r1.Slug, r2.Slug, "two rooms must not share the same slug")
 }
 
 func TestRoomRepo_GuestLoginEnabled_Roundtrip(t *testing.T) {

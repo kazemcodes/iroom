@@ -85,6 +85,39 @@ func (ss *SignalingServer) HandleOffer(c echo.Context) error {
 		return response.BadRequest(c, "SDP offer نامعتبر")
 	}
 
+	// Catch-up: add existing participants' tracks BEFORE creating answer
+	// so they are included in the SDP negotiation
+	room := ss.roomManager.GetRoom(req.RoomID)
+	if room != nil {
+		room.mu.RLock()
+		slog.Info(">>> CATCHUP: checking room", "roomID", req.RoomID, "participantCount", len(room.Participants))
+		for _, existing := range room.Participants {
+			if existing.ID == req.UserID {
+				continue
+			}
+			hasAudio := existing.AudioTrack != nil
+			hasVideo := existing.VideoTrack != nil
+			hasScreen := existing.ScreenTrack != nil
+			slog.Info(">>> CATCHUP: found existing participant", "existingID", existing.ID, "hasAudio", hasAudio, "hasVideo", hasVideo, "hasScreen", hasScreen)
+			if existing.AudioTrack != nil {
+				if _, err := peerConn.AddTrack(existing.AudioTrack); err != nil {
+					slog.Error("failed to add existing audio track to new joiner", "error", err, "from", existing.ID, "to", req.UserID)
+				}
+			}
+			if existing.VideoTrack != nil {
+				if _, err := peerConn.AddTrack(existing.VideoTrack); err != nil {
+					slog.Error("failed to add existing video track to new joiner", "error", err, "from", existing.ID, "to", req.UserID)
+				}
+			}
+			if existing.ScreenTrack != nil {
+				if _, err := peerConn.AddTrack(existing.ScreenTrack); err != nil {
+					slog.Error("failed to add existing screen track to new joiner", "error", err, "from", existing.ID, "to", req.UserID)
+				}
+			}
+		}
+		room.mu.RUnlock()
+	}
+
 	answer, err := peerConn.CreateAnswer(nil)
 	if err != nil {
 		slog.Error("failed to create answer", "error", err, "user_id", req.UserID)
@@ -121,34 +154,47 @@ func (ss *SignalingServer) HandleOffer(c echo.Context) error {
 		}
 	}
 
-	// Catch-up: send existing participants' tracks to the new joiner
-	room := ss.roomManager.GetRoom(req.RoomID)
-	if room != nil {
+	ss.broadcastParticipantJoined(req.RoomID, req.UserID, req.Name)
+
+	// Send track info for existing participants' tracks to the new joiner
+	// so the client can map tracks to participant IDs via signaling
+	// (more reliable than relying on StreamID)
+	if signalDC != nil {
 		room.mu.RLock()
 		for _, existing := range room.Participants {
 			if existing.ID == req.UserID {
 				continue
 			}
 			if existing.AudioTrack != nil {
-				if _, err := peerConn.AddTrack(existing.AudioTrack); err != nil {
-					slog.Error("failed to add existing audio track to new joiner", "error", err, "from", existing.ID, "to", req.UserID)
-				}
+				trackInfo, _ := json.Marshal(map[string]interface{}{
+					"type":       "track_added",
+					"user_id":    existing.ID,
+					"track_id":   existing.AudioTrack.ID(),
+					"track_kind": webrtc.RTPCodecTypeAudio.String(),
+				})
+				signalDC.SendText(string(trackInfo))
 			}
 			if existing.VideoTrack != nil {
-				if _, err := peerConn.AddTrack(existing.VideoTrack); err != nil {
-					slog.Error("failed to add existing video track to new joiner", "error", err, "from", existing.ID, "to", req.UserID)
-				}
+				trackInfo, _ := json.Marshal(map[string]interface{}{
+					"type":       "track_added",
+					"user_id":    existing.ID,
+					"track_id":   existing.VideoTrack.ID(),
+					"track_kind": webrtc.RTPCodecTypeVideo.String(),
+				})
+				signalDC.SendText(string(trackInfo))
 			}
 			if existing.ScreenTrack != nil {
-				if _, err := peerConn.AddTrack(existing.ScreenTrack); err != nil {
-					slog.Error("failed to add existing screen track to new joiner", "error", err, "from", existing.ID, "to", req.UserID)
-				}
+				trackInfo, _ := json.Marshal(map[string]interface{}{
+					"type":       "track_added",
+					"user_id":    existing.ID,
+					"track_id":   existing.ScreenTrack.ID(),
+					"track_kind": webrtc.RTPCodecTypeVideo.String(),
+				})
+				signalDC.SendText(string(trackInfo))
 			}
 		}
 		room.mu.RUnlock()
 	}
-
-	ss.broadcastParticipantJoined(req.RoomID, req.UserID, req.Name)
 
 	return response.Success(c, AnswerResponse{
 		SDP: answer.SDP,
@@ -246,14 +292,14 @@ func (ss *SignalingServer) createPeerConnection(userID, roomID string) (*webrtc.
 	})
 
 	peerConn.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
-		slog.Info("peer connection state changed", "user_id", userID, "state", state.String())
+		slog.Info(">>> CONNECTION_STATE_CHANGE", "user_id", userID, "state", state.String())
 		if state == webrtc.PeerConnectionStateFailed || state == webrtc.PeerConnectionStateClosed {
 			ss.roomManager.RemoveParticipant(roomID, userID)
 		}
 	})
 
 	peerConn.OnTrack(func(remoteTrack *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
-		slog.Info("remote track received", "user_id", userID, "kind", remoteTrack.Kind(), "id", remoteTrack.ID())
+		slog.Info(">>> ONTRACK FIRED", "user_id", userID, "kind", remoteTrack.Kind(), "track_id", remoteTrack.ID(), "stream_id", remoteTrack.StreamID())
 
 		localTrack, err := webrtc.NewTrackLocalStaticRTP(
 			remoteTrack.Codec().RTPCodecCapability,
@@ -271,7 +317,10 @@ func (ss *SignalingServer) createPeerConnection(userID, roomID string) (*webrtc.
 			case webrtc.RTPCodecTypeAudio:
 				participant.AudioTrack = localTrack
 			case webrtc.RTPCodecTypeVideo:
-				if remoteTrack.ID() == "screen" {
+				// If participant already has a video track, this new video track
+				// must be a screen share. Browser-generated track IDs are random
+				// strings, so we can't rely on track ID == "screen".
+				if participant.VideoTrack != nil {
 					participant.ScreenTrack = localTrack
 					participant.IsScreenSharing = true
 				} else {
@@ -315,8 +364,10 @@ func (ss *SignalingServer) forwardTrack(remoteTrack *webrtc.TrackRemote, localTr
 }
 
 func (ss *SignalingServer) broadcastTrackToRoom(roomID, senderID string, track *webrtc.TrackLocalStaticRTP) {
+	slog.Info(">>> BROADCAST_TRACK", "roomID", roomID, "senderID", senderID, "trackKind", track.Kind(), "trackID", track.ID())
 	room := ss.roomManager.GetRoom(roomID)
 	if room == nil {
+		slog.Info(">>> BROADCAST_TRACK: room nil")
 		return
 	}
 
@@ -327,9 +378,29 @@ func (ss *SignalingServer) broadcastTrackToRoom(roomID, senderID string, track *
 		if p.ID == senderID {
 			continue
 		}
+		state := "unknown"
+		if p.Conn != nil {
+			state = p.Conn.ConnectionState().String()
+		}
+		slog.Info(">>> BROADCAST_TRACK: trying participant", "targetID", p.ID, "state", state)
 		if p.Conn != nil && p.Conn.ConnectionState() == webrtc.PeerConnectionStateConnected {
 			if _, err := p.Conn.AddTrack(track); err != nil {
-				slog.Error("failed to add track to peer", "error", err, "user_id", p.ID)
+				slog.Error(">>> BROADCAST_TRACK: FAILED to add track", "error", err, "targetID", p.ID)
+			} else {
+				slog.Info(">>> BROADCAST_TRACK: SUCCESS added track", "targetID", p.ID)
+			}
+			// Send track info via signaling data channel so client can map
+			// tracks to participant IDs reliably (instead of relying on StreamID)
+			if p.SignalDC != nil && p.SignalDC.ReadyState() == webrtc.DataChannelStateOpen {
+				trackInfo, _ := json.Marshal(map[string]interface{}{
+					"type":         "track_added",
+					"user_id":      senderID,
+					"track_id":     track.ID(),
+					"track_kind":   track.Kind().String(),
+				})
+				if err := p.SignalDC.SendText(string(trackInfo)); err != nil {
+					slog.Error("failed to send track info via data channel", "error", err, "user_id", p.ID)
+				}
 			}
 		}
 	}
