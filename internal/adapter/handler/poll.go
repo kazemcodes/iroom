@@ -8,9 +8,6 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// PollHandler handles HTTP requests for session polls/votes.
-// Routes: POST /sessions/:id/polls, GET /sessions/:id/polls
-//         POST /polls/:id/vote, GET /polls/:id/results, POST /polls/:id/close
 type PollHandler struct {
 	pollUC *usecase.PollUseCase
 }
@@ -20,7 +17,12 @@ func NewPollHandler(pollUC *usecase.PollUseCase) *PollHandler {
 }
 
 func (h *PollHandler) Create(c echo.Context) error {
-	sessionID, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	sessionID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return response.BadRequest(c, "شناسه نامعتبر")
+	}
+	actorID, _ := getUserID(c)
+	role := getUserRole(c)
 
 	var req struct {
 		Question string `json:"question"`
@@ -30,16 +32,19 @@ func (h *PollHandler) Create(c echo.Context) error {
 		return response.BadRequest(c, "داده‌های نامعتبر")
 	}
 
-	poll, err := h.pollUC.Create(sessionID, req.Question, req.Options)
+	poll, err := h.pollUC.Create(sessionID, actorID, role, req.Question, req.Options)
 	if err != nil {
-		return response.InternalError(c, err.Error())
+		return response.Forbidden(c, err.Error())
 	}
 
 	return response.Created(c, poll)
 }
 
 func (h *PollHandler) List(c echo.Context) error {
-	sessionID, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	sessionID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return response.BadRequest(c, "شناسه نامعتبر")
+	}
 	polls, err := h.pollUC.ListBySession(sessionID)
 	if err != nil {
 		return response.InternalError(c, err.Error())
@@ -48,7 +53,10 @@ func (h *PollHandler) List(c echo.Context) error {
 }
 
 func (h *PollHandler) Vote(c echo.Context) error {
-	pollID, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	pollID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return response.BadRequest(c, "شناسه نامعتبر")
+	}
 	userID, _ := getUserID(c)
 
 	var req struct {
@@ -66,7 +74,10 @@ func (h *PollHandler) Vote(c echo.Context) error {
 }
 
 func (h *PollHandler) Results(c echo.Context) error {
-	pollID, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	pollID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return response.BadRequest(c, "شناسه نامعتبر")
+	}
 	results, err := h.pollUC.GetResults(pollID)
 	if err != nil {
 		return response.InternalError(c, err.Error())
@@ -75,9 +86,14 @@ func (h *PollHandler) Results(c echo.Context) error {
 }
 
 func (h *PollHandler) Close(c echo.Context) error {
-	pollID, _ := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err := h.pollUC.Close(pollID); err != nil {
-		return response.InternalError(c, err.Error())
+	pollID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return response.BadRequest(c, "شناسه نامعتبر")
+	}
+	actorID, _ := getUserID(c)
+	role := getUserRole(c)
+	if err := h.pollUC.Close(pollID, actorID, role); err != nil {
+		return response.Forbidden(c, err.Error())
 	}
 	return response.Success(c, map[string]string{"message": "نظرسنجی بسته شد"})
 }

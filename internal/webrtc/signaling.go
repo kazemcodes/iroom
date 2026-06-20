@@ -3,7 +3,6 @@ package webrtc
 import (
 	"encoding/json"
 	"log/slog"
-	"net/http"
 	"sync"
 
 	"github.com/iroom/iroom/internal/pkg/response"
@@ -28,6 +27,14 @@ func NewSignalingServer(rtcConfig webrtc.Configuration) *SignalingServer {
 
 func (ss *SignalingServer) GetRoomManager() *RoomManager {
 	return ss.roomManager
+}
+
+func (ss *SignalingServer) GetRoom(roomID string) *Room {
+	return ss.roomManager.GetRoom(roomID)
+}
+
+func (ss *SignalingServer) BroadcastToRoom(roomID string, message interface{}) {
+	ss.broadcastToRoom(roomID, message)
 }
 
 type OfferRequest struct {
@@ -214,13 +221,16 @@ func (ss *SignalingServer) HandleCandidate(c echo.Context) error {
 	participant := ss.roomManager.GetParticipant(req.RoomID, req.UserID)
 	if participant == nil || participant.Conn == nil {
 		// Buffer candidate — may arrive before participant is added
+		// Limit buffer size to prevent memory exhaustion
 		key := req.RoomID + ":" + req.UserID
 		ss.mu.Lock()
-		ss.pendingCandidates[key] = append(ss.pendingCandidates[key], webrtc.ICECandidateInit{
-			Candidate:     req.Candidate,
-			SDPMid:        req.SDPMid,
-			SDPMLineIndex: req.SDPMLineIndex,
-		})
+		if len(ss.pendingCandidates[key]) < 100 {
+			ss.pendingCandidates[key] = append(ss.pendingCandidates[key], webrtc.ICECandidateInit{
+				Candidate:     req.Candidate,
+				SDPMid:        req.SDPMid,
+				SDPMLineIndex: req.SDPMLineIndex,
+			})
+		}
 		ss.mu.Unlock()
 		return response.Success(c, map[string]string{"status": "buffered"})
 	}
@@ -244,10 +254,9 @@ func (ss *SignalingServer) HandleLeave(c echo.Context) error {
 	userID := c.Param("userId")
 
 	if roomID == "" || userID == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, "missing required fields")
+		return response.BadRequest(c, "missing required fields")
 	}
 
-	// Clean up pending candidates
 	key := roomID + ":" + userID
 	ss.mu.Lock()
 	delete(ss.pendingCandidates, key)
@@ -262,21 +271,21 @@ func (ss *SignalingServer) HandleLeave(c echo.Context) error {
 	}
 
 	ss.roomManager.RemoveParticipant(roomID, userID)
-	return c.JSON(http.StatusOK, map[string]string{"status": "left"})
+	return response.Success(c, map[string]string{"status": "left"})
 }
 
 func (ss *SignalingServer) HandleRoomInfo(c echo.Context) error {
 	roomID := c.Param("id")
 	if roomID == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, "missing room ID")
+		return response.BadRequest(c, "missing room ID")
 	}
 
 	stats := ss.roomManager.GetRoomStats(roomID)
 	if stats == nil {
-		return echo.NewHTTPError(http.StatusNotFound, "room not found")
+		return response.NotFound(c, "room not found")
 	}
 
-	return c.JSON(http.StatusOK, stats)
+	return response.Success(c, stats)
 }
 
 func (ss *SignalingServer) createPeerConnection(userID, roomID string) (*webrtc.PeerConnection, *webrtc.DataChannel, error) {

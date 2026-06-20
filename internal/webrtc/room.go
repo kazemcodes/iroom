@@ -29,6 +29,27 @@ type Room struct {
 	CreatedBy    int64
 }
 
+func (r *Room) ToggleParticipantMute(participantID string) (bool, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	p, exists := r.Participants[participantID]
+	if !exists {
+		return false, false
+	}
+	p.IsMuted = !p.IsMuted
+	return p.IsMuted, true
+}
+
+func (r *Room) GetParticipantSnapshot(participantID string) (*Participant, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	p, exists := r.Participants[participantID]
+	if !exists {
+		return nil, false
+	}
+	return p, true
+}
+
 type RoomManager struct {
 	mu    sync.RWMutex
 	rooms map[string]*Room
@@ -71,9 +92,6 @@ func (rm *RoomManager) DeleteRoom(roomID string) {
 
 	if room, exists := rm.rooms[roomID]; exists {
 		room.mu.Lock()
-		// Collect connections to close after releasing the lock
-		// to avoid deadlock (Close() can trigger OnConnectionStateChange
-		// which calls RemoveParticipant, which acquires the same lock)
 		var connsToClose []*webrtc.PeerConnection
 		for _, p := range room.Participants {
 			if p.Conn != nil {
@@ -155,28 +173,6 @@ func (rm *RoomManager) GetParticipant(roomID, participantID string) *Participant
 	return room.Participants[participantID]
 }
 
-func (rm *RoomManager) BroadcastToRoom(roomID, senderID string, track *webrtc.TrackLocalStaticRTP) {
-	rm.mu.RLock()
-	room := rm.rooms[roomID]
-	rm.mu.RUnlock()
-
-	if room == nil {
-		return
-	}
-
-	room.mu.RLock()
-	defer room.mu.RUnlock()
-
-	for _, p := range room.Participants {
-		if p.ID == senderID {
-			continue
-		}
-		if p.Conn != nil && p.Conn.ConnectionState() == webrtc.PeerConnectionStateConnected {
-			p.Conn.AddTrack(track)
-		}
-	}
-}
-
 func (rm *RoomManager) GetRoomParticipants(roomID string) []ParticipantInfo {
 	rm.mu.RLock()
 	room := rm.rooms[roomID]
@@ -214,9 +210,9 @@ type ParticipantInfo struct {
 }
 
 type RoomStats struct {
-	RoomID        string            `json:"room_id"`
-	ParticipantCount int            `json:"participant_count"`
-	Participants  []ParticipantInfo `json:"participants"`
+	RoomID           string            `json:"room_id"`
+	ParticipantCount int               `json:"participant_count"`
+	Participants     []ParticipantInfo `json:"participants"`
 }
 
 func (rm *RoomManager) GetRoomStats(roomID string) *RoomStats {
@@ -232,7 +228,7 @@ func (rm *RoomManager) GetRoomStats(roomID string) *RoomStats {
 	defer room.mu.RUnlock()
 
 	return &RoomStats{
-		RoomID:          roomID,
+		RoomID:           roomID,
 		ParticipantCount: len(room.Participants),
 		Participants:    rm.getParticipantsLocked(room),
 	}

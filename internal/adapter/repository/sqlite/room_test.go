@@ -24,6 +24,9 @@ func setupTestDB(t *testing.T) *sql.DB {
 		color TEXT DEFAULT '',
 		slug TEXT UNIQUE NOT NULL,
 		guest_login_enabled BOOLEAN DEFAULT 1,
+		max_users INTEGER DEFAULT 50,
+		invite_code TEXT DEFAULT '',
+		is_archived BOOLEAN DEFAULT 0,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
@@ -31,6 +34,7 @@ func setupTestDB(t *testing.T) *sql.DB {
 		room_id INTEGER NOT NULL,
 		user_id INTEGER NOT NULL,
 		role TEXT DEFAULT 'student',
+		access INTEGER DEFAULT 1,
 		PRIMARY KEY (room_id, user_id),
 		FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE
 	);
@@ -267,7 +271,7 @@ func TestRoomRepo_AddUser(t *testing.T) {
 	room := &entity.Room{OwnerID: 1, Name: "Room", Slug: "room-ru"}
 	require.NoError(t, repo.Create(room))
 
-	err := repo.AddUser(room.ID, 2, "teacher")
+	err := repo.AddUser(room.ID, 2, "teacher", 1)
 	require.NoError(t, err)
 
 	assert.True(t, repo.IsUserInRoom(room.ID, 2))
@@ -281,8 +285,8 @@ func TestRoomRepo_AddUser_ReplaceRole(t *testing.T) {
 	room := &entity.Room{OwnerID: 1, Name: "Room", Slug: "room-ru2"}
 	require.NoError(t, repo.Create(room))
 
-	_ = repo.AddUser(room.ID, 3, "student")
-	_ = repo.AddUser(room.ID, 3, "teacher")
+	_ = repo.AddUser(room.ID, 3, "student", 1)
+	_ = repo.AddUser(room.ID, 3, "teacher", 1)
 
 	count, _ := repo.GetUserCount(room.ID)
 	assert.Equal(t, 1, count, "should not create duplicate user entries")
@@ -296,7 +300,7 @@ func TestRoomRepo_RemoveUser(t *testing.T) {
 	room := &entity.Room{OwnerID: 1, Name: "Room", Slug: "room-ru3"}
 	require.NoError(t, repo.Create(room))
 
-	_ = repo.AddUser(room.ID, 4, "student")
+	_ = repo.AddUser(room.ID, 4, "student", 1)
 	require.NoError(t, repo.RemoveUser(room.ID, 4))
 
 	assert.False(t, repo.IsUserInRoom(room.ID, 4))
@@ -316,8 +320,8 @@ func TestRoomRepo_GetUsers(t *testing.T) {
 	require.NoError(t, userRepo.Create(u1))
 	require.NoError(t, userRepo.Create(u2))
 
-	_ = roomRepo.AddUser(room.ID, u1.ID, "teacher")
-	_ = roomRepo.AddUser(room.ID, u2.ID, "student")
+	_ = roomRepo.AddUser(room.ID, u1.ID, "teacher", 1)
+	_ = roomRepo.AddUser(room.ID, u2.ID, "student", 1)
 
 	users, err := roomRepo.GetUsers(room.ID)
 	require.NoError(t, err)
@@ -346,8 +350,8 @@ func TestRoomRepo_GetUserCount(t *testing.T) {
 	count, _ := repo.GetUserCount(room.ID)
 	assert.Equal(t, 0, count)
 
-	_ = repo.AddUser(room.ID, 10, "student")
-	_ = repo.AddUser(room.ID, 11, "student")
+	_ = repo.AddUser(room.ID, 10, "student", 1)
+	_ = repo.AddUser(room.ID, 11, "student", 1)
 
 	count, _ = repo.GetUserCount(room.ID)
 	assert.Equal(t, 2, count)
@@ -415,7 +419,7 @@ func TestRoomRepo_ListByUser(t *testing.T) {
 	_ = repo.Create(r2)
 	_ = repo.Create(r3)
 
-	_ = repo.AddUser(r2.ID, 1, "student")
+	_ = repo.AddUser(r2.ID, 1, "student", 1)
 
 	rooms, err := repo.ListByUser(1)
 	require.NoError(t, err)
@@ -508,8 +512,8 @@ func TestRoomRepo_Delete_CascadesRoomUsers(t *testing.T) {
 	room := &entity.Room{OwnerID: 1, Name: "Cascade", Slug: "cascade"}
 	require.NoError(t, repo.Create(room))
 
-	_ = repo.AddUser(room.ID, 10, "student")
-	_ = repo.AddUser(room.ID, 11, "teacher")
+	_ = repo.AddUser(room.ID, 10, "student", 1)
+	_ = repo.AddUser(room.ID, 11, "teacher", 1)
 	assert.Equal(t, 2, mustCount(t, db, "SELECT COUNT(*) FROM room_users WHERE room_id = ?", room.ID))
 
 	require.NoError(t, repo.Delete(room.ID))
@@ -557,8 +561,8 @@ func TestRoomRepo_GetUsers_ReturnsCorrectFields(t *testing.T) {
 	require.NoError(t, userRepo.Create(u1))
 	require.NoError(t, userRepo.Create(u2))
 
-	_ = roomRepo.AddUser(room.ID, u1.ID, "teacher")
-	_ = roomRepo.AddUser(room.ID, u2.ID, "student")
+	_ = roomRepo.AddUser(room.ID, u1.ID, "teacher", 1)
+	_ = roomRepo.AddUser(room.ID, u2.ID, "student", 1)
 
 	users, err := roomRepo.GetUsers(room.ID)
 	require.NoError(t, err)
@@ -649,7 +653,7 @@ func TestRoomRepo_AddUser_TeacherRolePreserved(t *testing.T) {
 	u := &entity.User{Email: "t@test.com", DisplayName: "T", Role: "teacher"}
 	require.NoError(t, userRepo.Create(u))
 
-	require.NoError(t, roomRepo.AddUser(room.ID, u.ID, "teacher"))
+	require.NoError(t, roomRepo.AddUser(room.ID, u.ID, "teacher", 1))
 
 	users, err := roomRepo.GetUsers(room.ID)
 	require.NoError(t, err)
@@ -669,7 +673,7 @@ func TestRoomRepo_AddUser_StudentRolePreserved(t *testing.T) {
 	u := &entity.User{Email: "s@test.com", DisplayName: "S", Role: "student"}
 	require.NoError(t, userRepo.Create(u))
 
-	require.NoError(t, roomRepo.AddUser(room.ID, u.ID, "student"))
+	require.NoError(t, roomRepo.AddUser(room.ID, u.ID, "student", 1))
 
 	users, err := roomRepo.GetUsers(room.ID)
 	require.NoError(t, err)

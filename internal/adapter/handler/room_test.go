@@ -24,8 +24,9 @@ func setupRoomHandler(t *testing.T) (*RoomHandler, echo.Context) {
 	userRepo := newTestUserRepo(t, db)
 	sessionRepo := newTestSessionRepo(t, db)
 	uc := usecase.NewRoomUseCase(roomRepo, userRepo, sessionRepo)
+	sessionUC := usecase.NewSessionUseCase(sessionRepo, roomRepo)
 
-	h := NewRoomHandler(uc)
+	h := NewRoomHandler(uc, sessionUC)
 	return h, nil
 }
 
@@ -192,6 +193,10 @@ func TestRoomHandler_Update(t *testing.T) {
 		"guest_login_enabled": guestLogin,
 	}
 	c2, rec2 := newEchoContext(http.MethodPut, "/api/rooms/"+strconv.FormatInt(roomID, 10), updateBody, map[string]string{"id": strconv.FormatInt(roomID, 10)})
+	c2.Set("user_id", int64(1))
+	c2.Set("role", "admin")
+	c2.Set("user_id", int64(1))
+	c2.Set("role", "admin")
 	require.NoError(t, h.Update(c2))
 	assert.Equal(t, http.StatusOK, rec2.Code)
 
@@ -224,6 +229,8 @@ func TestRoomHandler_Delete(t *testing.T) {
 	roomID := int64(data["id"].(float64))
 
 	c2, rec2 := newEchoContext(http.MethodDelete, "/api/rooms/"+strconv.FormatInt(roomID, 10), nil, map[string]string{"id": strconv.FormatInt(roomID, 10)})
+	c2.Set("user_id", int64(1))
+	c2.Set("role", "admin")
 	require.NoError(t, h.Delete(c2))
 	assert.Equal(t, http.StatusOK, rec2.Code)
 }
@@ -254,6 +261,8 @@ func TestRoomHandler_AddUser(t *testing.T) {
 		"role":    "teacher",
 	}
 	c2, rec2 := newEchoContext(http.MethodPost, "/api/rooms/"+strconv.FormatInt(roomID, 10)+"/users", addBody, map[string]string{"id": strconv.FormatInt(roomID, 10)})
+	c2.Set("user_id", int64(1))
+	c2.Set("role", "admin")
 	require.NoError(t, h.AddUser(c2))
 	assert.Equal(t, http.StatusOK, rec2.Code)
 }
@@ -271,10 +280,12 @@ func TestRoomHandler_RemoveUser(t *testing.T) {
 	data := createResp["data"].(map[string]interface{})
 	roomID := int64(data["id"].(float64))
 
-	h.roomUC.AddUser(roomID, 5, "student")
+	h.roomUC.AddUser(roomID, 5, 1, "student", 1, "admin")
 
 	c2, rec2 := newEchoContext(http.MethodDelete, "/api/rooms/"+strconv.FormatInt(roomID, 10)+"/users/5", nil,
 		map[string]string{"id": strconv.FormatInt(roomID, 10), "userId": "5"})
+	c2.Set("user_id", int64(1))
+	c2.Set("role", "admin")
 	require.NoError(t, h.RemoveUser(c2))
 	assert.Equal(t, http.StatusOK, rec2.Code)
 }
@@ -349,6 +360,8 @@ func TestRoomHandler_UpdateSettings(t *testing.T) {
 	}
 	c2, rec2 := newEchoContext(http.MethodPut, "/api/rooms/"+strconv.FormatInt(roomID, 10)+"/settings", settingsBody,
 		map[string]string{"id": strconv.FormatInt(roomID, 10)})
+	c2.Set("user_id", int64(1))
+	c2.Set("role", "admin")
 	require.NoError(t, h.UpdateSettings(c2))
 	assert.Equal(t, http.StatusOK, rec2.Code)
 }
@@ -493,7 +506,8 @@ func TestRoomHandler_GetUsers_ResponseHasUserData(t *testing.T) {
 	userRepo := newTestUserRepo(t, db)
 	sessionRepo := newTestSessionRepo(t, db)
 	uc := usecase.NewRoomUseCase(roomRepo, userRepo, sessionRepo)
-	h := NewRoomHandler(uc)
+	sessionUC := usecase.NewSessionUseCase(sessionRepo, roomRepo)
+	h := NewRoomHandler(uc, sessionUC)
 
 	createBody := map[string]string{"name": "Room Users"}
 	c, rec := newEchoContext(http.MethodPost, "/api/rooms", createBody, nil)
@@ -510,8 +524,8 @@ func TestRoomHandler_GetUsers_ResponseHasUserData(t *testing.T) {
 	_ = userRepo.Create(u1)
 	_ = userRepo.Create(u2)
 
-	h.roomUC.AddUser(roomID, u1.ID, "teacher")
-	h.roomUC.AddUser(roomID, u2.ID, "student")
+	h.roomUC.AddUser(roomID, u1.ID, 1, "teacher", 1, "admin")
+	h.roomUC.AddUser(roomID, u2.ID, 1, "student", 1, "admin")
 
 	c2, rec2 := newEchoContext(http.MethodGet, "/api/rooms/"+strconv.FormatInt(roomID, 10)+"/users", nil,
 		map[string]string{"id": strconv.FormatInt(roomID, 10)})
@@ -579,6 +593,8 @@ func TestRoomHandler_UpdateSettings_PreservesAllFields(t *testing.T) {
 	}
 	c2, rec2 := newEchoContext(http.MethodPut, "/api/rooms/"+strconv.FormatInt(roomID, 10)+"/settings", settingsBody,
 		map[string]string{"id": strconv.FormatInt(roomID, 10)})
+	c2.Set("user_id", int64(1))
+	c2.Set("role", "admin")
 	require.NoError(t, h.UpdateSettings(c2))
 	assert.Equal(t, http.StatusOK, rec2.Code)
 

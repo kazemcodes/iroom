@@ -10,12 +10,11 @@ import (
 type RecordingUseCase struct {
 	recordingRepo *repository.RecordingRepo
 	sessionRepo   *repository.SessionRepo
-	classRepo     *repository.ClassRepo
 	uploadDir     string
 }
 
-func NewRecordingUseCase(recordingRepo *repository.RecordingRepo, sessionRepo *repository.SessionRepo, classRepo *repository.ClassRepo, uploadDir string) *RecordingUseCase {
-	return &RecordingUseCase{recordingRepo: recordingRepo, sessionRepo: sessionRepo, classRepo: classRepo, uploadDir: uploadDir}
+func NewRecordingUseCase(recordingRepo *repository.RecordingRepo, sessionRepo *repository.SessionRepo, uploadDir string) *RecordingUseCase {
+	return &RecordingUseCase{recordingRepo: recordingRepo, sessionRepo: sessionRepo, uploadDir: uploadDir}
 }
 
 func (uc *RecordingUseCase) Upload(sessionID, userID int64, filename, filepath string, filesize int64, duration int) (*entity.Recording, error) {
@@ -29,7 +28,7 @@ func (uc *RecordingUseCase) Upload(sessionID, userID int64, filename, filepath s
 		Status:     "ready",
 	}
 	if err := uc.recordingRepo.Create(r); err != nil {
-		return nil, fmt.Errorf("خطا در آپلود ضبط")
+		return nil, fmt.Errorf("failed to upload recording: %w", err)
 	}
 	return r, nil
 }

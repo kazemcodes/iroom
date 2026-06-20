@@ -8,9 +8,6 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// AnnouncementHandler handles HTTP requests for class announcements.
-// Routes: POST /classes/:id/announcements, GET /classes/:id/announcements
-//         PUT /announcements/:id, DELETE /announcements/:id, POST /announcements/:id/pin
 type AnnouncementHandler struct {
 	announcementUC *usecase.AnnouncementUseCase
 }
@@ -20,7 +17,10 @@ func NewAnnouncementHandler(announcementUC *usecase.AnnouncementUseCase) *Announ
 }
 
 func (h *AnnouncementHandler) Create(c echo.Context) error {
-	classID, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	roomID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return response.BadRequest(c, "شناسه نامعتبر")
+	}
 	userID, _ := getUserID(c)
 
 	var req struct {
@@ -33,17 +33,20 @@ func (h *AnnouncementHandler) Create(c echo.Context) error {
 		return response.BadRequest(c, "داده‌های نامعتبر")
 	}
 
-	announcement, err := h.announcementUC.Create(classID, userID, req.Title, req.Content, req.IsPinned, req.IsSystemWide)
+	announcement, err := h.announcementUC.Create(roomID, userID, req.Title, req.Content, req.IsPinned, req.IsSystemWide)
 	if err != nil {
-		return response.InternalError(c, err.Error())
+		return response.Forbidden(c, err.Error())
 	}
 
 	return response.Created(c, announcement)
 }
 
 func (h *AnnouncementHandler) List(c echo.Context) error {
-	classID, _ := strconv.ParseInt(c.Param("id"), 10, 64)
-	announcements, _, err := h.announcementUC.ListByClass(classID)
+	roomID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return response.BadRequest(c, "شناسه نامعتبر")
+	}
+	announcements, _, err := h.announcementUC.ListByRoom(roomID)
 	if err != nil {
 		return response.InternalError(c, err.Error())
 	}
@@ -51,7 +54,11 @@ func (h *AnnouncementHandler) List(c echo.Context) error {
 }
 
 func (h *AnnouncementHandler) Update(c echo.Context) error {
-	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return response.BadRequest(c, "شناسه نامعتبر")
+	}
+	userID, _ := getUserID(c)
 
 	var req struct {
 		Title   string `json:"title"`
@@ -61,25 +68,36 @@ func (h *AnnouncementHandler) Update(c echo.Context) error {
 		return response.BadRequest(c, "داده‌های نامعتبر")
 	}
 
-	if err := h.announcementUC.Update(id, req.Title, req.Content); err != nil {
-		return response.InternalError(c, err.Error())
+	role := getUserRole(c)
+	if err := h.announcementUC.Update(id, userID, role, req.Title, req.Content); err != nil {
+		return response.Forbidden(c, err.Error())
 	}
 
 	return response.Success(c, map[string]string{"message": "اعلان بروزرسانی شد"})
 }
 
 func (h *AnnouncementHandler) Delete(c echo.Context) error {
-	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err := h.announcementUC.Delete(id); err != nil {
-		return response.InternalError(c, err.Error())
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return response.BadRequest(c, "شناسه نامعتبر")
+	}
+	userID, _ := getUserID(c)
+	role := getUserRole(c)
+	if err := h.announcementUC.Delete(id, userID, role); err != nil {
+		return response.Forbidden(c, err.Error())
 	}
 	return response.Success(c, map[string]string{"message": "اعلان حذف شد"})
 }
 
 func (h *AnnouncementHandler) Pin(c echo.Context) error {
-	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err := h.announcementUC.TogglePin(id); err != nil {
-		return response.InternalError(c, err.Error())
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return response.BadRequest(c, "شناسه نامعتبر")
+	}
+	userID, _ := getUserID(c)
+	role := getUserRole(c)
+	if err := h.announcementUC.TogglePin(id, userID, role); err != nil {
+		return response.Forbidden(c, err.Error())
 	}
 	return response.Success(c, map[string]string{"message": "سنجاق تغییر کرد"})
 }

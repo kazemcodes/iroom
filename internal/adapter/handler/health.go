@@ -3,16 +3,13 @@ package handler
 import (
 	"database/sql"
 	"fmt"
-	"net/http"
 	"os"
 	"time"
 
+	"github.com/iroom/iroom/internal/pkg/response"
 	"github.com/labstack/echo/v4"
 )
 
-// HealthHandler provides a health check endpoint for monitoring.
-// Routes: GET /api/v1/health
-// Returns: status, uptime, db_size, webrtc_status, active_rooms, total_users
 type HealthHandler struct {
 	db        *sql.DB
 	startTime time.Time
@@ -35,13 +32,13 @@ func (h *HealthHandler) Health(c echo.Context) error {
 	var totalUsers int64
 	h.db.QueryRow(`SELECT COUNT(*) FROM users`).Scan(&totalUsers)
 
-	return c.JSON(http.StatusOK, map[string]interface{}{
-		"status":      "ok",
-		"uptime":      formatUptime(uptime),
-		"db_size":     dbSize,
+	return response.Success(c, map[string]interface{}{
+		"status":        "ok",
+		"uptime":        formatUptime(uptime),
+		"db_size":       dbSize,
 		"webrtc_status": "pion_builtin",
-		"active_rooms": activeRooms,
-		"total_users": totalUsers,
+		"active_rooms":  activeRooms,
+		"total_users":   totalUsers,
 	})
 }
 

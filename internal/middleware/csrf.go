@@ -7,14 +7,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iroom/iroom/internal/pkg/response"
 	"github.com/labstack/echo/v4"
 )
 
-// CSRF token store with TTL
 type csrfStore struct {
-	mu      sync.RWMutex
-	tokens  map[string]time.Time
-	ttl     time.Duration
+	mu     sync.RWMutex
+	tokens map[string]time.Time
+	ttl    time.Duration
 }
 
 func newCSRFStore(ttl time.Duration) *csrfStore {
@@ -63,26 +63,21 @@ func (s *csrfStore) validate(token string) bool {
 	return exists
 }
 
-// CSRF provides double-submit cookie CSRF protection.
-// For API-only backends with JWT auth, CSRF is less critical but adds defense-in-depth.
 func CSRF() echo.MiddlewareFunc {
 	store := newCSRFStore(24 * time.Hour)
 
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			// Skip for non-state-changing methods
 			method := c.Request().Method
 			if method != "POST" && method != "PUT" && method != "DELETE" {
 				return next(c)
 			}
 
-			// Skip for auth endpoints (they issue tokens)
 			path := c.Request().URL.Path
-			if path == "/api/v1/auth/login" || path == "/api/v1/auth/register" || path == "/api/v1/auth/guest-login" {
+			if path == "/api/v1/auth/login" || path == "/api/v1/auth/register" || path == "/api/v1/auth/guest-login" || path == "/api/v1/auth/room-guest-login" {
 				return next(c)
 			}
 
-			// Check for CSRF token in header or cookie
 			token := c.Request().Header.Get("X-CSRF-Token")
 			if token == "" {
 				if cookie, err := c.Cookie("csrf_token"); err == nil {
@@ -91,9 +86,7 @@ func CSRF() echo.MiddlewareFunc {
 			}
 
 			if token == "" || !store.validate(token) {
-				// For API-only backends, allow through but log warning
-				// In production with cookie-based auth, this would be a hard block
-				return next(c)
+				return response.Forbidden(c, "توکن CSRF نامعتبر یا موجود نیست")
 			}
 
 			return next(c)
@@ -101,14 +94,13 @@ func CSRF() echo.MiddlewareFunc {
 	}
 }
 
-// GenerateCSRFToken creates a new CSRF token and sets it as a cookie.
 func GenerateCSRFToken(c echo.Context, store *csrfStore) {
 	token := store.generate()
 	c.SetCookie(&http.Cookie{
 		Name:     "csrf_token",
 		Value:    token,
 		Path:     "/",
-		HttpOnly: false, // Must be readable by JavaScript for double-submit
+		HttpOnly: false,
 		SameSite: http.SameSiteStrictMode,
 		MaxAge:   86400,
 	})

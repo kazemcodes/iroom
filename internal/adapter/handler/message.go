@@ -8,9 +8,6 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// MessageHandler handles HTTP requests for chat messages.
-// Routes: GET /sessions/:id/messages, POST /sessions/:id/messages
-// Real-time delivery is handled via WebSocket (see services/ws_hub.go)
 type MessageHandler struct {
 	messageUC *usecase.MessageUseCase
 }
@@ -20,7 +17,10 @@ func NewMessageHandler(messageUC *usecase.MessageUseCase) *MessageHandler {
 }
 
 func (h *MessageHandler) Send(c echo.Context) error {
-	sessionID, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	sessionID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return response.BadRequest(c, "شناسه نامعتبر")
+	}
 	userID, _ := getUserID(c)
 
 	var req struct {
@@ -39,7 +39,10 @@ func (h *MessageHandler) Send(c echo.Context) error {
 }
 
 func (h *MessageHandler) List(c echo.Context) error {
-	sessionID, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	sessionID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return response.BadRequest(c, "شناسه نامعتبر")
+	}
 	page, _ := strconv.Atoi(c.QueryParam("page"))
 	perPage, _ := strconv.Atoi(c.QueryParam("per_page"))
 	if page < 1 {

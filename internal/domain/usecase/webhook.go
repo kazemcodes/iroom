@@ -4,11 +4,12 @@ import (
 	"fmt"
 
 	"github.com/iroom/iroom/internal/domain/entity"
+	"github.com/iroom/iroom/internal/pkg/errors"
 	repository "github.com/iroom/iroom/internal/adapter/repository/sqlite"
 )
 
 type WebhookUseCase struct {
-	webhookRepo *repository.WebhookRepo
+	webhookRepo  *repository.WebhookRepo
 	deliveryRepo *repository.WebhookDeliveryRepo
 }
 
@@ -37,10 +38,13 @@ func (uc *WebhookUseCase) ListByUser(userID int64) ([]entity.Webhook, error) {
 	return uc.webhookRepo.ListByUserID(userID)
 }
 
-func (uc *WebhookUseCase) Update(id int64, url string, events []string, isActive *bool) error {
+func (uc *WebhookUseCase) Update(id, userID int64, url string, events []string, isActive *bool) error {
 	w, err := uc.webhookRepo.GetByID(id)
 	if err != nil {
-		return fmt.Errorf("وب‌هوک یافت نشد")
+		return errors.ErrNotFound
+	}
+	if w.UserID != userID {
+		return errors.ErrForbidden
 	}
 	if url != "" {
 		w.URL = url
@@ -54,10 +58,24 @@ func (uc *WebhookUseCase) Update(id int64, url string, events []string, isActive
 	return uc.webhookRepo.Update(w)
 }
 
-func (uc *WebhookUseCase) Delete(id int64) error {
+func (uc *WebhookUseCase) Delete(id, userID int64) error {
+	w, err := uc.webhookRepo.GetByID(id)
+	if err != nil {
+		return errors.ErrNotFound
+	}
+	if w.UserID != userID {
+		return errors.ErrForbidden
+	}
 	return uc.webhookRepo.Delete(id)
 }
 
-func (uc *WebhookUseCase) ListDeliveries(webhookID int64, page, perPage int) ([]entity.WebhookDelivery, int64, error) {
+func (uc *WebhookUseCase) ListDeliveries(webhookID, userID int64, page, perPage int) ([]entity.WebhookDelivery, int64, error) {
+	w, err := uc.webhookRepo.GetByID(webhookID)
+	if err != nil {
+		return nil, 0, errors.ErrNotFound
+	}
+	if w.UserID != userID {
+		return nil, 0, errors.ErrForbidden
+	}
 	return uc.deliveryRepo.ListByWebhookID(webhookID, page, perPage)
 }

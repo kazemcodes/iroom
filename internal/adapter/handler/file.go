@@ -8,9 +8,6 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// FileHandler handles HTTP requests for file uploads and downloads.
-// Routes: POST /sessions/:id/files, GET /sessions/:id/files
-//         GET /files/:id/download, DELETE /files/:id
 type FileHandler struct {
 	fileUC *usecase.FileUseCase
 }
@@ -20,7 +17,10 @@ func NewFileHandler(fileUC *usecase.FileUseCase) *FileHandler {
 }
 
 func (h *FileHandler) Upload(c echo.Context) error {
-	sessionID, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	sessionID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return response.BadRequest(c, "شناسه نامعتبر")
+	}
 	userID, _ := getUserID(c)
 
 	file, header, err := c.Request().FormFile("file")
@@ -38,7 +38,10 @@ func (h *FileHandler) Upload(c echo.Context) error {
 }
 
 func (h *FileHandler) ListBySession(c echo.Context) error {
-	sessionID, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	sessionID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return response.BadRequest(c, "شناسه نامعتبر")
+	}
 
 	files, err := h.fileUC.ListBySession(sessionID)
 	if err != nil {
@@ -52,7 +55,10 @@ func (h *FileHandler) ListBySession(c echo.Context) error {
 }
 
 func (h *FileHandler) Download(c echo.Context) error {
-	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return response.BadRequest(c, "شناسه نامعتبر")
+	}
 	file, err := h.fileUC.GetByID(id)
 	if err != nil {
 		return response.NotFound(c, "فایل یافت نشد")
@@ -61,7 +67,10 @@ func (h *FileHandler) Download(c echo.Context) error {
 }
 
 func (h *FileHandler) Delete(c echo.Context) error {
-	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return response.BadRequest(c, "شناسه نامعتبر")
+	}
 	if err := h.fileUC.Delete(id); err != nil {
 		return response.InternalError(c, err.Error())
 	}

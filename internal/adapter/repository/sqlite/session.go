@@ -16,8 +16,8 @@ func NewSessionRepo(db *sql.DB) *SessionRepo {
 
 func (r *SessionRepo) Create(s *entity.Session) error {
 	result, err := r.db.Exec(
-		`INSERT INTO sessions (class_id, title, scheduled_at, duration) VALUES (?, ?, ?, ?)`,
-		s.ClassID, s.Title, s.ScheduledAt, s.Duration,
+		`INSERT INTO sessions (room_id, class_id, title, scheduled_at, duration) VALUES (?, ?, ?, ?, ?)`,
+		s.RoomID, s.ClassID, s.Title, s.ScheduledAt, s.Duration,
 	)
 	if err != nil {
 		return err
@@ -33,17 +33,20 @@ func (r *SessionRepo) Create(s *entity.Session) error {
 func (r *SessionRepo) GetByID(id int64) (*entity.Session, error) {
 	s := &entity.Session{}
 	err := r.db.QueryRow(
-		`SELECT id, class_id, title, scheduled_at, duration, status, livekit_room, recording_url, created_at, updated_at FROM sessions WHERE id = ?`, id,
-	).Scan(&s.ID, &s.ClassID, &s.Title, &s.ScheduledAt, &s.Duration, &s.Status, &s.LivekitRoom, &s.RecordingURL, &s.CreatedAt, &s.UpdatedAt)
+		`SELECT id, room_id, class_id, title, scheduled_at, duration, status, livekit_room, recording_url, created_at, updated_at
+		 FROM sessions WHERE id = ?`, id,
+	).Scan(&s.ID, &s.RoomID, &s.ClassID, &s.Title, &s.ScheduledAt, &s.Duration,
+		&s.Status, &s.LivekitRoom, &s.RecordingURL, &s.CreatedAt, &s.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
 	return s, nil
 }
 
-func (r *SessionRepo) ListByClass(classID int64) ([]entity.Session, error) {
+func (r *SessionRepo) ListByRoom(roomID int64) ([]entity.Session, error) {
 	rows, err := r.db.Query(
-		`SELECT id, class_id, title, scheduled_at, duration, status, livekit_room, recording_url, created_at, updated_at FROM sessions WHERE class_id = ? ORDER BY scheduled_at DESC`, classID,
+		`SELECT id, room_id, class_id, title, scheduled_at, duration, status, livekit_room, recording_url, created_at, updated_at
+		 FROM sessions WHERE room_id = ? ORDER BY scheduled_at DESC`, roomID,
 	)
 	if err != nil {
 		return nil, err
@@ -53,12 +56,17 @@ func (r *SessionRepo) ListByClass(classID int64) ([]entity.Session, error) {
 	var sessions []entity.Session
 	for rows.Next() {
 		var s entity.Session
-		if err := rows.Scan(&s.ID, &s.ClassID, &s.Title, &s.ScheduledAt, &s.Duration, &s.Status, &s.LivekitRoom, &s.RecordingURL, &s.CreatedAt, &s.UpdatedAt); err != nil {
+		if err := rows.Scan(&s.ID, &s.RoomID, &s.ClassID, &s.Title, &s.ScheduledAt, &s.Duration,
+			&s.Status, &s.LivekitRoom, &s.RecordingURL, &s.CreatedAt, &s.UpdatedAt); err != nil {
 			return nil, err
 		}
 		sessions = append(sessions, s)
 	}
 	return sessions, nil
+}
+
+func (r *SessionRepo) ListByClass(classID int64) ([]entity.Session, error) {
+	return r.ListByRoom(classID)
 }
 
 func (r *SessionRepo) ListAll(page, perPage int, search string) ([]entity.Session, int64, error) {
@@ -76,7 +84,7 @@ func (r *SessionRepo) ListAll(page, perPage int, search string) ([]entity.Sessio
 	}
 
 	offset := (page - 1) * perPage
-	query := `SELECT id, class_id, title, scheduled_at, duration, status, livekit_room, recording_url, created_at, updated_at FROM sessions WHERE 1=1`
+	query := `SELECT id, room_id, class_id, title, scheduled_at, duration, status, livekit_room, recording_url, created_at, updated_at FROM sessions WHERE 1=1`
 	if search != "" {
 		query += ` AND title LIKE ?`
 	}
@@ -92,7 +100,8 @@ func (r *SessionRepo) ListAll(page, perPage int, search string) ([]entity.Sessio
 	var sessions []entity.Session
 	for rows.Next() {
 		var s entity.Session
-		if err := rows.Scan(&s.ID, &s.ClassID, &s.Title, &s.ScheduledAt, &s.Duration, &s.Status, &s.LivekitRoom, &s.RecordingURL, &s.CreatedAt, &s.UpdatedAt); err != nil {
+		if err := rows.Scan(&s.ID, &s.RoomID, &s.ClassID, &s.Title, &s.ScheduledAt, &s.Duration,
+			&s.Status, &s.LivekitRoom, &s.RecordingURL, &s.CreatedAt, &s.UpdatedAt); err != nil {
 			return nil, 0, err
 		}
 		sessions = append(sessions, s)
@@ -128,12 +137,16 @@ func (r *SessionRepo) CountActive() (int64, error) {
 	return count, err
 }
 
+func (r *SessionRepo) CountActiveByRoom(roomID int64) (int, error) {
+	var count int
+	err := r.db.QueryRow(`SELECT COUNT(*) FROM sessions WHERE room_id = ? AND status = 'live'`, roomID).Scan(&count)
+	return count, err
+}
+
 func (r *SessionRepo) Delete(id int64) error {
 	_, err := r.db.Exec(`DELETE FROM sessions WHERE id = ?`, id)
 	return err
 }
-
-// Recurring session methods
 
 func (r *SessionRepo) CreateRecurring(rs *entity.RecurringSession) error {
 	result, err := r.db.Exec(
@@ -187,16 +200,18 @@ func (r *SessionRepo) DeleteRecurring(id int64) error {
 	return err
 }
 
-func (r *SessionRepo) GetClassBySessionID(sessionID int64) (*entity.Class, error) {
-	class := &entity.Class{}
+func (r *SessionRepo) GetRoomBySessionID(sessionID int64) (*entity.Room, error) {
+	room := &entity.Room{}
 	err := r.db.QueryRow(
-		`SELECT c.id, c.teacher_id, c.name, c.description, c.color, c.max_students, c.invite_code, c.is_archived, c.created_at, c.updated_at 
-		 FROM classes c 
-		 JOIN sessions s ON s.class_id = c.id 
+		`SELECT r.id, r.owner_id, r.name, r.description, r.color, r.slug, r.guest_login_enabled, r.max_users, r.invite_code, r.is_archived, r.created_at, r.updated_at
+		 FROM rooms r
+		 JOIN sessions s ON s.room_id = r.id
 		 WHERE s.id = ?`, sessionID,
-	).Scan(&class.ID, &class.TeacherID, &class.Name, &class.Description, &class.Color, &class.MaxStudents, &class.InviteCode, &class.IsArchived, &class.CreatedAt, &class.UpdatedAt)
+	).Scan(&room.ID, &room.OwnerID, &room.Name, &room.Description, &room.Color,
+		&room.Slug, &room.GuestLoginEnabled, &room.MaxUsers, &room.InviteCode,
+		&room.IsArchived, &room.CreatedAt, &room.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
-	return class, nil
+	return room, nil
 }

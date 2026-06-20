@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/iroom/iroom/internal/domain/entity"
+	"github.com/iroom/iroom/internal/pkg/slug"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -73,7 +74,7 @@ func TestGenerateRoomSlug(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := generateRoomSlug(tt.input)
+			result := slug.Generate(tt.input)
 			if tt.input == "" || tt.input == "@#$%^&*()" {
 				assert.Regexp(t, `^room-\d+$`, result, "fallback slug should match pattern")
 				return
@@ -84,8 +85,8 @@ func TestGenerateRoomSlug(t *testing.T) {
 }
 
 func TestGenerateRoomSlugDoubleDashCollapse(t *testing.T) {
-	slug := generateRoomSlug("a  b")
-	assert.NotContains(t, slug, "--", "double dashes should be collapsed")
+	s := slug.Generate("a  b")
+	assert.NotContains(t, s, "--", "double dashes should be collapsed")
 }
 
 func TestRoomUseCase_Create_DefaultGuestLogin(t *testing.T) {
@@ -98,7 +99,7 @@ func TestRoomUseCase_Create_DefaultGuestLogin(t *testing.T) {
 
 	uc := NewRoomUseCase(roomRepo, userRepo, sessionRepo)
 
-	room, err := uc.Create(1, "Test Room", "Description", "#FF0000")
+	room, err := uc.Create(1, "Test Room", "Description", "#FF0000", 30, "")
 	require.NoError(t, err)
 	assert.Equal(t, "Test Room", room.Name)
 	assert.Equal(t, "Description", room.Description)
@@ -118,7 +119,7 @@ func TestRoomUseCase_Create_EmptyName(t *testing.T) {
 
 	uc := NewRoomUseCase(roomRepo, userRepo, sessionRepo)
 
-	room, err := uc.Create(1, "", "Description", "#FF0000")
+	room, err := uc.Create(1, "", "Description", "#FF0000", 0, "")
 	require.NoError(t, err)
 	assert.Regexp(t, `^room-\d+$`, room.Slug, "empty name gets fallback slug")
 }
@@ -133,7 +134,7 @@ func TestRoomUseCase_GetByID(t *testing.T) {
 
 	uc := NewRoomUseCase(roomRepo, userRepo, sessionRepo)
 
-	created, err := uc.Create(1, "My Room", "Desc", "#00FF00")
+	created, err := uc.Create(1, "My Room", "Desc", "#00FF00", 50, "")
 	require.NoError(t, err)
 
 	fetched, err := uc.GetByID(created.ID)
@@ -166,7 +167,7 @@ func TestRoomUseCase_GetBySlug(t *testing.T) {
 
 	uc := NewRoomUseCase(roomRepo, userRepo, sessionRepo)
 
-	created, err := uc.Create(1, "Slug Room", "Desc", "#0000FF")
+	created, err := uc.Create(1, "Slug Room", "Desc", "#0000FF", 50, "")
 	require.NoError(t, err)
 
 	fetched, err := uc.GetBySlug(created.Slug)
@@ -185,7 +186,7 @@ func TestRoomUseCase_List(t *testing.T) {
 	uc := NewRoomUseCase(roomRepo, userRepo, sessionRepo)
 
 	for i := 0; i < 5; i++ {
-		_, err := uc.Create(1, "Room "+string(rune('A'+i)), "Desc", "#FF0000")
+		_, err := uc.Create(1, "Room "+string(rune('A'+i)), "Desc", "#FF0000", 50, "")
 		require.NoError(t, err)
 	}
 
@@ -205,8 +206,8 @@ func TestRoomUseCase_List_WithSearch(t *testing.T) {
 
 	uc := NewRoomUseCase(roomRepo, userRepo, sessionRepo)
 
-	_, _ = uc.Create(1, "Math Class", "Algebra", "#FF0000")
-	_, _ = uc.Create(1, "Science Lab", "Physics", "#00FF00")
+	_, _ = uc.Create(1, "Math Class", "Algebra", "#FF0000", 50, "")
+	_, _ = uc.Create(1, "Science Lab", "Physics", "#00FF00", 50, "")
 
 	rooms, total, err := uc.List(1, 10, "Math")
 	require.NoError(t, err)
@@ -225,15 +226,16 @@ func TestRoomUseCase_Update(t *testing.T) {
 
 	uc := NewRoomUseCase(roomRepo, userRepo, sessionRepo)
 
-	created, err := uc.Create(1, "Original", "Old Desc", "#FF0000")
+	created, err := uc.Create(1, "Original", "Old Desc", "#FF0000", 50, "")
 	require.NoError(t, err)
 
-	updated, err := uc.Update(created.ID, "Updated", "New Desc", "#00FF00", false)
+	updated, err := uc.Update(created.ID, 1, "admin", "Updated", "New Desc", "#00FF00", false, 100, "")
 	require.NoError(t, err)
 	assert.Equal(t, "Updated", updated.Name)
 	assert.Equal(t, "New Desc", updated.Description)
 	assert.Equal(t, "#00FF00", updated.Color)
 	assert.False(t, updated.GuestLoginEnabled)
+	assert.Equal(t, 100, updated.MaxUsers)
 }
 
 func TestRoomUseCase_Update_NotFound(t *testing.T) {
@@ -246,7 +248,24 @@ func TestRoomUseCase_Update_NotFound(t *testing.T) {
 
 	uc := NewRoomUseCase(roomRepo, userRepo, sessionRepo)
 
-	_, err := uc.Update(9999, "X", "X", "X", true)
+	_, err := uc.Update(9999, 1, "admin", "X", "X", "X", true, 0, "")
+	assert.Error(t, err)
+}
+
+func TestRoomUseCase_Update_Forbidden(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	roomRepo := newTestRoomRepo(t, db)
+	userRepo := newTestUserRepo(t, db)
+	sessionRepo := newTestSessionRepo(t, db)
+
+	uc := NewRoomUseCase(roomRepo, userRepo, sessionRepo)
+
+	created, err := uc.Create(1, "Original", "Desc", "#FF0000", 50, "")
+	require.NoError(t, err)
+
+	_, err = uc.Update(created.ID, 999, "student", "Hacked", "", "", true, 0, "")
 	assert.Error(t, err)
 }
 
@@ -260,13 +279,30 @@ func TestRoomUseCase_Delete(t *testing.T) {
 
 	uc := NewRoomUseCase(roomRepo, userRepo, sessionRepo)
 
-	created, err := uc.Create(1, "To Delete", "Desc", "#FF0000")
+	created, err := uc.Create(1, "To Delete", "Desc", "#FF0000", 50, "")
 	require.NoError(t, err)
 
-	err = uc.Delete(created.ID)
+	err = uc.Delete(created.ID, 1, "admin")
 	require.NoError(t, err)
 
 	_, err = uc.GetByID(created.ID)
+	assert.Error(t, err)
+}
+
+func TestRoomUseCase_Delete_Forbidden(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	roomRepo := newTestRoomRepo(t, db)
+	userRepo := newTestUserRepo(t, db)
+	sessionRepo := newTestSessionRepo(t, db)
+
+	uc := NewRoomUseCase(roomRepo, userRepo, sessionRepo)
+
+	created, err := uc.Create(1, "Protected", "Desc", "#FF0000", 50, "")
+	require.NoError(t, err)
+
+	err = uc.Delete(created.ID, 999, "student")
 	assert.Error(t, err)
 }
 
@@ -280,8 +316,8 @@ func TestRoomUseCase_AddUser(t *testing.T) {
 
 	uc := NewRoomUseCase(roomRepo, userRepo, sessionRepo)
 
-	room, _ := uc.Create(1, "Room", "Desc", "#FF0000")
-	err := uc.AddUser(room.ID, 2, "student")
+	room, _ := uc.Create(1, "Room", "Desc", "#FF0000", 50, "")
+	err := uc.AddUser(room.ID, 2, 1, "student", 1, "admin")
 	require.NoError(t, err)
 
 	count, err := uc.GetUserCount(room.ID)
@@ -299,8 +335,8 @@ func TestRoomUseCase_AddUser_DefaultRole(t *testing.T) {
 
 	uc := NewRoomUseCase(roomRepo, userRepo, sessionRepo)
 
-	room, _ := uc.Create(1, "Room", "Desc", "#FF0000")
-	err := uc.AddUser(room.ID, 3, "")
+	room, _ := uc.Create(1, "Room", "Desc", "#FF0000", 50, "")
+	err := uc.AddUser(room.ID, 3, 1, "", 1, "admin")
 	require.NoError(t, err)
 }
 
@@ -314,15 +350,32 @@ func TestRoomUseCase_RemoveUser(t *testing.T) {
 
 	uc := NewRoomUseCase(roomRepo, userRepo, sessionRepo)
 
-	room, _ := uc.Create(1, "Room", "Desc", "#FF0000")
-	_ = uc.AddUser(room.ID, 4, "student")
+	room, _ := uc.Create(1, "Room", "Desc", "#FF0000", 50, "")
+	_ = uc.AddUser(room.ID, 4, 1, "student", 1, "admin")
 
-	err := uc.RemoveUser(room.ID, 4)
+	err := uc.RemoveUser(room.ID, 4, 1, "admin")
 	require.NoError(t, err)
 
 	count, err := uc.GetUserCount(room.ID)
 	require.NoError(t, err)
 	assert.Equal(t, 0, count)
+}
+
+func TestRoomUseCase_RemoveUser_Forbidden(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	roomRepo := newTestRoomRepo(t, db)
+	userRepo := newTestUserRepo(t, db)
+	sessionRepo := newTestSessionRepo(t, db)
+
+	uc := NewRoomUseCase(roomRepo, userRepo, sessionRepo)
+
+	room, _ := uc.Create(1, "Room", "Desc", "#FF0000", 50, "")
+	_ = uc.AddUser(room.ID, 4, 1, "student", 1, "admin")
+
+	err := uc.RemoveUser(room.ID, 4, 999, "student")
+	assert.Error(t, err)
 }
 
 func TestRoomUseCase_GetUsers_Empty(t *testing.T) {
@@ -335,7 +388,7 @@ func TestRoomUseCase_GetUsers_Empty(t *testing.T) {
 
 	uc := NewRoomUseCase(roomRepo, userRepo, sessionRepo)
 
-	room, _ := uc.Create(1, "Room", "Desc", "#FF0000")
+	room, _ := uc.Create(1, "Room", "Desc", "#FF0000", 50, "")
 
 	users, err := uc.GetUsers(room.ID)
 	require.NoError(t, err)
@@ -353,7 +406,7 @@ func TestRoomUseCase_Settings(t *testing.T) {
 
 	uc := NewRoomUseCase(roomRepo, userRepo, sessionRepo)
 
-	room, _ := uc.Create(1, "Room", "Desc", "#FF0000")
+	room, _ := uc.Create(1, "Room", "Desc", "#FF0000", 50, "")
 
 	settings, err := uc.GetSettings(room.ID)
 	require.NoError(t, err)
@@ -365,7 +418,7 @@ func TestRoomUseCase_Settings(t *testing.T) {
 
 	settings.MaxUsers = 100
 	settings.AllowStudentVideo = true
-	err = uc.UpdateSettings(room.ID, settings)
+	err = uc.UpdateSettings(room.ID, 1, "admin", settings)
 	require.NoError(t, err)
 
 	fetched, err := uc.GetSettings(room.ID)
@@ -382,7 +435,7 @@ func TestRoomUseCase_Create_OwnerID_Preserved(t *testing.T) {
 	sessionRepo := newTestSessionRepo(t, db)
 	uc := NewRoomUseCase(roomRepo, userRepo, sessionRepo)
 
-	room, err := uc.Create(42, "Owner Room", "Desc", "#000")
+	room, err := uc.Create(42, "Owner Room", "Desc", "#000", 50, "")
 	require.NoError(t, err)
 	assert.Equal(t, int64(42), room.OwnerID)
 
@@ -399,11 +452,10 @@ func TestRoomUseCase_Update_PreservesUntouchedFields(t *testing.T) {
 	sessionRepo := newTestSessionRepo(t, db)
 	uc := NewRoomUseCase(roomRepo, userRepo, sessionRepo)
 
-	room, _ := uc.Create(5, "Original", "Original Desc", "#FF0000")
+	room, _ := uc.Create(5, "Original", "Original Desc", "#FF0000", 50, "")
 	assert.True(t, room.GuestLoginEnabled)
 
-	// Update only name, leave other fields empty (usecase skips empty)
-	_, err := uc.Update(room.ID, "New Name", "", "", true)
+	_, err := uc.Update(room.ID, 5, "admin", "New Name", "", "", true, 0, "")
 	require.NoError(t, err)
 
 	fetched, _ := uc.GetByID(room.ID)
@@ -421,10 +473,10 @@ func TestRoomUseCase_Update_ChangesGuestLogin(t *testing.T) {
 	sessionRepo := newTestSessionRepo(t, db)
 	uc := NewRoomUseCase(roomRepo, userRepo, sessionRepo)
 
-	room, _ := uc.Create(1, "R", "D", "#000")
+	room, _ := uc.Create(1, "R", "D", "#000", 50, "")
 	assert.True(t, room.GuestLoginEnabled)
 
-	_, err := uc.Update(room.ID, "", "", "", false)
+	_, err := uc.Update(room.ID, 1, "admin", "", "", "", false, 0, "")
 	require.NoError(t, err)
 
 	fetched, _ := uc.GetByID(room.ID)
@@ -439,12 +491,12 @@ func TestRoomUseCase_AddUser_TeacherRole_Preserved(t *testing.T) {
 	sessionRepo := newTestSessionRepo(t, db)
 	uc := NewRoomUseCase(roomRepo, userRepo, sessionRepo)
 
-	room, _ := uc.Create(1, "R", "D", "#000")
+	room, _ := uc.Create(1, "R", "D", "#000", 50, "")
 
 	u := &entity.User{Email: "teacher@test.com", DisplayName: "T", Role: "teacher"}
 	require.NoError(t, userRepo.Create(u))
 
-	err := uc.AddUser(room.ID, u.ID, "teacher")
+	err := uc.AddUser(room.ID, u.ID, 1, "teacher", 1, "admin")
 	require.NoError(t, err)
 
 	users, err := uc.GetUsers(room.ID)
@@ -461,12 +513,12 @@ func TestRoomUseCase_AddUser_StudentRole_Preserved(t *testing.T) {
 	sessionRepo := newTestSessionRepo(t, db)
 	uc := NewRoomUseCase(roomRepo, userRepo, sessionRepo)
 
-	room, _ := uc.Create(1, "R", "D", "#000")
+	room, _ := uc.Create(1, "R", "D", "#000", 50, "")
 
 	u := &entity.User{Email: "student@test.com", DisplayName: "S", Role: "student"}
 	require.NoError(t, userRepo.Create(u))
 
-	err := uc.AddUser(room.ID, u.ID, "student")
+	err := uc.AddUser(room.ID, u.ID, 1, "student", 1, "admin")
 	require.NoError(t, err)
 
 	users, err := uc.GetUsers(room.ID)
@@ -483,13 +535,12 @@ func TestRoomUseCase_GetUsers_ReturnsAllFields(t *testing.T) {
 	sessionRepo := newTestSessionRepo(t, db)
 	uc := NewRoomUseCase(roomRepo, userRepo, sessionRepo)
 
-	room, _ := uc.Create(1, "R", "D", "#000")
+	room, _ := uc.Create(1, "R", "D", "#000", 50, "")
 
-	// Create a user in the user repo
 	u := &entity.User{Email: "test@test.com", DisplayName: "Test User", Role: "teacher", IsActive: true}
 	require.NoError(t, userRepo.Create(u))
 
-	_ = uc.AddUser(room.ID, u.ID, "teacher")
+	_ = uc.AddUser(room.ID, u.ID, 1, "teacher", 1, "admin")
 
 	users, err := uc.GetUsers(room.ID)
 	require.NoError(t, err)
@@ -510,7 +561,7 @@ func TestRoomUseCase_Settings_AllFieldsRoundtrip(t *testing.T) {
 	sessionRepo := newTestSessionRepo(t, db)
 	uc := NewRoomUseCase(roomRepo, userRepo, sessionRepo)
 
-	room, _ := uc.Create(1, "R", "D", "#000")
+	room, _ := uc.Create(1, "R", "D", "#000", 50, "")
 
 	s, _ := uc.GetSettings(room.ID)
 	s.MaxUsers = 200
@@ -522,7 +573,7 @@ func TestRoomUseCase_Settings_AllFieldsRoundtrip(t *testing.T) {
 	s.AllowStudentChat = false
 	s.SessionAutoEndMinutes = 30
 	s.WaitingRoomEnabled = true
-	require.NoError(t, uc.UpdateSettings(room.ID, s))
+	require.NoError(t, uc.UpdateSettings(room.ID, 1, "admin", s))
 
 	fetched, _ := uc.GetSettings(room.ID)
 	assert.Equal(t, 200, fetched.MaxUsers)
@@ -544,7 +595,7 @@ func TestRoomUseCase_List_ReturnsAllFields(t *testing.T) {
 	sessionRepo := newTestSessionRepo(t, db)
 	uc := NewRoomUseCase(roomRepo, userRepo, sessionRepo)
 
-	created, _ := uc.Create(7, "Field Room", "A description", "#123456")
+	created, _ := uc.Create(7, "Field Room", "A description", "#123456", 50, "")
 
 	rooms, _, err := uc.List(1, 10, "")
 	require.NoError(t, err)
@@ -568,7 +619,7 @@ func TestRoomUseCase_GetBySlug_ReturnsAllFields(t *testing.T) {
 	sessionRepo := newTestSessionRepo(t, db)
 	uc := NewRoomUseCase(roomRepo, userRepo, sessionRepo)
 
-	created, _ := uc.Create(3, "Slug Full", "Desc", "#ABC")
+	created, _ := uc.Create(3, "Slug Full", "Desc", "#ABC", 50, "")
 
 	fetched, err := uc.GetBySlug(created.Slug)
 	require.NoError(t, err)
@@ -587,12 +638,63 @@ func TestRoomUseCase_Delete_RemovesRoom(t *testing.T) {
 	sessionRepo := newTestSessionRepo(t, db)
 	uc := NewRoomUseCase(roomRepo, userRepo, sessionRepo)
 
-	room, _ := uc.Create(1, "Delete Me", "Desc", "#000")
-	require.NoError(t, uc.Delete(room.ID))
+	room, _ := uc.Create(1, "Delete Me", "Desc", "#000", 50, "")
+	require.NoError(t, uc.Delete(room.ID, 1, "admin"))
 
 	_, err := uc.GetByID(room.ID)
 	assert.Error(t, err)
 
 	_, err = uc.GetBySlug(room.Slug)
 	assert.Error(t, err)
+}
+
+func TestRoomUseCase_RegenerateCode(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+	roomRepo := newTestRoomRepo(t, db)
+	userRepo := newTestUserRepo(t, db)
+	sessionRepo := newTestSessionRepo(t, db)
+	uc := NewRoomUseCase(roomRepo, userRepo, sessionRepo)
+
+	room, _ := uc.Create(1, "R", "D", "#000", 50, "")
+
+	code, err := uc.RegenerateCode(room.ID, 1, "admin")
+	require.NoError(t, err)
+	assert.NotEmpty(t, code)
+
+	// Verify the room can be found by the new code
+	found, err := uc.JoinByCode(code)
+	require.NoError(t, err)
+	assert.Equal(t, room.ID, found.ID)
+}
+
+func TestRoomUseCase_RegenerateCode_Forbidden(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+	roomRepo := newTestRoomRepo(t, db)
+	userRepo := newTestUserRepo(t, db)
+	sessionRepo := newTestSessionRepo(t, db)
+	uc := NewRoomUseCase(roomRepo, userRepo, sessionRepo)
+
+	room, _ := uc.Create(1, "R", "D", "#000", 50, "")
+
+	_, err := uc.RegenerateCode(room.ID, 999, "student")
+	assert.Error(t, err)
+}
+
+func TestRoomUseCase_GetUserRooms(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+	roomRepo := newTestRoomRepo(t, db)
+	userRepo := newTestUserRepo(t, db)
+	sessionRepo := newTestSessionRepo(t, db)
+	uc := NewRoomUseCase(roomRepo, userRepo, sessionRepo)
+
+	_, _ = uc.Create(1, "Room A", "D", "#000", 50, "")
+	_, _ = uc.Create(1, "Room B", "D", "#000", 50, "")
+	_, _ = uc.Create(2, "Other Room", "D", "#000", 50, "")
+
+	rooms, err := uc.GetUserRooms(1)
+	require.NoError(t, err)
+	assert.Len(t, rooms, 2)
 }

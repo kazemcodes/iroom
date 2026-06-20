@@ -8,14 +8,6 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// WebRTCHandler handles WebRTC signaling for classroom video/audio.
-// Routes: GET /sessions/:id/classroom (join info)
-//         POST /sessions/:id/classroom/offer (SDP offer)
-//         POST /sessions/:id/classroom/candidate (ICE candidate)
-//         DELETE /sessions/:id/classroom/:userId (leave room)
-//         GET /sessions/:id/classroom/participants
-//         POST /sessions/:id/classroom/mute/:participantId
-//         POST /sessions/:id/classroom/kick/:participantId
 type WebRTCHandler struct {
 	signaling *webrtc.SignalingServer
 }
@@ -86,15 +78,24 @@ func (h *WebRTCHandler) MuteParticipant(c echo.Context) error {
 		return response.Forbidden(c, "فقط مدیر و مدرس اجازه دسترسی دارند")
 	}
 
-	participant := h.signaling.GetRoomManager().GetParticipant(roomID, participantID)
-	if participant == nil {
+	room := h.signaling.GetRoom(roomID)
+	if room == nil {
+		return response.NotFound(c, "اتاق یافت نشد")
+	}
+
+	isMuted, ok := room.ToggleParticipantMute(participantID)
+	if !ok {
 		return response.NotFound(c, "شرکت‌کننده یافت نشد")
 	}
 
-	participant.IsMuted = !participant.IsMuted
+	h.signaling.BroadcastToRoom(roomID, map[string]interface{}{
+		"type":     "participant_muted",
+		"user_id":  participantID,
+		"is_muted": isMuted,
+	})
 
 	return response.Success(c, map[string]interface{}{
-		"is_muted": participant.IsMuted,
+		"is_muted": isMuted,
 	})
 }
 
@@ -115,6 +116,11 @@ func (h *WebRTCHandler) KickParticipant(c echo.Context) error {
 	if participant == nil {
 		return response.NotFound(c, "شرکت‌کننده یافت نشد")
 	}
+
+	h.signaling.BroadcastToRoom(roomID, map[string]interface{}{
+		"type":    "participant_kicked",
+		"user_id": participantID,
+	})
 
 	h.signaling.GetRoomManager().RemoveParticipant(roomID, participantID)
 

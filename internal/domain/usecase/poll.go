@@ -4,18 +4,32 @@ import (
 	"fmt"
 
 	"github.com/iroom/iroom/internal/domain/entity"
+	"github.com/iroom/iroom/internal/pkg/errors"
 	repository "github.com/iroom/iroom/internal/adapter/repository/sqlite"
 )
 
 type PollUseCase struct {
-	pollRepo *repository.PollRepo
+	pollRepo    *repository.PollRepo
+	sessionRepo *repository.SessionRepo
+	roomRepo    *repository.RoomRepo
 }
 
-func NewPollUseCase(pollRepo *repository.PollRepo) *PollUseCase {
-	return &PollUseCase{pollRepo: pollRepo}
+func NewPollUseCase(pollRepo *repository.PollRepo, sessionRepo *repository.SessionRepo, roomRepo *repository.RoomRepo) *PollUseCase {
+	return &PollUseCase{pollRepo: pollRepo, sessionRepo: sessionRepo, roomRepo: roomRepo}
 }
 
-func (uc *PollUseCase) Create(sessionID int64, question, options string) (*entity.Poll, error) {
+func (uc *PollUseCase) Create(sessionID, actorID int64, role, question, options string) (*entity.Poll, error) {
+	session, err := uc.sessionRepo.GetByID(sessionID)
+	if err != nil {
+		return nil, errors.ErrNotFound
+	}
+	room, err := uc.roomRepo.GetByID(session.RoomID)
+	if err != nil {
+		return nil, errors.ErrNotFound
+	}
+	if room.OwnerID != actorID && role != "admin" {
+		return nil, errors.ErrForbidden
+	}
 	p := &entity.Poll{
 		SessionID: sessionID,
 		Question:  question,
@@ -45,6 +59,21 @@ func (uc *PollUseCase) GetResults(pollID int64) (*entity.PollResults, error) {
 	return uc.pollRepo.GetResults(pollID)
 }
 
-func (uc *PollUseCase) Close(pollID int64) error {
+func (uc *PollUseCase) Close(pollID, actorID int64, role string) error {
+	poll, err := uc.pollRepo.GetByID(pollID)
+	if err != nil {
+		return errors.ErrNotFound
+	}
+	session, err := uc.sessionRepo.GetByID(poll.SessionID)
+	if err != nil {
+		return errors.ErrNotFound
+	}
+	room, err := uc.roomRepo.GetByID(session.RoomID)
+	if err != nil {
+		return errors.ErrNotFound
+	}
+	if room.OwnerID != actorID && role != "admin" {
+		return errors.ErrForbidden
+	}
 	return uc.pollRepo.Close(pollID)
 }

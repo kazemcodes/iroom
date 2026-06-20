@@ -205,7 +205,9 @@ func (uc *AuthUseCase) RoomGuestLogin(roomSlug, displayName string) (*entity.Use
 	}
 
 	// Auto-enroll guest in the room
-	_ = uc.roomRepo.AddUser(room.ID, guestUser.ID, "student")
+	if err := uc.roomRepo.AddUser(room.ID, guestUser.ID, "student", 1); err != nil {
+		slog.Error("room guest login: failed to enroll guest", "error", err)
+	}
 
 	tokens, err := uc.generateTokens(guestUser)
 	if err != nil {

@@ -10,12 +10,11 @@ import (
 type FileUseCase struct {
 	fileRepo    *repository.FileRepo
 	sessionRepo *repository.SessionRepo
-	classRepo   *repository.ClassRepo
 	uploadDir   string
 }
 
-func NewFileUseCase(fileRepo *repository.FileRepo, sessionRepo *repository.SessionRepo, classRepo *repository.ClassRepo, uploadDir string) *FileUseCase {
-	return &FileUseCase{fileRepo: fileRepo, sessionRepo: sessionRepo, classRepo: classRepo, uploadDir: uploadDir}
+func NewFileUseCase(fileRepo *repository.FileRepo, sessionRepo *repository.SessionRepo, uploadDir string) *FileUseCase {
+	return &FileUseCase{fileRepo: fileRepo, sessionRepo: sessionRepo, uploadDir: uploadDir}
 }
 
 func (uc *FileUseCase) Upload(sessionID, userID int64, filename, filepath string, filesize int64) (*entity.File, error) {
@@ -27,7 +26,7 @@ func (uc *FileUseCase) Upload(sessionID, userID int64, filename, filepath string
 		Filesize:   filesize,
 	}
 	if err := uc.fileRepo.Create(f); err != nil {
-		return nil, fmt.Errorf("خطا در آپلود فایل")
+		return nil, fmt.Errorf("failed to upload file: %w", err)
 	}
 	return f, nil
 }

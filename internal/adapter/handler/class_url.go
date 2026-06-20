@@ -10,37 +10,36 @@ import (
 )
 
 type ClassURLHandler struct {
-	classUC *usecase.ClassUseCase
-	userUC  *usecase.UserUseCase
+	roomUC *usecase.RoomUseCase
+	userUC *usecase.UserUseCase
 }
 
-func NewClassURLHandler(classUC *usecase.ClassUseCase, userUC *usecase.UserUseCase) *ClassURLHandler {
-	return &ClassURLHandler{classUC: classUC, userUC: userUC}
+func NewClassURLHandler(roomUC *usecase.RoomUseCase, userUC *usecase.UserUseCase) *ClassURLHandler {
+	return &ClassURLHandler{roomUC: roomUC, userUC: userUC}
 }
 
-// ResolveSlug resolves a class slug to its join URL.
-// Skyroom-style: /user-name/class-name/
+// ResolveSlug resolves a room slug to its join URL.
+// Skyroom-style: /user-name/room-name/
 func (h *ClassURLHandler) ResolveSlug(c echo.Context) error {
 	slug := c.Param("slug")
 	if slug == "" {
-		return response.BadRequest(c, "شناسه کلاس نامعتبر")
+		return response.BadRequest(c, "شناسه اتاق نامعتبر")
 	}
 
-	class, err := h.classUC.GetBySlug(slug)
+	room, err := h.roomUC.GetBySlug(slug)
 	if err != nil {
-		return response.NotFound(c, "کلاس یافت نشد")
+		return response.NotFound(c, "اتاق یافت نشد")
 	}
 
-	teacher, err := h.userUC.GetByID(class.TeacherID)
+	teacher, err := h.userUC.GetByID(room.OwnerID)
 	teacherSlug := "admin"
 	if err == nil && teacher != nil {
-		// Use email prefix as username
 		teacherSlug = strings.Split(teacher.Email, "@")[0]
 	}
 
 	return response.Success(c, map[string]interface{}{
-		"id":   class.ID,
-		"name": class.Name,
-		"url":  fmt.Sprintf("/%s/%s", teacherSlug, class.Slug),
+		"id":   room.ID,
+		"name": room.Name,
+		"url":  fmt.Sprintf("/%s/%s", teacherSlug, room.Slug),
 	})
 }

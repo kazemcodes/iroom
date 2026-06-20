@@ -1,46 +1,3 @@
-// IRoom Server — Open-source Iranian-style online classroom platform.
-//
-// Architecture: Clean Architecture (Domain → Adapter → Infrastructure)
-//
-// Dependency flow:
-//
-//	domain/entity      (Business objects, zero dependencies)
-//	domain/usecase     (Business logic, depends on entity + adapter/repository)
-//	adapter/handler    (HTTP handlers, depends on usecase)
-//	adapter/repository (SQLite implementations, depends on entity)
-//	infrastructure     (JWT, hash, TOTP implementations)
-//
-// All wiring happens here in main.go — no circular dependencies.
-//
-// API Routes:
-//
-//	Public:
-//	  GET  /api/v1/health                    — Health check
-//	  GET  /api/v1/sessions/:id/info         — Public session info (no auth)
-//	  POST /api/v1/auth/register             — Create account
-//	  POST /api/v1/auth/login                — Email/password login
-//	  POST /api/v1/auth/guest-login          — Guest login for class joining
-//	  POST /api/v1/auth/refresh              — Refresh JWT token
-//	  POST /api/v1/auth/create-login-url     — Generate direct login URL
-//
-//	Protected (requires JWT):
-//	  GET    /api/v1/auth/me                 — Current user info
-//	  GET    /api/v1/classes                 — List classes
-//	  POST   /api/v1/classes                 — Create class
-//	  GET    /api/v1/sessions                — List sessions
-//	  POST   /api/v1/sessions                — Create session
-//	  POST   /api/v1/sessions/:id/start      — Start session (teacher/admin)
-//	  POST   /api/v1/sessions/:id/end        — End session (teacher/admin)
-//	  POST   /api/v1/sessions/:id/messages   — Send chat message
-//	  WS     /ws/sessions/:id                — Real-time chat
-//	  POST   /api/v1/sessions/:id/classroom/offer   — WebRTC SDP offer
-//	  POST   /api/v1/sessions/:id/classroom/candidate — WebRTC ICE candidate
-//
-//	Admin only (requires JWT + admin role):
-//	  GET  /api/v1/admin/dashboard/stats     — System statistics
-//	  GET  /api/v1/admin/users               — List users
-//	  GET  /api/v1/admin/settings            — Get settings
-//	  PUT  /api/v1/admin/settings            — Update settings
 package main
 
 import (
@@ -81,13 +38,10 @@ func main() {
 		slog.Error("failed to seed database", "error", err)
 	}
 
-	// Infrastructure
 	tokenProvider := infrastructure.NewJWTProvider(cfg.JWT.Secret)
 	passwordHasher := infrastructure.NewBcryptHasher()
 
-	// Repositories (adapter implementations of domain interfaces)
 	userRepo := sqliteRepo.NewUserRepo(db)
-	classRepo := sqliteRepo.NewClassRepo(db)
 	sessionRepo := sqliteRepo.NewSessionRepo(db)
 	messageRepo := sqliteRepo.NewMessageRepo(db)
 	fileRepo := sqliteRepo.NewFileRepo(db)
@@ -98,26 +52,22 @@ func main() {
 	webhookRepo := sqliteRepo.NewWebhookRepo(db)
 	roomRepo := sqliteRepo.NewRoomRepo(db)
 
-	// Use Cases (business logic)
 	authUC := usecase.NewAuthUseCase(userRepo, sessionRepo, roomRepo, tokenProvider, passwordHasher, cfg.JWT.AccessExpiry, cfg.JWT.RefreshExpiry)
-	classUC := usecase.NewClassUseCase(classRepo, sessionRepo, userRepo)
-	sessionUC := usecase.NewSessionUseCase(sessionRepo, classRepo)
+	sessionUC := usecase.NewSessionUseCase(sessionRepo, roomRepo)
 	messageUC := usecase.NewMessageUseCase(messageRepo)
-	fileUC := usecase.NewFileUseCase(fileRepo, sessionRepo, classRepo, cfg.Upload.UploadDir)
-	recordingUC := usecase.NewRecordingUseCase(recordingRepo, sessionRepo, classRepo, cfg.Upload.UploadDir)
-	announcementUC := usecase.NewAnnouncementUseCase(sqliteRepo.NewAnnouncementRepo(db), classRepo)
-	pollUC := usecase.NewPollUseCase(sqliteRepo.NewPollRepo(db))
+	fileUC := usecase.NewFileUseCase(fileRepo, sessionRepo, cfg.Upload.UploadDir)
+	recordingUC := usecase.NewRecordingUseCase(recordingRepo, sessionRepo, cfg.Upload.UploadDir)
+	announcementUC := usecase.NewAnnouncementUseCase(sqliteRepo.NewAnnouncementRepo(db), roomRepo)
+	pollUC := usecase.NewPollUseCase(sqliteRepo.NewPollRepo(db), sessionRepo, roomRepo)
 	notificationUC := usecase.NewNotificationUseCase(notificationRepo)
 	settingsUC := usecase.NewSettingsUseCase(settingsRepo)
 	dashboardUC := usecase.NewDashboardUseCase(userRepo, roomRepo, sessionRepo, recordingRepo)
-	userUC := usecase.NewUserUseCase(userRepo, classRepo, passwordHasher)
+	userUC := usecase.NewUserUseCase(userRepo, passwordHasher)
 	webhookDeliveryRepo := sqliteRepo.NewWebhookDeliveryRepo(db)
 	webhookUC := usecase.NewWebhookUseCase(webhookRepo, webhookDeliveryRepo)
 	roomUC := usecase.NewRoomUseCase(roomRepo, userRepo, sessionRepo)
 
-	// Handlers
 	authHandler := handler.NewAuthHandler(authUC)
-	classHandler := handler.NewClassHandler(classUC)
 	sessionHandler := handler.NewSessionHandler(sessionUC)
 	messageHandler := handler.NewMessageHandler(messageUC)
 	fileHandler := handler.NewFileHandler(fileUC)
@@ -129,11 +79,10 @@ func main() {
 	dashboardHandler := handler.NewDashboardHandler(dashboardUC)
 	userHandler := handler.NewUserHandler(userUC)
 	webhookHandler := handler.NewWebhookHandler(webhookUC)
-	roomHandler := handler.NewRoomHandler(roomUC)
+	roomHandler := handler.NewRoomHandler(roomUC, sessionUC)
 	activityLogHandler := handler.NewActivityLogHandler(logRepo)
 	healthHandler := handler.NewHealthHandler(db, cfg.Database.Path)
 
-	// WebRTC
 	rtcConfig := webrtc.Configuration{
 		ICEServers: []webrtc.ICEServer{
 			{URLs: []string{"stun:stun.l.google.com:19302"}},
@@ -142,7 +91,8 @@ func main() {
 	signaling := iroomwebrtc.NewSignalingServer(rtcConfig)
 	webrtcHandler := handler.NewWebRTCHandler(signaling)
 
-	// Echo
+	classURLHandler := handler.NewClassURLHandler(roomUC, userUC)
+
 	e := echo.New()
 	e.HideBanner = true
 	e.Use(echoMiddleware.Logger())
@@ -154,20 +104,11 @@ func main() {
 	e.Use(middleware.CSRF())
 	e.Use(middleware.AuditLog(logRepo))
 
-	// Health
 	e.GET("/api/v1/health", healthHandler.Health)
-
-	// Public session info
 	e.GET("/api/v1/sessions/:id/info", sessionHandler.GetPublicInfo)
-
-	// Public room info (no auth required)
-	e.GET("/api/v1/rooms/slug/:slug", roomHandler.GetInfo)
-
-	// Class URL resolution (Skyroom-style /ch-{org}/{slug}/)
-	classURLHandler := handler.NewClassURLHandler(classUC, userUC)
+	e.GET("/api/v1/rooms/slug/:slug", roomHandler.GetBySlug)
 	e.GET("/api/v1/classes/slug/:slug", classURLHandler.ResolveSlug)
 
-	// Auth (with stricter rate limit)
 	authGroup := e.Group("/api/v1/auth")
 	authGroup.Use(middleware.AuthRateLimit())
 	authGroup.POST("/register", authHandler.Register)
@@ -183,32 +124,14 @@ func main() {
 		return response.Success(c, map[string]string{"message": "رمز عبور بازنشانی شد"})
 	})
 
-	// Protected routes
 	api := e.Group("/api/v1")
 	api.Use(middleware.Auth(cfg.JWT.Secret))
 
-	// Profile
 	api.GET("/auth/me", authHandler.Me)
 	api.PUT("/auth/me", func(c echo.Context) error { return response.Success(c, map[string]string{"message": "بروزرسانی شد"}) })
 	api.POST("/auth/change-password", userHandler.ChangeOwnPassword)
 	api.POST("/auth/avatar", func(c echo.Context) error { return response.Success(c, map[string]string{"message": "آپلود شد"}) })
 
-	// Classes
-	api.GET("/classes", classHandler.List)
-	api.GET("/classes/:id", classHandler.GetByID)
-	api.POST("/classes", classHandler.Create)
-	api.PUT("/classes/:id", classHandler.Update)
-	api.DELETE("/classes/:id", classHandler.Delete)
-	api.POST("/classes/:id/enroll", classHandler.Enroll)
-	api.DELETE("/classes/:id/users/:userId", classHandler.RemoveUser)
-	api.PUT("/classes/:id/users/:userId", classHandler.UpdateUserAccess)
-	api.GET("/classes/:id/students", classHandler.GetStudents)
-	api.GET("/classes/:id/url", classHandler.GetURL)
-	api.POST("/classes/:id/regenerate-code", classHandler.RegenerateCode)
-	api.POST("/classes/join/:code", classHandler.JoinByCode)
-	api.GET("/users/:id/rooms", classHandler.GetUserRooms)
-
-	// Rooms
 	api.GET("/rooms", roomHandler.List)
 	api.GET("/rooms/:id", roomHandler.GetByID)
 	api.POST("/rooms", roomHandler.Create)
@@ -217,24 +140,25 @@ func main() {
 	api.GET("/rooms/:id/users", roomHandler.GetUsers)
 	api.POST("/rooms/:id/users", roomHandler.AddUser)
 	api.DELETE("/rooms/:id/users/:userId", roomHandler.RemoveUser)
+	api.PUT("/rooms/:id/users/:userId", roomHandler.UpdateUserAccess)
 	api.GET("/rooms/:id/settings", roomHandler.GetSettings)
 	api.PUT("/rooms/:id/settings", roomHandler.UpdateSettings)
+	api.POST("/rooms/:id/regenerate-code", roomHandler.RegenerateCode)
+	api.POST("/rooms/join/:code", roomHandler.JoinByCode)
+	api.GET("/users/:id/rooms", roomHandler.GetUserRooms)
 
-	// Announcements
-	api.POST("/classes/:id/announcements", announcementHandler.Create)
-	api.GET("/classes/:id/announcements", announcementHandler.List)
+	api.POST("/rooms/:id/announcements", announcementHandler.Create)
+	api.GET("/rooms/:id/announcements", announcementHandler.List)
 	api.PUT("/announcements/:id", announcementHandler.Update)
 	api.DELETE("/announcements/:id", announcementHandler.Delete)
 	api.POST("/announcements/:id/pin", announcementHandler.Pin)
 
-	// Polls
 	api.POST("/sessions/:id/polls", pollHandler.Create)
 	api.GET("/sessions/:id/polls", pollHandler.List)
 	api.POST("/polls/:id/vote", pollHandler.Vote)
 	api.GET("/polls/:id/results", pollHandler.Results)
 	api.POST("/polls/:id/close", pollHandler.Close)
 
-	// Sessions
 	api.GET("/sessions", sessionHandler.List)
 	api.POST("/sessions", sessionHandler.Create)
 	api.GET("/sessions/:id", sessionHandler.GetByID)
@@ -242,7 +166,6 @@ func main() {
 	api.POST("/sessions/:id/end", sessionHandler.End)
 	api.DELETE("/sessions/:id", sessionHandler.Delete)
 
-	// WebRTC
 	api.GET("/sessions/:id/classroom", webrtcHandler.GetJoinInfo)
 	api.POST("/sessions/:id/classroom/offer", webrtcHandler.HandleOffer)
 	api.POST("/sessions/:id/classroom/candidate", webrtcHandler.HandleCandidate)
@@ -252,39 +175,31 @@ func main() {
 	api.POST("/sessions/:id/classroom/kick/:participantId", webrtcHandler.KickParticipant)
 	api.GET("/sessions/:id/classroom/info", webrtcHandler.HandleRoomInfo)
 
-	// Messages
 	api.GET("/sessions/:id/messages", messageHandler.List)
 	api.POST("/sessions/:id/messages", messageHandler.Send)
 
-	// Chat WebSocket
 	chatHandler := handler.NewChatHandler(messageRepo, cfg.JWT.Secret)
 	wsGroup := e.Group("/ws")
 	wsGroup.Use(middleware.RateLimit(30, time.Minute))
 	wsGroup.GET("/sessions/:id", chatHandler.HandleWS)
-
-	// Notifications/Presence WebSocket
 	wsGroup.GET("", func(c echo.Context) error {
 		return response.Success(c, map[string]string{"message": "WebSocket"})
 	})
 
-	// Files
 	api.POST("/sessions/:id/files", fileHandler.Upload)
 	api.GET("/sessions/:id/files", fileHandler.ListBySession)
 	api.GET("/files/:id/download", fileHandler.Download)
 	api.DELETE("/files/:id", fileHandler.Delete)
 
-	// Recordings
 	api.POST("/sessions/:id/recordings", recordingHandler.Upload)
 	api.GET("/sessions/:id/recordings", recordingHandler.ListBySession)
 	api.GET("/recordings/:id/download", recordingHandler.Download)
 
-	// Notifications
 	api.GET("/notifications", notificationHandler.List)
 	api.GET("/notifications/unread-count", notificationHandler.UnreadCount)
 	api.POST("/notifications/:id/read", notificationHandler.MarkRead)
 	api.POST("/notifications/read-all", notificationHandler.MarkAllRead)
 
-	// Admin
 	admin := api.Group("/admin")
 	admin.Use(middleware.AdminOnly())
 	admin.GET("/dashboard/stats", dashboardHandler.Stats)
@@ -294,10 +209,6 @@ func main() {
 	admin.PUT("/users/:id", userHandler.Update)
 	admin.DELETE("/users/:id", userHandler.Deactivate)
 	admin.POST("/users/:id/reset-password", userHandler.ResetPassword)
-	admin.GET("/classes", classHandler.List)
-	admin.POST("/classes", classHandler.Create)
-	admin.PUT("/classes/:id", classHandler.Update)
-	admin.DELETE("/classes/:id", classHandler.Delete)
 	admin.GET("/rooms", roomHandler.List)
 	admin.POST("/rooms", roomHandler.Create)
 	admin.PUT("/rooms/:id", roomHandler.Update)
@@ -310,7 +221,6 @@ func main() {
 	admin.DELETE("/sessions/:id", sessionHandler.Delete)
 	admin.GET("/recordings", recordingHandler.ListAll)
 	admin.DELETE("/recordings/:id", recordingHandler.Delete)
-	admin.GET("/logs", activityLogHandler.List)
 	admin.GET("/activity-logs", activityLogHandler.List)
 	admin.PUT("/settings", settingsHandler.Update)
 	admin.GET("/settings", settingsHandler.Get)

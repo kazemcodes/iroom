@@ -10,11 +10,12 @@ import (
 )
 
 type RoomHandler struct {
-	roomUC *usecase.RoomUseCase
+	roomUC      *usecase.RoomUseCase
+	sessionUC   *usecase.SessionUseCase
 }
 
-func NewRoomHandler(roomUC *usecase.RoomUseCase) *RoomHandler {
-	return &RoomHandler{roomUC: roomUC}
+func NewRoomHandler(roomUC *usecase.RoomUseCase, sessionUC *usecase.SessionUseCase) *RoomHandler {
+	return &RoomHandler{roomUC: roomUC, sessionUC: sessionUC}
 }
 
 func (h *RoomHandler) Create(c echo.Context) error {
@@ -22,6 +23,8 @@ func (h *RoomHandler) Create(c echo.Context) error {
 		Name        string `json:"name"`
 		Description string `json:"description"`
 		Color       string `json:"color"`
+		MaxUsers    int    `json:"max_users"`
+		InviteCode  string `json:"invite_code"`
 	}
 	if err := c.Bind(&req); err != nil {
 		return response.BadRequest(c, "داده‌های نامعتبر")
@@ -34,7 +37,7 @@ func (h *RoomHandler) Create(c echo.Context) error {
 	if !ok {
 		return response.Unauthorized(c, "احراز هویت نامعتبر")
 	}
-	room, err := h.roomUC.Create(userID, req.Name, req.Description, req.Color)
+	room, err := h.roomUC.Create(userID, req.Name, req.Description, req.Color, req.MaxUsers, req.InviteCode)
 	if err != nil {
 		return response.InternalError(c, err.Error())
 	}
@@ -96,6 +99,8 @@ func (h *RoomHandler) Update(c echo.Context) error {
 		Description       string `json:"description"`
 		Color             string `json:"color"`
 		GuestLoginEnabled *bool  `json:"guest_login_enabled"`
+		MaxUsers          int    `json:"max_users"`
+		InviteCode        string `json:"invite_code"`
 	}
 	if err := c.Bind(&req); err != nil {
 		return response.BadRequest(c, "داده‌های نامعتبر")
@@ -106,9 +111,11 @@ func (h *RoomHandler) Update(c echo.Context) error {
 		guestLogin = *req.GuestLoginEnabled
 	}
 
-	room, err := h.roomUC.Update(id, req.Name, req.Description, req.Color, guestLogin)
+	userID, _ := getUserID(c)
+	role := getUserRole(c)
+	room, err := h.roomUC.Update(id, userID, role, req.Name, req.Description, req.Color, guestLogin, req.MaxUsers, req.InviteCode)
 	if err != nil {
-		return response.InternalError(c, err.Error())
+		return response.Forbidden(c, err.Error())
 	}
 	return response.Success(c, room)
 }
@@ -118,8 +125,10 @@ func (h *RoomHandler) Delete(c echo.Context) error {
 	if err != nil {
 		return response.BadRequest(c, "شناسه نامعتبر")
 	}
-	if err := h.roomUC.Delete(id); err != nil {
-		return response.InternalError(c, err.Error())
+	userID, _ := getUserID(c)
+	role := getUserRole(c)
+	if err := h.roomUC.Delete(id, userID, role); err != nil {
+		return response.Forbidden(c, err.Error())
 	}
 	return response.Success(c, map[string]string{"message": "اتاق حذف شد"})
 }
@@ -132,12 +141,15 @@ func (h *RoomHandler) AddUser(c echo.Context) error {
 	var req struct {
 		UserID int64  `json:"user_id"`
 		Role   string `json:"role"`
+		Access int    `json:"access"`
 	}
 	if err := c.Bind(&req); err != nil {
 		return response.BadRequest(c, "داده‌های نامعتبر")
 	}
-	if err := h.roomUC.AddUser(roomID, req.UserID, req.Role); err != nil {
-		return response.InternalError(c, err.Error())
+	actorID, _ := getUserID(c)
+	role := getUserRole(c)
+	if err := h.roomUC.AddUser(roomID, req.UserID, actorID, req.Role, req.Access, role); err != nil {
+		return response.Forbidden(c, err.Error())
 	}
 	return response.Success(c, map[string]string{"message": "کاربر اضافه شد"})
 }
@@ -151,10 +163,35 @@ func (h *RoomHandler) RemoveUser(c echo.Context) error {
 	if err != nil {
 		return response.BadRequest(c, "شناسه کاربر نامعتبر")
 	}
-	if err := h.roomUC.RemoveUser(roomID, userID); err != nil {
-		return response.InternalError(c, err.Error())
+	actorID, _ := getUserID(c)
+	role := getUserRole(c)
+	if err := h.roomUC.RemoveUser(roomID, userID, actorID, role); err != nil {
+		return response.Forbidden(c, err.Error())
 	}
 	return response.Success(c, map[string]string{"message": "کاربر حذف شد"})
+}
+
+func (h *RoomHandler) UpdateUserAccess(c echo.Context) error {
+	roomID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return response.BadRequest(c, "شناسه نامعتبر")
+	}
+	userID, err := strconv.ParseInt(c.Param("userId"), 10, 64)
+	if err != nil {
+		return response.BadRequest(c, "شناسه کاربر نامعتبر")
+	}
+	var req struct {
+		Access int `json:"access"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return response.BadRequest(c, "داده‌های نامعتبر")
+	}
+	actorID, _ := getUserID(c)
+	role := getUserRole(c)
+	if err := h.roomUC.UpdateUserAccess(roomID, userID, actorID, role, req.Access); err != nil {
+		return response.Forbidden(c, err.Error())
+	}
+	return response.Success(c, map[string]int{"access": req.Access})
 }
 
 func (h *RoomHandler) GetUsers(c echo.Context) error {
@@ -177,7 +214,7 @@ func (h *RoomHandler) GetInfo(c echo.Context) error {
 	}
 
 	userCount, _ := h.roomUC.GetUserCount(room.ID)
-	activeSessions, _ := h.roomUC.GetActiveSessionCount(room.ID)
+	activeSessions, _ := h.sessionUC.CountActiveByRoom(room.ID)
 
 	return response.Success(c, map[string]interface{}{
 		"room":            room,
@@ -219,7 +256,9 @@ func (h *RoomHandler) UpdateSettings(c echo.Context) error {
 		return response.BadRequest(c, "داده‌های نامعتبر")
 	}
 
-	if err := h.roomUC.UpdateSettings(id, &entity.RoomSettings{
+	userID, _ := getUserID(c)
+	role := getUserRole(c)
+	if err := h.roomUC.UpdateSettings(id, userID, role, &entity.RoomSettings{
 		RoomID:                  id,
 		MaxUsers:                req.MaxUsers,
 		RecordingEnabled:        req.RecordingEnabled,
@@ -231,8 +270,48 @@ func (h *RoomHandler) UpdateSettings(c echo.Context) error {
 		SessionAutoEndMinutes:   req.SessionAutoEndMinutes,
 		WaitingRoomEnabled:      req.WaitingRoomEnabled,
 	}); err != nil {
-		return response.InternalError(c, err.Error())
+		return response.Forbidden(c, err.Error())
 	}
 
 	return response.Success(c, map[string]string{"message": "تنظیمات بروزرسانی شد"})
+}
+
+func (h *RoomHandler) RegenerateCode(c echo.Context) error {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return response.BadRequest(c, "شناسه نامعتبر")
+	}
+	userID, _ := getUserID(c)
+	role := getUserRole(c)
+	code, err := h.roomUC.RegenerateCode(id, userID, role)
+	if err != nil {
+		return response.Forbidden(c, err.Error())
+	}
+	return response.Success(c, map[string]string{"code": code})
+}
+
+func (h *RoomHandler) JoinByCode(c echo.Context) error {
+	code := c.Param("code")
+	room, err := h.roomUC.JoinByCode(code)
+	if err != nil {
+		return response.NotFound(c, err.Error())
+	}
+	return response.Success(c, room)
+}
+
+func (h *RoomHandler) GetUserRooms(c echo.Context) error {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return response.BadRequest(c, "شناسه نامعتبر")
+	}
+	authID, _ := getUserID(c)
+	role := getUserRole(c)
+	if id != authID && role != "admin" {
+		return response.Forbidden(c, "دسترسی غیرمجاز")
+	}
+	rooms, err := h.roomUC.GetUserRooms(id)
+	if err != nil {
+		return response.InternalError(c, err.Error())
+	}
+	return response.Success(c, rooms)
 }

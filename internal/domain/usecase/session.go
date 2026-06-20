@@ -4,27 +4,31 @@ import (
 	"fmt"
 
 	"github.com/iroom/iroom/internal/domain/entity"
+	"github.com/iroom/iroom/internal/pkg/errors"
 	repository "github.com/iroom/iroom/internal/adapter/repository/sqlite"
 )
 
 type SessionUseCase struct {
 	sessionRepo *repository.SessionRepo
-	classRepo   *repository.ClassRepo
+	roomRepo    *repository.RoomRepo
 }
 
-func NewSessionUseCase(sessionRepo *repository.SessionRepo, classRepo *repository.ClassRepo) *SessionUseCase {
-	return &SessionUseCase{sessionRepo: sessionRepo, classRepo: classRepo}
+func NewSessionUseCase(sessionRepo *repository.SessionRepo, roomRepo *repository.RoomRepo) *SessionUseCase {
+	return &SessionUseCase{sessionRepo: sessionRepo, roomRepo: roomRepo}
 }
 
-func (uc *SessionUseCase) Create(classID int64, title, scheduledAt string, duration int) (*entity.Session, error) {
+func (uc *SessionUseCase) Create(roomID int64, title, scheduledAt string, duration int) (*entity.Session, error) {
+	if _, err := uc.roomRepo.GetByID(roomID); err != nil {
+		return nil, errors.ErrNotFound
+	}
 	s := &entity.Session{
-		ClassID:     classID,
-		Title:       title,
-		Duration:    duration,
-		Status:      entity.SessionScheduled,
+		RoomID:    roomID,
+		Title:     title,
+		Duration:  duration,
+		Status:    entity.SessionScheduled,
 	}
 	if err := uc.sessionRepo.Create(s); err != nil {
-		return nil, fmt.Errorf("خطا در ایجاد جلسه")
+		return nil, fmt.Errorf("failed to create session: %w", err)
 	}
 	return s, nil
 }
@@ -32,14 +36,14 @@ func (uc *SessionUseCase) Create(classID int64, title, scheduledAt string, durat
 func (uc *SessionUseCase) GetByID(id int64) (*entity.Session, error) {
 	s, err := uc.sessionRepo.GetByID(id)
 	if err != nil {
-		return nil, fmt.Errorf("جلسه یافت نشد")
+		return nil, errors.ErrNotFound
 	}
 	return s, nil
 }
 
-func (uc *SessionUseCase) List(classID int64, page, perPage int, search string) ([]entity.Session, int64, error) {
-	if classID > 0 {
-		sessions, err := uc.sessionRepo.ListByClass(classID)
+func (uc *SessionUseCase) List(roomID int64, page, perPage int, search string) ([]entity.Session, int64, error) {
+	if roomID > 0 {
+		sessions, err := uc.sessionRepo.ListByRoom(roomID)
 		return sessions, int64(len(sessions)), err
 	}
 	return uc.sessionRepo.ListAll(page, perPage, search)
@@ -49,29 +53,29 @@ func (uc *SessionUseCase) checkPermission(s *entity.Session, userID int64, role 
 	if role == "admin" || role == "owner" {
 		return nil
 	}
-	class, err := uc.classRepo.GetByID(s.ClassID)
+	room, err := uc.roomRepo.GetByID(s.RoomID)
 	if err != nil {
+		return errors.ErrNotFound
+	}
+	if room.OwnerID == userID {
 		return nil
 	}
-	if class.TeacherID == userID {
-		return nil
-	}
-	return fmt.Errorf("شما اجازه انجام این عملیات را ندارید")
+	return errors.ErrForbidden
 }
 
 func (uc *SessionUseCase) Start(id, userID int64, role string) (*entity.Session, error) {
 	s, err := uc.sessionRepo.GetByID(id)
 	if err != nil {
-		return nil, fmt.Errorf("جلسه یافت نشد")
+		return nil, errors.ErrNotFound
 	}
 
 	if err := uc.checkPermission(s, userID, role); err != nil {
 		return nil, err
 	}
 
-	roomName := fmt.Sprintf("room-%d", s.ID)
+	roomName := fmt.Sprintf("room-%d", s.RoomID)
 	if err := uc.sessionRepo.UpdateStatus(id, "live", roomName); err != nil {
-		return nil, fmt.Errorf("خطا در شروع جلسه")
+		return nil, fmt.Errorf("failed to start session: %w", err)
 	}
 
 	s.Status = entity.SessionLive
@@ -82,7 +86,7 @@ func (uc *SessionUseCase) Start(id, userID int64, role string) (*entity.Session,
 func (uc *SessionUseCase) End(id, userID int64, role string) error {
 	s, err := uc.sessionRepo.GetByID(id)
 	if err != nil {
-		return fmt.Errorf("جلسه یافت نشد")
+		return errors.ErrNotFound
 	}
 
 	if err := uc.checkPermission(s, userID, role); err != nil {
@@ -95,7 +99,7 @@ func (uc *SessionUseCase) End(id, userID int64, role string) error {
 func (uc *SessionUseCase) Delete(id, userID int64, role string) error {
 	s, err := uc.sessionRepo.GetByID(id)
 	if err != nil {
-		return fmt.Errorf("جلسه یافت نشد")
+		return errors.ErrNotFound
 	}
 
 	if err := uc.checkPermission(s, userID, role); err != nil {
@@ -107,4 +111,8 @@ func (uc *SessionUseCase) Delete(id, userID int64, role string) error {
 
 func (uc *SessionUseCase) Count() (int64, error) {
 	return uc.sessionRepo.Count()
+}
+
+func (uc *SessionUseCase) CountActiveByRoom(roomID int64) (int, error) {
+	return uc.sessionRepo.CountActiveByRoom(roomID)
 }

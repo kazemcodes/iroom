@@ -39,16 +39,16 @@ type Recording struct {
 	CreatedAt  time.Time `json:"created_at" db:"created_at"`
 }
 
-// Announcement represents a class announcement.
+// Announcement represents a room announcement.
 // Can be pinned to the top of the list or marked as system-wide.
 type Announcement struct {
 	ID           int64     `json:"id" db:"id"`
-	ClassID      int64     `json:"class_id" db:"class_id"`   // Parent class (0 = system-wide)
+	RoomID       int64     `json:"room_id" db:"room_id"`     // Parent room (0 = system-wide)
 	AuthorID     int64     `json:"author_id" db:"author_id"` // Teacher who posted
 	Title        string    `json:"title" db:"title"`
 	Content      string    `json:"content" db:"content"`
-	IsPinned     bool      `json:"is_pinned" db:"is_pinned"`       // Pinned to top
-	IsSystemWide bool      `json:"is_system_wide" db:"is_system_wide"` // Visible in all classes
+	IsPinned     bool      `json:"is_pinned" db:"is_pinned"`
+	IsSystemWide bool      `json:"is_system_wide" db:"is_system_wide"`
 	CreatedAt    time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at" db:"updated_at"`
 }
@@ -59,7 +59,7 @@ type Poll struct {
 	ID        int64     `json:"id" db:"id"`
 	SessionID int64     `json:"session_id" db:"session_id"` // Parent session
 	Question  string    `json:"question" db:"question"`
-	Options   string    `json:"options" db:"options"` // Comma-separated options
+	Options   string    `json:"options" db:"options"` // JSON-encoded options
 	IsActive  bool      `json:"is_active" db:"is_active"` // false = closed
 	CreatedAt time.Time `json:"created_at" db:"created_at"`
 }
@@ -137,7 +137,7 @@ type Webhook struct {
 	ID        int64     `json:"id" db:"id"`
 	UserID    int64     `json:"user_id" db:"user_id"` // Owner
 	URL       string    `json:"url" db:"url"`         // Target URL
-	Secret    string    `json:"secret" db:"secret"`   // HMAC signing secret
+	Secret    string    `json:"-" db:"secret"`   // HMAC signing secret — never expose in API
 	Events    []string  `json:"events" db:"events"`   // Subscribed event types
 	IsActive  bool      `json:"is_active" db:"is_active"`
 	CreatedAt time.Time `json:"created_at" db:"created_at"`

@@ -8,9 +8,6 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// RecordingHandler handles HTTP requests for session recordings.
-// Routes: POST /sessions/:id/recordings, GET /sessions/:id/recordings
-//         GET /recordings/:id/download, DELETE /recordings/:id
 type RecordingHandler struct {
 	recordingUC *usecase.RecordingUseCase
 }
@@ -20,7 +17,10 @@ func NewRecordingHandler(recordingUC *usecase.RecordingUseCase) *RecordingHandle
 }
 
 func (h *RecordingHandler) Upload(c echo.Context) error {
-	sessionID, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	sessionID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return response.BadRequest(c, "شناسه نامعتبر")
+	}
 	userID, _ := getUserID(c)
 
 	file, header, err := c.Request().FormFile("file")
@@ -38,7 +38,10 @@ func (h *RecordingHandler) Upload(c echo.Context) error {
 }
 
 func (h *RecordingHandler) ListBySession(c echo.Context) error {
-	sessionID, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	sessionID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return response.BadRequest(c, "شناسه نامعتبر")
+	}
 	recordings, err := h.recordingUC.ListBySession(sessionID)
 	if err != nil {
 		return response.InternalError(c, err.Error())
@@ -68,7 +71,10 @@ func (h *RecordingHandler) ListAll(c echo.Context) error {
 }
 
 func (h *RecordingHandler) Download(c echo.Context) error {
-	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return response.BadRequest(c, "شناسه نامعتبر")
+	}
 	recording, err := h.recordingUC.GetByID(id)
 	if err != nil {
 		return response.NotFound(c, "ضبط یافت نشد")
@@ -77,7 +83,10 @@ func (h *RecordingHandler) Download(c echo.Context) error {
 }
 
 func (h *RecordingHandler) Delete(c echo.Context) error {
-	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return response.BadRequest(c, "شناسه نامعتبر")
+	}
 	if err := h.recordingUC.Delete(id); err != nil {
 		return response.InternalError(c, err.Error())
 	}

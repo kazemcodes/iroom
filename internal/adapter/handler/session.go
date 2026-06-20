@@ -8,10 +8,6 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// SessionHandler handles HTTP requests for session management.
-// Routes: GET/POST /sessions, GET/DELETE /sessions/:id
-//         POST /sessions/:id/start, /sessions/:id/end
-//         GET /sessions/:id/info (public, no auth required)
 type SessionHandler struct {
 	sessionUC *usecase.SessionUseCase
 }
@@ -22,7 +18,7 @@ func NewSessionHandler(sessionUC *usecase.SessionUseCase) *SessionHandler {
 
 func (h *SessionHandler) Create(c echo.Context) error {
 	var req struct {
-		ClassID     int64  `json:"class_id"`
+		RoomID      int64  `json:"room_id"`
 		Title       string `json:"title"`
 		ScheduledAt string `json:"scheduled_at"`
 		Duration    int    `json:"duration"`
@@ -31,7 +27,7 @@ func (h *SessionHandler) Create(c echo.Context) error {
 		return response.BadRequest(c, "داده‌های نامعتبر")
 	}
 
-	session, err := h.sessionUC.Create(req.ClassID, req.Title, req.ScheduledAt, req.Duration)
+	session, err := h.sessionUC.Create(req.RoomID, req.Title, req.ScheduledAt, req.Duration)
 	if err != nil {
 		return response.InternalError(c, err.Error())
 	}
@@ -40,7 +36,10 @@ func (h *SessionHandler) Create(c echo.Context) error {
 }
 
 func (h *SessionHandler) GetByID(c echo.Context) error {
-	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return response.BadRequest(c, "شناسه نامعتبر")
+	}
 	session, err := h.sessionUC.GetByID(id)
 	if err != nil {
 		return response.NotFound(c, err.Error())
@@ -49,7 +48,7 @@ func (h *SessionHandler) GetByID(c echo.Context) error {
 }
 
 func (h *SessionHandler) List(c echo.Context) error {
-	classID, _ := strconv.ParseInt(c.QueryParam("class_id"), 10, 64)
+	roomID, _ := strconv.ParseInt(c.QueryParam("room_id"), 10, 64)
 	page, _ := strconv.Atoi(c.QueryParam("page"))
 	perPage, _ := strconv.Atoi(c.QueryParam("per_page"))
 	if page < 1 {
@@ -59,22 +58,25 @@ func (h *SessionHandler) List(c echo.Context) error {
 		perPage = 20
 	}
 
-	sessions, total, err := h.sessionUC.List(classID, page, perPage, c.QueryParam("search"))
+	sessions, total, err := h.sessionUC.List(roomID, page, perPage, c.QueryParam("search"))
 	if err != nil {
 		return response.InternalError(c, err.Error())
 	}
 
 	return response.Success(c, map[string]interface{}{
-		"items":      sessions,
-		"total":      total,
-		"page":       page,
-		"per_page":   perPage,
+		"items":       sessions,
+		"total":       total,
+		"page":        page,
+		"per_page":    perPage,
 		"total_pages": (total + int64(perPage) - 1) / int64(perPage),
 	})
 }
 
 func (h *SessionHandler) Start(c echo.Context) error {
-	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return response.BadRequest(c, "شناسه نامعتبر")
+	}
 	userID, _ := getUserID(c)
 	role := getUserRole(c)
 
@@ -87,7 +89,10 @@ func (h *SessionHandler) Start(c echo.Context) error {
 }
 
 func (h *SessionHandler) End(c echo.Context) error {
-	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return response.BadRequest(c, "شناسه نامعتبر")
+	}
 	userID, _ := getUserID(c)
 	role := getUserRole(c)
 
@@ -99,7 +104,10 @@ func (h *SessionHandler) End(c echo.Context) error {
 }
 
 func (h *SessionHandler) Delete(c echo.Context) error {
-	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return response.BadRequest(c, "شناسه نامعتبر")
+	}
 	userID, _ := getUserID(c)
 	role := getUserRole(c)
 
@@ -111,7 +119,10 @@ func (h *SessionHandler) Delete(c echo.Context) error {
 }
 
 func (h *SessionHandler) GetPublicInfo(c echo.Context) error {
-	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return response.BadRequest(c, "شناسه نامعتبر")
+	}
 	session, err := h.sessionUC.GetByID(id)
 	if err != nil {
 		return response.NotFound(c, err.Error())

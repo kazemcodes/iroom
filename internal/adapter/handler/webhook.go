@@ -8,10 +8,6 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// WebhookHandler handles HTTP requests for webhook management (admin only).
-// Routes: POST /admin/webhooks, GET /admin/webhooks
-//         PUT /admin/webhooks/:id, DELETE /admin/webhooks/:id
-//         GET /admin/webhooks/:id/deliveries, POST /admin/webhooks/:id/test
 type WebhookHandler struct {
 	webhookUC *usecase.WebhookUseCase
 }
@@ -49,7 +45,11 @@ func (h *WebhookHandler) List(c echo.Context) error {
 }
 
 func (h *WebhookHandler) Update(c echo.Context) error {
-	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return response.BadRequest(c, "شناسه نامعتبر")
+	}
+	userID, _ := getUserID(c)
 
 	var req struct {
 		URL      string   `json:"url"`
@@ -60,23 +60,31 @@ func (h *WebhookHandler) Update(c echo.Context) error {
 		return response.BadRequest(c, "داده‌های نامعتبر")
 	}
 
-	if err := h.webhookUC.Update(id, req.URL, req.Events, req.IsActive); err != nil {
-		return response.InternalError(c, err.Error())
+	if err := h.webhookUC.Update(id, userID, req.URL, req.Events, req.IsActive); err != nil {
+		return response.Forbidden(c, err.Error())
 	}
 
 	return response.Success(c, map[string]string{"message": "وب‌هوک بروزرسانی شد"})
 }
 
 func (h *WebhookHandler) Delete(c echo.Context) error {
-	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err := h.webhookUC.Delete(id); err != nil {
-		return response.InternalError(c, err.Error())
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return response.BadRequest(c, "شناسه نامعتبر")
+	}
+	userID, _ := getUserID(c)
+	if err := h.webhookUC.Delete(id, userID); err != nil {
+		return response.Forbidden(c, err.Error())
 	}
 	return response.Success(c, map[string]string{"message": "وب‌هوک حذف شد"})
 }
 
 func (h *WebhookHandler) ListDeliveries(c echo.Context) error {
-	webhookID, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	webhookID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return response.BadRequest(c, "شناسه نامعتبر")
+	}
+	userID, _ := getUserID(c)
 	page, _ := strconv.Atoi(c.QueryParam("page"))
 	perPage, _ := strconv.Atoi(c.QueryParam("per_page"))
 	if page < 1 {
@@ -86,9 +94,9 @@ func (h *WebhookHandler) ListDeliveries(c echo.Context) error {
 		perPage = 20
 	}
 
-	deliveries, total, err := h.webhookUC.ListDeliveries(webhookID, page, perPage)
+	deliveries, total, err := h.webhookUC.ListDeliveries(webhookID, userID, page, perPage)
 	if err != nil {
-		return response.InternalError(c, err.Error())
+		return response.Forbidden(c, err.Error())
 	}
 
 	return response.Success(c, map[string]interface{}{
@@ -98,7 +106,10 @@ func (h *WebhookHandler) ListDeliveries(c echo.Context) error {
 }
 
 func (h *WebhookHandler) Test(c echo.Context) error {
-	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return response.BadRequest(c, "شناسه نامعتبر")
+	}
 	webhook, err := h.webhookUC.GetByID(id)
 	if err != nil {
 		return response.NotFound(c, "وب‌هوک یافت نشد")

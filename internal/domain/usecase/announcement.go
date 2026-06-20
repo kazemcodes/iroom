@@ -4,21 +4,29 @@ import (
 	"fmt"
 
 	"github.com/iroom/iroom/internal/domain/entity"
+	"github.com/iroom/iroom/internal/pkg/errors"
 	repository "github.com/iroom/iroom/internal/adapter/repository/sqlite"
 )
 
 type AnnouncementUseCase struct {
 	announcementRepo *repository.AnnouncementRepo
-	classRepo        *repository.ClassRepo
+	roomRepo         *repository.RoomRepo
 }
 
-func NewAnnouncementUseCase(announcementRepo *repository.AnnouncementRepo, classRepo *repository.ClassRepo) *AnnouncementUseCase {
-	return &AnnouncementUseCase{announcementRepo: announcementRepo, classRepo: classRepo}
+func NewAnnouncementUseCase(announcementRepo *repository.AnnouncementRepo, roomRepo *repository.RoomRepo) *AnnouncementUseCase {
+	return &AnnouncementUseCase{announcementRepo: announcementRepo, roomRepo: roomRepo}
 }
 
-func (uc *AnnouncementUseCase) Create(classID, authorID int64, title, content string, isPinned, isSystemWide bool) (*entity.Announcement, error) {
+func (uc *AnnouncementUseCase) Create(roomID, authorID int64, title, content string, isPinned, isSystemWide bool) (*entity.Announcement, error) {
+	room, err := uc.roomRepo.GetByID(roomID)
+	if err != nil {
+		return nil, errors.ErrNotFound
+	}
+	if room.OwnerID != authorID {
+		return nil, errors.ErrForbidden
+	}
 	a := &entity.Announcement{
-		ClassID:      classID,
+		RoomID:       roomID,
 		AuthorID:     authorID,
 		Title:        title,
 		Content:      content,
@@ -26,7 +34,7 @@ func (uc *AnnouncementUseCase) Create(classID, authorID int64, title, content st
 		IsSystemWide: isSystemWide,
 	}
 	if err := uc.announcementRepo.Create(a); err != nil {
-		return nil, fmt.Errorf("خطا در ایجاد اعلان")
+		return nil, fmt.Errorf("failed to create announcement: %w", err)
 	}
 	return a, nil
 }
@@ -35,14 +43,35 @@ func (uc *AnnouncementUseCase) GetByID(id int64) (*entity.Announcement, error) {
 	return uc.announcementRepo.GetByID(id)
 }
 
-func (uc *AnnouncementUseCase) ListByClass(classID int64) ([]*entity.Announcement, int64, error) {
-	return uc.announcementRepo.ListByClass(classID, 1, 100)
+func (uc *AnnouncementUseCase) ListByRoom(roomID int64) ([]*entity.Announcement, int64, error) {
+	return uc.announcementRepo.ListByRoom(roomID, 1, 100)
 }
 
-func (uc *AnnouncementUseCase) Update(id int64, title, content string) error {
+func (uc *AnnouncementUseCase) checkOwnership(id, actorID int64, role string) error {
+	if role == "admin" {
+		return nil
+	}
 	a, err := uc.announcementRepo.GetByID(id)
 	if err != nil {
-		return fmt.Errorf("اعلان یافت نشد")
+		return errors.ErrNotFound
+	}
+	room, err := uc.roomRepo.GetByID(a.RoomID)
+	if err != nil {
+		return errors.ErrNotFound
+	}
+	if room.OwnerID != actorID {
+		return errors.ErrForbidden
+	}
+	return nil
+}
+
+func (uc *AnnouncementUseCase) Update(id, actorID int64, role, title, content string) error {
+	if err := uc.checkOwnership(id, actorID, role); err != nil {
+		return err
+	}
+	a, err := uc.announcementRepo.GetByID(id)
+	if err != nil {
+		return errors.ErrNotFound
 	}
 	if title != "" {
 		a.Title = title
@@ -53,11 +82,17 @@ func (uc *AnnouncementUseCase) Update(id int64, title, content string) error {
 	return uc.announcementRepo.Update(a)
 }
 
-func (uc *AnnouncementUseCase) Delete(id int64) error {
+func (uc *AnnouncementUseCase) Delete(id, actorID int64, role string) error {
+	if err := uc.checkOwnership(id, actorID, role); err != nil {
+		return err
+	}
 	return uc.announcementRepo.Delete(id)
 }
 
-func (uc *AnnouncementUseCase) TogglePin(id int64) error {
+func (uc *AnnouncementUseCase) TogglePin(id, actorID int64, role string) error {
+	if err := uc.checkOwnership(id, actorID, role); err != nil {
+		return err
+	}
 	a, err := uc.announcementRepo.GetByID(id)
 	if err != nil {
 		return err

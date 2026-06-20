@@ -19,8 +19,10 @@ func NewRoomRepo(db *sql.DB) *RoomRepo {
 func (r *RoomRepo) Create(room *entity.Room) error {
 	room.Slug = r.uniqueSlug(room.Slug)
 	result, err := r.db.Exec(
-		`INSERT INTO rooms (owner_id, name, description, color, slug, guest_login_enabled) VALUES (?, ?, ?, ?, ?, ?)`,
-		room.OwnerID, room.Name, room.Description, room.Color, room.Slug, room.GuestLoginEnabled,
+		`INSERT INTO rooms (owner_id, name, description, color, slug, guest_login_enabled, max_users, invite_code, is_archived)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		room.OwnerID, room.Name, room.Description, room.Color, room.Slug,
+		room.GuestLoginEnabled, room.MaxUsers, room.InviteCode, room.IsArchived,
 	)
 	if err != nil {
 		return err
@@ -49,8 +51,11 @@ func (r *RoomRepo) uniqueSlug(base string) string {
 func (r *RoomRepo) GetByID(id int64) (*entity.Room, error) {
 	room := &entity.Room{}
 	err := r.db.QueryRow(
-		`SELECT id, owner_id, name, description, color, slug, guest_login_enabled, created_at, updated_at FROM rooms WHERE id = ?`, id,
-	).Scan(&room.ID, &room.OwnerID, &room.Name, &room.Description, &room.Color, &room.Slug, &room.GuestLoginEnabled, &room.CreatedAt, &room.UpdatedAt)
+		`SELECT id, owner_id, name, description, color, slug, guest_login_enabled, max_users, invite_code, is_archived, created_at, updated_at
+		 FROM rooms WHERE id = ?`, id,
+	).Scan(&room.ID, &room.OwnerID, &room.Name, &room.Description, &room.Color,
+		&room.Slug, &room.GuestLoginEnabled, &room.MaxUsers, &room.InviteCode,
+		&room.IsArchived, &room.CreatedAt, &room.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -60,12 +65,50 @@ func (r *RoomRepo) GetByID(id int64) (*entity.Room, error) {
 func (r *RoomRepo) GetBySlug(slug string) (*entity.Room, error) {
 	room := &entity.Room{}
 	err := r.db.QueryRow(
-		`SELECT id, owner_id, name, description, color, slug, guest_login_enabled, created_at, updated_at FROM rooms WHERE slug = ?`, slug,
-	).Scan(&room.ID, &room.OwnerID, &room.Name, &room.Description, &room.Color, &room.Slug, &room.GuestLoginEnabled, &room.CreatedAt, &room.UpdatedAt)
+		`SELECT id, owner_id, name, description, color, slug, guest_login_enabled, max_users, invite_code, is_archived, created_at, updated_at
+		 FROM rooms WHERE slug = ?`, slug,
+	).Scan(&room.ID, &room.OwnerID, &room.Name, &room.Description, &room.Color,
+		&room.Slug, &room.GuestLoginEnabled, &room.MaxUsers, &room.InviteCode,
+		&room.IsArchived, &room.CreatedAt, &room.UpdatedAt)
+	if err != nil {
+		err2 := r.db.QueryRow(
+			`SELECT id, owner_id, name, description, color, slug, guest_login_enabled, max_users, invite_code, is_archived, created_at, updated_at
+			 FROM rooms WHERE name = ?`, slug,
+		).Scan(&room.ID, &room.OwnerID, &room.Name, &room.Description, &room.Color,
+			&room.Slug, &room.GuestLoginEnabled, &room.MaxUsers, &room.InviteCode,
+			&room.IsArchived, &room.CreatedAt, &room.UpdatedAt)
+		if err2 != nil {
+			return nil, err
+		}
+		if room.Slug == "" || room.Slug != slug {
+			room.Slug = slug
+			r.db.Exec(`UPDATE rooms SET slug = ? WHERE id = ?`, slug, room.ID)
+		}
+		return room, nil
+	}
+	return room, nil
+}
+
+func (r *RoomRepo) GetByInviteCode(code string) (*entity.Room, error) {
+	room := &entity.Room{}
+	err := r.db.QueryRow(
+		`SELECT id, owner_id, name, description, color, slug, guest_login_enabled, max_users, invite_code, is_archived, created_at, updated_at
+		 FROM rooms WHERE invite_code = ?`, code,
+	).Scan(&room.ID, &room.OwnerID, &room.Name, &room.Description, &room.Color,
+		&room.Slug, &room.GuestLoginEnabled, &room.MaxUsers, &room.InviteCode,
+		&room.IsArchived, &room.CreatedAt, &room.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
 	return room, nil
+}
+
+func (r *RoomRepo) UpdateInviteCode(roomID int64, code string) error {
+	_, err := r.db.Exec(
+		`UPDATE rooms SET invite_code = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+		code, roomID,
+	)
+	return err
 }
 
 func (r *RoomRepo) ListAll(page, perPage int, search string) ([]entity.Room, int64, error) {
@@ -82,7 +125,7 @@ func (r *RoomRepo) ListAll(page, perPage int, search string) ([]entity.Room, int
 	}
 
 	offset := (page - 1) * perPage
-	query := `SELECT id, owner_id, name, description, color, slug, guest_login_enabled, created_at, updated_at FROM rooms WHERE 1=1`
+	query := `SELECT id, owner_id, name, description, color, slug, guest_login_enabled, max_users, invite_code, is_archived, created_at, updated_at FROM rooms WHERE 1=1`
 	if search != "" {
 		query += ` AND (name LIKE ? OR description LIKE ?)`
 	}
@@ -98,7 +141,9 @@ func (r *RoomRepo) ListAll(page, perPage int, search string) ([]entity.Room, int
 	var rooms []entity.Room
 	for rows.Next() {
 		var room entity.Room
-		if err := rows.Scan(&room.ID, &room.OwnerID, &room.Name, &room.Description, &room.Color, &room.Slug, &room.GuestLoginEnabled, &room.CreatedAt, &room.UpdatedAt); err != nil {
+		if err := rows.Scan(&room.ID, &room.OwnerID, &room.Name, &room.Description,
+			&room.Color, &room.Slug, &room.GuestLoginEnabled, &room.MaxUsers,
+			&room.InviteCode, &room.IsArchived, &room.CreatedAt, &room.UpdatedAt); err != nil {
 			return nil, 0, err
 		}
 		rooms = append(rooms, room)
@@ -108,7 +153,7 @@ func (r *RoomRepo) ListAll(page, perPage int, search string) ([]entity.Room, int
 
 func (r *RoomRepo) ListByUser(userID int64) ([]entity.Room, error) {
 	rows, err := r.db.Query(
-		`SELECT id, owner_id, name, description, color, slug, guest_login_enabled, created_at, updated_at
+		`SELECT id, owner_id, name, description, color, slug, guest_login_enabled, max_users, invite_code, is_archived, created_at, updated_at
 		 FROM rooms WHERE owner_id = ? OR id IN (SELECT room_id FROM room_users WHERE user_id = ?)
 		 ORDER BY id DESC`, userID, userID,
 	)
@@ -120,7 +165,9 @@ func (r *RoomRepo) ListByUser(userID int64) ([]entity.Room, error) {
 	var rooms []entity.Room
 	for rows.Next() {
 		var room entity.Room
-		if err := rows.Scan(&room.ID, &room.OwnerID, &room.Name, &room.Description, &room.Color, &room.Slug, &room.GuestLoginEnabled, &room.CreatedAt, &room.UpdatedAt); err != nil {
+		if err := rows.Scan(&room.ID, &room.OwnerID, &room.Name, &room.Description,
+			&room.Color, &room.Slug, &room.GuestLoginEnabled, &room.MaxUsers,
+			&room.InviteCode, &room.IsArchived, &room.CreatedAt, &room.UpdatedAt); err != nil {
 			return nil, err
 		}
 		rooms = append(rooms, room)
@@ -130,8 +177,9 @@ func (r *RoomRepo) ListByUser(userID int64) ([]entity.Room, error) {
 
 func (r *RoomRepo) Update(room *entity.Room) error {
 	_, err := r.db.Exec(
-		`UPDATE rooms SET name = ?, description = ?, color = ?, slug = ?, guest_login_enabled = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
-		room.Name, room.Description, room.Color, room.Slug, room.GuestLoginEnabled, room.ID,
+		`UPDATE rooms SET name = ?, description = ?, color = ?, slug = ?, guest_login_enabled = ?, max_users = ?, invite_code = ?, is_archived = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+		room.Name, room.Description, room.Color, room.Slug, room.GuestLoginEnabled,
+		room.MaxUsers, room.InviteCode, room.IsArchived, room.ID,
 	)
 	return err
 }
@@ -147,18 +195,24 @@ func (r *RoomRepo) Count() (int64, error) {
 	return count, err
 }
 
-// Room users
-
-func (r *RoomRepo) AddUser(roomID, userID int64, role string) error {
+func (r *RoomRepo) AddUser(roomID, userID int64, role string, access int) error {
 	_, err := r.db.Exec(
-		`INSERT OR REPLACE INTO room_users (room_id, user_id, role) VALUES (?, ?, ?)`,
-		roomID, userID, role,
+		`INSERT OR REPLACE INTO room_users (room_id, user_id, role, access) VALUES (?, ?, ?, ?)`,
+		roomID, userID, role, access,
 	)
 	return err
 }
 
 func (r *RoomRepo) RemoveUser(roomID, userID int64) error {
 	_, err := r.db.Exec(`DELETE FROM room_users WHERE room_id = ? AND user_id = ?`, roomID, userID)
+	return err
+}
+
+func (r *RoomRepo) UpdateUserAccess(roomID, userID int64, access int) error {
+	_, err := r.db.Exec(
+		`UPDATE room_users SET access = ? WHERE room_id = ? AND user_id = ?`,
+		access, roomID, userID,
+	)
 	return err
 }
 
@@ -195,8 +249,6 @@ func (r *RoomRepo) GetUserCount(roomID int64) (int, error) {
 	return count, err
 }
 
-// Room Settings
-
 func (r *RoomRepo) GetSettings(roomID int64) (*entity.RoomSettings, error) {
 	s := &entity.RoomSettings{}
 	err := r.db.QueryRow(
@@ -207,7 +259,6 @@ func (r *RoomRepo) GetSettings(roomID int64) (*entity.RoomSettings, error) {
 		&s.AllowStudentScreenShare, &s.AllowStudentWhiteboard, &s.AllowStudentChat,
 		&s.SessionAutoEndMinutes, &s.WaitingRoomEnabled)
 	if err != nil {
-		// Return defaults if no settings exist
 		return &entity.RoomSettings{
 			RoomID:                roomID,
 			MaxUsers:              50,

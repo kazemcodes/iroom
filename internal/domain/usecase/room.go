@@ -2,11 +2,11 @@ package usecase
 
 import (
 	"fmt"
-	"strings"
 	"time"
-	"unicode"
 
 	"github.com/iroom/iroom/internal/domain/entity"
+	"github.com/iroom/iroom/internal/pkg/errors"
+	"github.com/iroom/iroom/internal/pkg/slug"
 	repository "github.com/iroom/iroom/internal/adapter/repository/sqlite"
 )
 
@@ -20,68 +20,54 @@ func NewRoomUseCase(roomRepo *repository.RoomRepo, userRepo *repository.UserRepo
 	return &RoomUseCase{roomRepo: roomRepo, userRepo: userRepo, sessionRepo: sessionRepo}
 }
 
-func generateRoomSlug(name string) string {
-	slug := strings.ToLower(name)
-	replacements := map[string]string{
-		" ": "-", "‌": "", "۰": "0", "۱": "1", "۲": "2", "۳": "3",
-		"۴": "4", "۵": "5", "۶": "6", "۷": "7", "۸": "8", "۹": "9",
-	}
-	for k, v := range replacements {
-		slug = strings.ReplaceAll(slug, k, v)
-	}
-	var result []rune
-	for _, r := range slug {
-		if unicode.IsLetter(r) || unicode.IsDigit(r) || r == '-' {
-			result = append(result, r)
-		}
-	}
-	slug = string(result)
-	for strings.Contains(slug, "--") {
-		slug = strings.ReplaceAll(slug, "--", "-")
-	}
-	slug = strings.Trim(slug, "-")
-	if slug == "" {
-		slug = fmt.Sprintf("room-%d", time.Now().UnixMilli())
-	}
-	return slug
-}
-
-func (uc *RoomUseCase) Create(ownerID int64, name, description, color string) (*entity.Room, error) {
-	slug := generateRoomSlug(name)
+func (uc *RoomUseCase) Create(ownerID int64, name, description, color string, maxUsers int, inviteCode string) (*entity.Room, error) {
 	room := &entity.Room{
 		OwnerID:           ownerID,
 		Name:              name,
 		Description:       description,
 		Color:             color,
-		Slug:              slug,
+		Slug:              slug.Generate(name),
 		GuestLoginEnabled: true,
+		MaxUsers:          maxUsers,
+		InviteCode:        inviteCode,
 	}
 	if err := uc.roomRepo.Create(room); err != nil {
-		return nil, fmt.Errorf("خطا در ایجاد اتاق")
+		return nil, fmt.Errorf("failed to create room: %w", err)
 	}
 	return room, nil
 }
 
 func (uc *RoomUseCase) GetByID(id int64) (*entity.Room, error) {
-	return uc.roomRepo.GetByID(id)
+	room, err := uc.roomRepo.GetByID(id)
+	if err != nil {
+		return nil, errors.ErrNotFound
+	}
+	return room, nil
 }
 
 func (uc *RoomUseCase) GetBySlug(slug string) (*entity.Room, error) {
-	return uc.roomRepo.GetBySlug(slug)
+	room, err := uc.roomRepo.GetBySlug(slug)
+	if err != nil {
+		return nil, errors.ErrNotFound
+	}
+	return room, nil
 }
 
 func (uc *RoomUseCase) List(page, perPage int, search string) ([]entity.Room, int64, error) {
 	return uc.roomRepo.ListAll(page, perPage, search)
 }
 
-func (uc *RoomUseCase) Update(id int64, name, description, color string, guestLoginEnabled bool) (*entity.Room, error) {
+func (uc *RoomUseCase) Update(id, actorID int64, role, name, description, color string, guestLoginEnabled bool, maxUsers int, inviteCode string) (*entity.Room, error) {
 	room, err := uc.roomRepo.GetByID(id)
 	if err != nil {
-		return nil, fmt.Errorf("اتاق یافت نشد")
+		return nil, errors.ErrNotFound
+	}
+	if room.OwnerID != actorID && role != "admin" {
+		return nil, errors.ErrForbidden
 	}
 	if name != "" {
 		room.Name = name
-		room.Slug = generateRoomSlug(name)
+		room.Slug = slug.Generate(name)
 	}
 	if description != "" {
 		room.Description = description
@@ -90,31 +76,83 @@ func (uc *RoomUseCase) Update(id int64, name, description, color string, guestLo
 		room.Color = color
 	}
 	room.GuestLoginEnabled = guestLoginEnabled
+	if maxUsers > 0 {
+		room.MaxUsers = maxUsers
+	}
+	if inviteCode != "" {
+		room.InviteCode = inviteCode
+	}
 	if err := uc.roomRepo.Update(room); err != nil {
-		return nil, fmt.Errorf("خطا در بروزرسانی")
+		return nil, fmt.Errorf("failed to update room: %w", err)
 	}
 	return room, nil
 }
 
-func (uc *RoomUseCase) Delete(id int64) error {
+func (uc *RoomUseCase) Delete(id, actorID int64, role string) error {
+	room, err := uc.roomRepo.GetByID(id)
+	if err != nil {
+		return errors.ErrNotFound
+	}
+	if room.OwnerID != actorID && role != "admin" {
+		return errors.ErrForbidden
+	}
 	return uc.roomRepo.Delete(id)
 }
 
-func (uc *RoomUseCase) AddUser(roomID, userID int64, role string) error {
+func (uc *RoomUseCase) AddUser(roomID, userID, actorID int64, role string, access int, actorRole string) error {
 	if role == "" {
 		role = "student"
 	}
-	return uc.roomRepo.AddUser(roomID, userID, role)
+	if access < 1 {
+		access = 1
+	}
+	room, err := uc.roomRepo.GetByID(roomID)
+	if err != nil {
+		return errors.ErrNotFound
+	}
+	if room.OwnerID != actorID && actorRole != "admin" {
+		return errors.ErrForbidden
+	}
+	return uc.roomRepo.AddUser(roomID, userID, role, access)
 }
 
-func (uc *RoomUseCase) RemoveUser(roomID, userID int64) error {
+func (uc *RoomUseCase) UpdateSettings(roomID, actorID int64, actorRole string, settings *entity.RoomSettings) error {
+	room, err := uc.roomRepo.GetByID(roomID)
+	if err != nil {
+		return errors.ErrNotFound
+	}
+	if room.OwnerID != actorID && actorRole != "admin" {
+		return errors.ErrForbidden
+	}
+	return uc.roomRepo.UpdateSettings(settings)
+}
+
+func (uc *RoomUseCase) RemoveUser(roomID, userID, actorID int64, role string) error {
+	room, err := uc.roomRepo.GetByID(roomID)
+	if err != nil {
+		return errors.ErrNotFound
+	}
+	if room.OwnerID != actorID && role != "admin" {
+		return errors.ErrForbidden
+	}
 	return uc.roomRepo.RemoveUser(roomID, userID)
+}
+
+func (uc *RoomUseCase) UpdateUserAccess(roomID, userID, actorID int64, role string, access int) error {
+	room, err := uc.roomRepo.GetByID(roomID)
+	if err != nil {
+		return errors.ErrNotFound
+	}
+	if room.OwnerID != actorID && role != "admin" {
+		return errors.ErrForbidden
+	}
+	return uc.roomRepo.UpdateUserAccess(roomID, userID, access)
 }
 
 func (uc *RoomUseCase) GetUsers(roomID int64) ([]entity.User, error) {
 	users, err := uc.roomRepo.GetUsers(roomID)
 	if err != nil {
-		return nil, fmt.Errorf("خطا در دریافت کاربران")
+		return nil, fmt.Errorf("failed to get users: %w", err)
 	}
 	if users == nil {
 		users = []entity.User{}
@@ -130,20 +168,36 @@ func (uc *RoomUseCase) GetSettings(roomID int64) (*entity.RoomSettings, error) {
 	return uc.roomRepo.GetSettings(roomID)
 }
 
-func (uc *RoomUseCase) UpdateSettings(roomID int64, settings *entity.RoomSettings) error {
-	return uc.roomRepo.UpdateSettings(settings)
+func (uc *RoomUseCase) RegenerateCode(roomID, actorID int64, role string) (string, error) {
+	room, err := uc.roomRepo.GetByID(roomID)
+	if err != nil {
+		return "", errors.ErrNotFound
+	}
+	if room.OwnerID != actorID && role != "admin" {
+		return "", errors.ErrForbidden
+	}
+	code := fmt.Sprintf("%d-%d", roomID, time.Now().UnixMilli())
+	if err := uc.roomRepo.UpdateInviteCode(roomID, code); err != nil {
+		return "", fmt.Errorf("failed to regenerate code: %w", err)
+	}
+	return code, nil
 }
 
-func (uc *RoomUseCase) GetActiveSessionCount(roomID int64) (int, error) {
-	sessions, err := uc.sessionRepo.ListByClass(roomID)
+func (uc *RoomUseCase) JoinByCode(code string) (*entity.Room, error) {
+	room, err := uc.roomRepo.GetByInviteCode(code)
 	if err != nil {
-		return 0, err
+		return nil, errors.ErrNotFound
 	}
-	count := 0
-	for _, s := range sessions {
-		if s.Status == entity.SessionLive {
-			count++
-		}
+	return room, nil
+}
+
+func (uc *RoomUseCase) GetUserRooms(userID int64) ([]entity.Room, error) {
+	rooms, err := uc.roomRepo.ListByUser(userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user rooms: %w", err)
 	}
-	return count, nil
+	if rooms == nil {
+		rooms = []entity.Room{}
+	}
+	return rooms, nil
 }

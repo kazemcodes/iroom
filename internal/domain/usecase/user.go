@@ -4,24 +4,24 @@ import (
 	"fmt"
 
 	"github.com/iroom/iroom/internal/domain/entity"
+	"github.com/iroom/iroom/internal/pkg/errors"
 	sanitize "github.com/iroom/iroom/internal/pkg/sanitize"
 	repository "github.com/iroom/iroom/internal/adapter/repository/sqlite"
 )
 
 type UserUseCase struct {
-	userRepo  *repository.UserRepo
-	classRepo *repository.ClassRepo
-	hasher    interface {
+	userRepo *repository.UserRepo
+	hasher   interface {
 		Hash(password string) (string, error)
 		Check(password, hash string) bool
 	}
 }
 
-func NewUserUseCase(userRepo *repository.UserRepo, classRepo *repository.ClassRepo, hasher interface {
+func NewUserUseCase(userRepo *repository.UserRepo, hasher interface {
 	Hash(password string) (string, error)
 	Check(password, hash string) bool
 }) *UserUseCase {
-	return &UserUseCase{userRepo: userRepo, classRepo: classRepo, hasher: hasher}
+	return &UserUseCase{userRepo: userRepo, hasher: hasher}
 }
 
 func (uc *UserUseCase) List(page, perPage int, search string) ([]entity.User, int64, error) {
@@ -33,14 +33,18 @@ func (uc *UserUseCase) GetByID(id int64) (*entity.User, error) {
 }
 
 func (uc *UserUseCase) Create(email, password, displayName, phone, role string, callerRole string) (*entity.User, error) {
+	if callerRole != "admin" {
+		return nil, errors.ErrForbidden
+	}
+
 	existing, _ := uc.userRepo.GetByEmail(email)
 	if existing != nil {
-		return nil, fmt.Errorf("ایمیل قبلاً ثبت شده است")
+		return nil, fmt.Errorf("email already registered")
 	}
 
 	hashedPassword, err := uc.hasher.Hash(password)
 	if err != nil {
-		return nil, fmt.Errorf("خطای داخلی")
+		return nil, fmt.Errorf("internal error")
 	}
 
 	user := &entity.User{
@@ -53,15 +57,19 @@ func (uc *UserUseCase) Create(email, password, displayName, phone, role string, 
 	}
 
 	if err := uc.userRepo.Create(user); err != nil {
-		return nil, fmt.Errorf("خطا در ایجاد کاربر")
+		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
 	return user, nil
 }
 
 func (uc *UserUseCase) Update(id int64, displayName, phone, role string, isActive *bool, callerRole string) error {
+	if callerRole != "admin" {
+		return errors.ErrForbidden
+	}
+
 	user, err := uc.userRepo.GetByID(id)
 	if err != nil {
-		return fmt.Errorf("کاربر یافت نشد")
+		return errors.ErrNotFound
 	}
 
 	if displayName != "" {
@@ -79,15 +87,22 @@ func (uc *UserUseCase) Update(id int64, displayName, phone, role string, isActiv
 	return uc.userRepo.Update(user)
 }
 
-func (uc *UserUseCase) Delete(id int64) error {
+func (uc *UserUseCase) Delete(id int64, callerRole string) error {
+	if callerRole != "admin" {
+		return errors.ErrForbidden
+	}
 	_, err := uc.userRepo.GetByID(id)
 	if err != nil {
-		return fmt.Errorf("کاربر یافت نشد")
+		return errors.ErrNotFound
 	}
 	return uc.userRepo.Delete(id)
 }
 
-func (uc *UserUseCase) BatchDelete(ids []int64) (int, int) {
+func (uc *UserUseCase) BatchDelete(ids []int64, callerRole string) (int, int) {
+	if callerRole != "admin" {
+		return 0, len(ids)
+	}
+
 	success, failure := 0, 0
 	for _, id := range ids {
 		user, err := uc.userRepo.GetByID(id)
@@ -109,14 +124,13 @@ func (uc *UserUseCase) Count() (int64, error) {
 	return uc.userRepo.Count()
 }
 
-func (uc *UserUseCase) GetUserRooms(userID int64) ([]entity.Class, error) {
-	return uc.classRepo.GetByUserID(userID)
-}
-
-func (uc *UserUseCase) ResetPassword(userID int64, newPassword string) error {
+func (uc *UserUseCase) ResetPassword(userID int64, newPassword string, callerRole string) error {
+	if callerRole != "admin" {
+		return errors.ErrForbidden
+	}
 	hashedPassword, err := uc.hasher.Hash(newPassword)
 	if err != nil {
-		return fmt.Errorf("خطای داخلی")
+		return fmt.Errorf("internal error")
 	}
 	return uc.userRepo.UpdatePassword(userID, hashedPassword)
 }
@@ -124,16 +138,16 @@ func (uc *UserUseCase) ResetPassword(userID int64, newPassword string) error {
 func (uc *UserUseCase) ChangePassword(userID int64, oldPassword, newPassword string) error {
 	user, err := uc.userRepo.GetByID(userID)
 	if err != nil {
-		return fmt.Errorf("کاربر یافت نشد")
+		return errors.ErrNotFound
 	}
 
 	if !uc.hasher.Check(oldPassword, user.PasswordHash) {
-		return fmt.Errorf("رمز عبور فعلی اشتباه است")
+		return fmt.Errorf("current password is incorrect")
 	}
 
 	hashedPassword, err := uc.hasher.Hash(newPassword)
 	if err != nil {
-		return fmt.Errorf("خطای داخلی")
+		return fmt.Errorf("internal error")
 	}
 
 	return uc.userRepo.UpdatePassword(userID, hashedPassword)

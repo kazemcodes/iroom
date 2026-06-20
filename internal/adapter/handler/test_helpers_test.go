@@ -24,6 +24,9 @@ func setupTestDB(t *testing.T) *sql.DB {
 		color TEXT DEFAULT '',
 		slug TEXT UNIQUE NOT NULL,
 		guest_login_enabled BOOLEAN DEFAULT 1,
+		max_users INTEGER DEFAULT 50,
+		invite_code TEXT DEFAULT '',
+		is_archived BOOLEAN DEFAULT 0,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
@@ -32,6 +35,7 @@ func setupTestDB(t *testing.T) *sql.DB {
 		room_id INTEGER NOT NULL,
 		user_id INTEGER NOT NULL,
 		role TEXT DEFAULT 'student',
+		access INTEGER DEFAULT 1,
 		PRIMARY KEY (room_id, user_id),
 		FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE
 	);
@@ -69,6 +73,7 @@ func setupTestDB(t *testing.T) *sql.DB {
 
 	CREATE TABLE IF NOT EXISTS sessions (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		room_id INTEGER,
 		class_id INTEGER NOT NULL,
 		title TEXT DEFAULT '',
 		scheduled_at DATETIME DEFAULT CURRENT_TIMESTAMP,
