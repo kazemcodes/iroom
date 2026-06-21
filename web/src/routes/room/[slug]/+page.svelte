@@ -276,11 +276,8 @@
 		chatWs.onmessage = (event) => {
 			if (event.data instanceof ArrayBuffer || event.data instanceof Blob) {
 				const handleBinary = (buf: ArrayBuffer) => {
-					if (buf.byteLength < 1) return;
-					const marker = new Uint8Array(buf)[0];
-					if (marker === 1) {
-						pion?.handleBinaryMessage(buf);
-					}
+					if (buf.byteLength < 5) return;
+					pion?.handleBinaryMessage(buf);
 				};
 				if (event.data instanceof Blob) {
 					event.data.arrayBuffer().then(handleBinary);
