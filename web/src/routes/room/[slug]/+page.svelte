@@ -218,6 +218,7 @@
 	let participants = $state<Participant[]>([]);
 	let chatMessages = $state<ChatMessage[]>([]);
 	let localVideoEl: HTMLVideoElement;
+	let localStream: MediaStream | null = null;
 	let chatWs: WebSocket | null = null;
 	let showWhiteboard = $state(false);
 	let showPdf = $state(false);
@@ -371,10 +372,6 @@
 						if (targetId === String($auth.user?.id) && newRole !== currentUserRole) {
 							auth.updateRole(newRole);
 							showRoleNotification(`نقش شما تغییر کرد به «${ROLE_LABELS[newRole as UserRole] || newRole}»`);
-							const newPerms = ROLE_PERMISSIONS[newRole as UserRole] || ROLE_PERMISSIONS.user;
-							if (newPerms.canMic || newPerms.canWebcam) {
-								restartMedia(newPerms);
-							}
 						} else {
 							const targetName = participants.find(p => p.id === targetId)?.name || 'کاربر';
 							showRoleNotification(`${targetName} → ${ROLE_LABELS[newRole as UserRole] || newRole}`);
@@ -430,7 +427,7 @@
 			}
 			mediaClient = new MediaClient(chatWs!, Number(user_id));
 			mediaClient.onLocalStream = (stream) => {
-				if (localVideoEl) localVideoEl.srcObject = stream;
+				localStream = stream;
 				micOn = stream.getAudioTracks().length > 0 && stream.getAudioTracks()[0].enabled;
 				webcamOn = stream.getVideoTracks().length > 0 && stream.getVideoTracks()[0].enabled;
 				participants = participants.map(p => {
@@ -553,14 +550,6 @@
 			}
 		});
 		activeUserMenu = null;
-	}
-	function restartMedia(newPerms: { canMic: boolean; canWebcam: boolean }) {
-		if (!mediaClient || !chatWs || chatWs.readyState !== WebSocket.OPEN) return;
-		mediaClient.stop();
-		const isListener = !newPerms.canMic && !newPerms.canWebcam;
-		mediaClient.start(!isListener && newPerms.canWebcam, !isListener && newPerms.canMic).then(() => {
-			chatDebug('media restarted', { canMic: newPerms.canMic, canWebcam: newPerms.canWebcam });
-		}).catch(e => chatDebug('media restart failed', e));
 	}
 	function sendChatMessage(text: string, replyTo?: { sender: string; content: string }) {
 		if (!chatWs || chatWs.readyState !== WebSocket.OPEN) {
@@ -796,10 +785,10 @@
 		}
 	}
 
-	function srcObject(node: HTMLVideoElement, stream: MediaStream) {
+	function srcObject(node: HTMLVideoElement, stream: MediaStream | null) {
 		node.srcObject = stream;
 		return {
-			update(newStream: MediaStream) {
+			update(newStream: MediaStream | null) {
 				node.srcObject = newStream;
 			}
 		};
@@ -1048,7 +1037,7 @@
 												{/if}
 											{/each}
 											{#if webcamOn}
-												<div class="cam-tile local"><video bind:this={localVideoEl} autoplay muted playsinline class="w-full h-full object-cover"></video><div class="cam-label">شما</div></div>
+												<div class="cam-tile local"><video bind:this={localVideoEl} use:srcObject={localStream} autoplay muted playsinline class="w-full h-full object-cover"></video><div class="cam-label">شما</div></div>
 											{/if}
 										</div>
 									{/if}
@@ -1084,7 +1073,7 @@
 													<div class="cam-tile"><video autoplay playsinline use:srcObject={remote.stream} class="w-full h-full object-cover"></video><div class="cam-label">{participants.find(p => p.id === remote.id)?.name || ''}</div></div>
 												{/if}
 											{/each}
-											{#if webcamOn}<div class="cam-tile local"><video bind:this={localVideoEl} autoplay muted playsinline class="w-full h-full object-cover"></video><div class="cam-label">شما</div></div>{/if}
+											{#if webcamOn}<div class="cam-tile local"><video bind:this={localVideoEl} use:srcObject={localStream} autoplay muted playsinline class="w-full h-full object-cover"></video><div class="cam-label">شما</div></div>{/if}
 										</div>
 									{/if}
 								</div>
@@ -1105,7 +1094,7 @@
 													<div class="cam-tile"><video autoplay playsinline use:srcObject={remote.stream} class="w-full h-full object-cover"></video><div class="cam-label">{participants.find(p => p.id === remote.id)?.name || ''}</div></div>
 												{/if}
 											{/each}
-											{#if webcamOn}<div class="cam-tile local"><video bind:this={localVideoEl} autoplay muted playsinline class="w-full h-full object-cover"></video><div class="cam-label">شما</div></div>{/if}
+											{#if webcamOn}<div class="cam-tile local"><video bind:this={localVideoEl} use:srcObject={localStream} autoplay muted playsinline class="w-full h-full object-cover"></video><div class="cam-label">شما</div></div>{/if}
 										</div>
 									{/if}
 								</div>
@@ -1130,7 +1119,7 @@
 													{/if}
 												{/each}
 												{#if webcamOn}
-													<div class="cam-tile-large local"><video bind:this={localVideoEl} autoplay muted playsinline class="w-full h-full object-cover"></video><div class="cam-label">شما</div></div>
+													<div class="cam-tile-large local"><video bind:this={localVideoEl} use:srcObject={localStream} autoplay muted playsinline class="w-full h-full object-cover"></video><div class="cam-label">شما</div></div>
 												{/if}
 											</div>
 										{/if}

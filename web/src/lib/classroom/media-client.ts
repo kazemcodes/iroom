@@ -50,7 +50,8 @@ export class MediaClient {
 
 	private remoteEntries = new Map<string, {
 		ms: MediaSource;
-		video: HTMLVideoElement;
+		url: string;
+		video?: HTMLVideoElement;
 		sb: SourceBuffer | null;
 		ready: boolean;
 		pendingChunks: ArrayBuffer[];
@@ -181,29 +182,28 @@ export class MediaClient {
 			this.remoteEntries.set(senderId, entry);
 		}
 
-		if (entry.ready && entry.sb && !entry.sb.updating && entry.ms.readyState === 'open') {
+		if (entry.ms.readyState !== 'open') {
+			entry.pendingChunks.push(chunk);
+			return;
+		}
+
+		if (entry.ready && entry.sb && !entry.sb.updating) {
 			try {
 				entry.sb.appendBuffer(new Uint8Array(chunk));
 			} catch (e) {
 				console.warn('[Media] appendBuffer error:', e);
 				entry.ready = false;
 			}
-		} else if (entry.ms.readyState === 'open') {
+		} else {
 			entry.pendingChunks.push(chunk);
 		}
 	}
 
 	private createRemoteEntry(senderId: string) {
 		const ms = new MediaSource();
-		const video = document.createElement('video');
-		video.autoplay = true;
-		video.playsInline = true;
-		video.muted = true;
-		video.style.display = 'none';
-		document.body.appendChild(video);
-		video.src = URL.createObjectURL(ms);
+		const url = URL.createObjectURL(ms);
 
-		const entry = { ms, video, sb: null as SourceBuffer | null, ready: false, pendingChunks: [] as ArrayBuffer[] };
+		const entry = { ms, url, video: undefined as HTMLVideoElement | undefined, sb: null as SourceBuffer | null, ready: false, pendingChunks: [] as ArrayBuffer[] };
 
 		ms.addEventListener('sourceopen', () => {
 			try {
@@ -217,19 +217,30 @@ export class MediaClient {
 			}
 		});
 
-		video.onloadeddata = () => {
-			try {
-				const capFn = (video as any).captureStream || (video as any).mozCaptureStream;
-				if (capFn) {
-					const stream = capFn.call(video);
-					if (stream && this.onRemoteStream) {
-						this.onRemoteStream(stream, senderId);
+		if (this.onRemoteStream) {
+			const video = document.createElement('video');
+			video.autoplay = true;
+			video.playsInline = true;
+			video.muted = true;
+			video.src = url;
+			document.body.appendChild(video);
+
+			video.onloadeddata = () => {
+				try {
+					const capFn = (video as any).captureStream || (video as any).mozCaptureStream;
+					if (capFn) {
+						const stream = capFn.call(video);
+						if (stream) {
+							this.onRemoteStream!(stream, senderId);
+						}
 					}
+				} catch (e) {
+					console.warn('[Media] captureStream failed:', e);
 				}
-			} catch (e) {
-				console.warn('[Media] captureStream failed:', e);
-			}
-		};
+			};
+
+			entry.video = video;
+		}
 
 		return entry;
 	}
@@ -310,9 +321,11 @@ export class MediaClient {
 			this.localStream = null;
 		}
 		this.remoteEntries.forEach((entry) => {
-			entry.video.src = '';
-			URL.revokeObjectURL(entry.video.src);
-			entry.video.remove();
+			if (entry.video) {
+				entry.video.src = '';
+				entry.video.remove();
+			}
+			URL.revokeObjectURL(entry.url);
 		});
 		this.remoteEntries.clear();
 	}
