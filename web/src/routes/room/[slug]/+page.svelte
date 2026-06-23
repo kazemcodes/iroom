@@ -371,6 +371,10 @@
 						if (targetId === String($auth.user?.id) && newRole !== currentUserRole) {
 							auth.updateRole(newRole);
 							showRoleNotification(`نقش شما تغییر کرد به «${ROLE_LABELS[newRole as UserRole] || newRole}»`);
+							const newPerms = ROLE_PERMISSIONS[newRole as UserRole] || ROLE_PERMISSIONS.user;
+							if (newPerms.canMic || newPerms.canWebcam) {
+								restartMedia(newPerms);
+							}
 						} else {
 							const targetName = participants.find(p => p.id === targetId)?.name || 'کاربر';
 							showRoleNotification(`${targetName} → ${ROLE_LABELS[newRole as UserRole] || newRole}`);
@@ -549,6 +553,14 @@
 			}
 		});
 		activeUserMenu = null;
+	}
+	function restartMedia(newPerms: { canMic: boolean; canWebcam: boolean }) {
+		if (!mediaClient || !chatWs || chatWs.readyState !== WebSocket.OPEN) return;
+		mediaClient.stop();
+		const isListener = !newPerms.canMic && !newPerms.canWebcam;
+		mediaClient.start(!isListener && newPerms.canWebcam, !isListener && newPerms.canMic).then(() => {
+			chatDebug('media restarted', { canMic: newPerms.canMic, canWebcam: newPerms.canWebcam });
+		}).catch(e => chatDebug('media restart failed', e));
 	}
 	function sendChatMessage(text: string, replyTo?: { sender: string; content: string }) {
 		if (!chatWs || chatWs.readyState !== WebSocket.OPEN) {
@@ -936,12 +948,16 @@
 														<div class="skyroom-user-icon" class:role-owner={p.role === 'owner'} class:role-admin={p.role === 'admin'} class:role-operator={p.role === 'operator'} class:role-presenter={p.role === 'presenter'}><svg width="24" height="24" style="vertical-align:middle;fill:currentColor;width:16px;height:16px;display:inline-block;"><use xlink:href="#shape_person"></use></svg></div>
 														<div class="skyroom-user-nickname">{p.name}{#if p.isLocal} <span style="font-size:10px;color:var(--accent);">(شما)</span>{/if}</div>
 														<div class="skyroom-user-media">
-															<span class="media-icon" class:muted={!p.hasAudio} class:speaking={p.isSpeaking && p.hasAudio} title={p.hasAudio ? 'میکروفون فعال' : 'میکروفون خاموش'}>
-																<svg width="14" height="14"><use xlink:href={p.hasAudio ? '#shape_mic' : '#shape_mic_off'}></use></svg>
-															</span>
-															<span class="media-icon" class:muted={!p.hasVideo} title={p.hasVideo ? 'وبکم فعال' : 'وبکم خاموش'}>
-																<svg width="14" height="14"><use xlink:href={p.hasVideo ? '#shape_videocam' : '#shape_videocamoff'}></use></svg>
-															</span>
+															{#if ROLE_PERMISSIONS[p.role]?.canMic}
+																<span class="media-icon" class:muted={!p.hasAudio} class:speaking={p.isSpeaking && p.hasAudio} title={p.hasAudio ? 'میکروفون فعال' : 'میکروفون خاموش'}>
+																	<svg width="14" height="14"><use xlink:href={p.hasAudio ? '#shape_mic' : '#shape_mic_off'}></use></svg>
+																</span>
+															{/if}
+															{#if ROLE_PERMISSIONS[p.role]?.canWebcam}
+																<span class="media-icon" class:muted={!p.hasVideo} title={p.hasVideo ? 'وبکم فعال' : 'وبکم خاموش'}>
+																	<svg width="14" height="14"><use xlink:href={p.hasVideo ? '#shape_videocam' : '#shape_videocamoff'}></use></svg>
+																</span>
+															{/if}
 															{#if p.handRaised}
 																<span class="media-icon hand-raised" title="دست بلند">
 																	<svg width="14" height="14" style="fill:#f59e0b;"><use xlink:href="#shape_hand"></use></svg>
