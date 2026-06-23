@@ -259,16 +259,57 @@ export class MediaClient {
 		}
 	}
 
-	toggleVideo(): void {
-		if (!this.localStream) return;
+	async toggleVideo(): Promise<boolean> {
+		if (!this.localStream) return false;
+		const tracks = this.localStream.getVideoTracks();
+		if (tracks.length === 0) {
+			try {
+				const tier = this.currentTier;
+				const stream = await navigator.mediaDevices.getUserMedia({
+					video: { width: { ideal: tier.width }, height: { ideal: tier.height }, frameRate: { ideal: tier.frameRate } },
+					audio: false,
+				});
+				stream.getVideoTracks().forEach(t => this.localStream!.addTrack(t));
+				this.videoEnabled = true;
+				this.localConstraints.video = true;
+				if (this.recorder && this.recorder.state !== 'inactive') this.recorder.stop();
+				this.startRecorder();
+				if (this.onLocalStream) this.onLocalStream(this.localStream);
+				return true;
+			} catch (e) {
+				console.error('[Media] Failed to acquire video:', e);
+				return false;
+			}
+		}
 		this.videoEnabled = !this.videoEnabled;
-		this.localStream.getVideoTracks().forEach(t => { t.enabled = this.videoEnabled; });
+		tracks.forEach(t => { t.enabled = this.videoEnabled; });
+		return true;
 	}
 
-	toggleAudio(): void {
-		if (!this.localStream) return;
+	async toggleAudio(): Promise<boolean> {
+		if (!this.localStream) return false;
+		const tracks = this.localStream.getAudioTracks();
+		if (tracks.length === 0) {
+			try {
+				const stream = await navigator.mediaDevices.getUserMedia({
+					video: false,
+					audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+				});
+				stream.getAudioTracks().forEach(t => this.localStream!.addTrack(t));
+				this.audioEnabled = true;
+				this.localConstraints.audio = true;
+				if (this.recorder && this.recorder.state !== 'inactive') this.recorder.stop();
+				this.startRecorder();
+				if (this.onLocalStream) this.onLocalStream(this.localStream);
+				return true;
+			} catch (e) {
+				console.error('[Media] Failed to acquire audio:', e);
+				return false;
+			}
+		}
 		this.audioEnabled = !this.audioEnabled;
-		this.localStream.getAudioTracks().forEach(t => { t.enabled = this.audioEnabled; });
+		tracks.forEach(t => { t.enabled = this.audioEnabled; });
+		return true;
 	}
 
 	async shareScreen(): Promise<void> {
