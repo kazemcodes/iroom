@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS users (
     email TEXT UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
     display_name TEXT NOT NULL,
-    role TEXT NOT NULL DEFAULT 'student' CHECK(role IN ('admin', 'teacher', 'student')),
+    role TEXT NOT NULL DEFAULT 'user' CHECK(role IN ('admin', 'operator', 'presenter', 'user', 'teacher', 'student')),
     phone TEXT DEFAULT '',
     is_active INTEGER NOT NULL DEFAULT 1,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,

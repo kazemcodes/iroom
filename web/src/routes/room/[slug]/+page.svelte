@@ -537,21 +537,18 @@
 		wsSend({ type: 'command', command: 'kick', user_id: userId });
 		chatDebug('kickUser', { userId, userName });
 	}
-	function changeUserRole(userId: string, userName: string, newRole: string, currentRole: string) {
+	function changeUserRole(userId: string, userName: string, newRole: string) {
 		if (!perms.canChangeRole) return;
 		const roleLabel = ROLE_LABELS[newRole as UserRole] || newRole;
 		if (!confirm(`آیا از تغییر نقش ${userName} به «${roleLabel}» اطمینان دارید؟`)) return;
-		wsSend({ type: 'command', command: 'role_change', target_id: userId, role: newRole });
+		api.put(`/sessions/${roomId}/classroom/participants/${userId}/role`, { role: newRole }).then(res => {
+			if (res.success) {
+				chatDebug('role changed via API', { userId, newRole });
+			} else {
+				chatDebug('role change failed', res.error);
+			}
+		});
 		activeUserMenu = null;
-		chatDebug('changeUserRole', { userId, newRole });
-	}
-	function allowWhiteboardDraw(userId: string) {
-		if (!perms.canChangeRole) return;
-		wsSend({ type: 'command', command: 'whiteboard_allow', user_id: userId });
-	}
-	function revokeWhiteboardDraw(userId: string) {
-		if (!perms.canChangeRole) return;
-		wsSend({ type: 'command', command: 'whiteboard_deny', user_id: userId });
 	}
 	function sendChatMessage(text: string, replyTo?: { sender: string; content: string }) {
 		if (!chatWs || chatWs.readyState !== WebSocket.OPEN) {
@@ -569,6 +566,8 @@
 	function wsSend(obj: any) {
 		if (chatWs && chatWs.readyState === WebSocket.OPEN) {
 			chatWs.send(JSON.stringify(obj));
+		} else {
+			chatDebug('wsSend DROPPED', { readyState: chatWs?.readyState, obj });
 		}
 	}
 
@@ -957,9 +956,9 @@
 														{#if activeUserMenu === p.id && !p.isLocal}
 															<div class="user-action-menu" style="top:{userMenuPos.top}px;left:{userMenuPos.left}px;" onclick={(e) => e.stopPropagation()}>
 																{#if perms.canChangeRole}
-																	<div class="user-action-item" onclick={() => changeUserRole(p.id, p.name, 'operator', p.role)}>اپراتور</div>
-																	<div class="user-action-item" onclick={() => changeUserRole(p.id, p.name, 'presenter', p.role)}>ارائه‌دهنده</div>
-																	<div class="user-action-item" onclick={() => changeUserRole(p.id, p.name, 'user', p.role)}>کاربر عادی</div>
+																	<div class="user-action-item" onclick={() => changeUserRole(p.id, p.name, 'operator')}>اپراتور</div>
+																	<div class="user-action-item" onclick={() => changeUserRole(p.id, p.name, 'presenter')}>ارائه‌دهنده</div>
+																	<div class="user-action-item" onclick={() => changeUserRole(p.id, p.name, 'user')}>کاربر عادی</div>
 																	<div class="user-action-sep"></div>
 																{/if}
 																{#if perms.canKick}

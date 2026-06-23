@@ -89,7 +89,7 @@ func main() {
 	wsHub := services.NewHub()
 	go wsHub.Run()
 
-	classroomHandler := handler.NewClassroomHandler(wsHub)
+	classroomHandler := handler.NewClassroomHandler(wsHub, userRepo)
 
 	classURLHandler := handler.NewClassURLHandler(roomUC, userUC)
 
@@ -204,6 +204,7 @@ func main() {
 
 	api.GET("/sessions/:id/classroom", classroomHandler.GetJoinInfo)
 	api.GET("/sessions/:id/classroom/participants", classroomHandler.GetParticipants)
+	api.PUT("/sessions/:id/classroom/participants/:userId/role", classroomHandler.ChangeRole)
 
 	api.GET("/sessions/:id/messages", messageHandler.List)
 	api.POST("/sessions/:id/messages", messageHandler.Send)

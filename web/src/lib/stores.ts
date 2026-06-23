@@ -70,8 +70,4 @@ export const auth = createAuthStore();
 
 export const isAdmin = derived(auth, ($auth) => $auth.user?.role === 'admin');
 
-export const isTeacher = derived(auth, ($auth) => $auth.user?.role === 'operator');
-
-export const isStudent = derived(auth, ($auth) => $auth.user?.role === 'user');
-
 export const sidebarOpen = writable(true);

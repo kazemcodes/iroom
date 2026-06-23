@@ -14,7 +14,7 @@ vi.mock('$app/environment', () => ({
 }));
 
 describe('auth store', async () => {
-	const { auth, isAdmin, isTeacher, isStudent } = await import('$lib/stores');
+	const { auth, isAdmin } = await import('$lib/stores');
 
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -63,15 +63,6 @@ describe('auth store', async () => {
 
 		let result = false;
 		isAdmin.subscribe(v => result = v)();
-		expect(result).toBe(true);
-	});
-
-	it('isStudent derived store maps to user role', () => {
-		const user = { id: 1, email: 'test@test.com', display_name: 'Test', role: 'user' as const, phone: '', is_active: true, created_at: '', updated_at: '' };
-		auth.login(user, { access_token: 't', refresh_token: 't' });
-
-		let result = false;
-		isStudent.subscribe(v => result = v)();
 		expect(result).toBe(true);
 	});
 });

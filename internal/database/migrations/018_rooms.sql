@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS rooms (
 CREATE TABLE IF NOT EXISTS room_users (
     room_id INTEGER NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    role TEXT NOT NULL DEFAULT 'student' CHECK(role IN ('teacher', 'student')),
+    role TEXT NOT NULL DEFAULT 'user' CHECK(role IN ('admin', 'operator', 'presenter', 'user', 'teacher', 'student')),
     PRIMARY KEY (room_id, user_id)
 );
 

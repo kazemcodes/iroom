@@ -27,7 +27,6 @@ type ChatHandler struct {
 	}
 	userRepo interface {
 		GetByID(id int64) (*entity.User, error)
-		UpdateRole(id int64, role string) error
 	}
 	hub    *services.Hub
 	secret string
@@ -37,7 +36,6 @@ func NewChatHandler(messageRepo interface {
 	Create(m *entity.Message) error
 }, userRepo interface {
 	GetByID(id int64) (*entity.User, error)
-	UpdateRole(id int64, role string) error
 }, secret string, hub *services.Hub) *ChatHandler {
 	return &ChatHandler{messageRepo: messageRepo, userRepo: userRepo, hub: hub, secret: secret}
 }
@@ -140,57 +138,6 @@ func (h *ChatHandler) readPump(client *services.Client, sessionID int64) {
 
 		if msg.Type == "command" && msg.Command != "" {
 			debug.Log("chat command", "user_id", client.UserID, "command", msg.Command)
-
-			if msg.Command == "role_change" {
-				debug.Log("role_change received", "user_id", client.UserID, "role", client.Role, "raw", string(raw))
-
-				var rcMsg struct {
-					Command  string `json:"command"`
-					TargetID string `json:"target_id"`
-					Role     string `json:"role"`
-				}
-				if err := json.Unmarshal(raw, &rcMsg); err != nil {
-					debug.Log("role_change unmarshal error", "error", err)
-					continue
-				}
-
-				debug.Log("role_change parsed", "target_id", rcMsg.TargetID, "role", rcMsg.Role, "sender_role", client.Role)
-
-				if client.Role != "admin" && client.Role != "owner" && client.Role != "operator" {
-					debug.Log("role_change denied", "user_id", client.UserID, "role", client.Role)
-					continue
-				}
-
-				targetID, err := strconv.ParseInt(rcMsg.TargetID, 10, 64)
-				if err != nil {
-					debug.Log("role_change bad target_id", "target_id", rcMsg.TargetID, "error", err)
-					continue
-				}
-
-				validRoles := map[string]bool{"operator": true, "presenter": true, "user": true}
-				if !validRoles[rcMsg.Role] {
-					debug.Log("role_change invalid role", "role", rcMsg.Role)
-					continue
-				}
-
-				if err := h.userRepo.UpdateRole(targetID, rcMsg.Role); err != nil {
-					debug.Log("role_change db error", "error", err)
-					continue
-				}
-
-				h.hub.UpdateClientRole(targetID, rcMsg.Role)
-
-				broadcast := map[string]interface{}{
-					"type":      "command",
-					"command":   "role_change",
-					"user_id":   client.UserID,
-					"target_id": rcMsg.TargetID,
-					"role":      rcMsg.Role,
-				}
-				debug.Log("role_change broadcasting", "target_id", rcMsg.TargetID, "role", rcMsg.Role)
-				h.hub.BroadcastToRoom(strconv.FormatInt(sessionID, 10), "chat", broadcast, 0)
-				continue
-			}
 
 			broadcast := map[string]interface{}{
 				"type":    "command",
