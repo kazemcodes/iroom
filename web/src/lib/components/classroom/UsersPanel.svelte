@@ -19,7 +19,7 @@
 
 	let {
 		participants = [],
-		currentUserRole = 'student',
+		currentUserRole = 'user',
 		onMuteAudio,
 		onMuteVideo,
 		onKick,
@@ -47,7 +47,7 @@
 		return groups;
 	});
 
-	const roleOrder: UserRole[] = ['owner', 'admin', 'teacher', 'presenter', 'user'];
+	const roleOrder: UserRole[] = ['owner', 'admin', 'operator', 'presenter', 'user'];
 	const isAdmin = $derived(currentUserRole === 'admin' || currentUserRole === 'owner');
 </script>
 
@@ -71,7 +71,7 @@
 			{#if groupedParticipants[role].length > 0}
 				{#each groupedParticipants[role] as p (p.id)}
 					<div class="user-row">
-						<div class="user-avatar" class:role-owner={role === 'owner'} class:role-admin={role === 'admin'} class:role-teacher={role === 'teacher'} class:role-presenter={role === 'presenter'}>
+						<div class="user-avatar" class:role-owner={role === 'owner'} class:role-admin={role === 'admin'} class:role-operator={role === 'operator'} class:role-presenter={role === 'presenter'}>
 							<svg width="14" height="14" style="fill:currentColor;"><use xlink:href="#shape_person"></use></svg>
 						</div>
 						<div class="user-info">
@@ -107,7 +107,7 @@
 	.user-avatar { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.08); color: #8a8a96; flex-shrink: 0; }
 	.role-owner { background: rgba(245,158,11,0.2); color: #f59e0b; }
 	.role-admin { background: rgba(239,68,68,0.2); color: #ef4444; }
-	.role-teacher { background: rgba(139,92,246,0.2); color: #8b5cf6; }
+	.role-operator { background: rgba(139,92,246,0.2); color: #8b5cf6; }
 	.role-presenter { background: rgba(35,185,215,0.2); color: #23b9d7; }
 	.user-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 	.user-name { font-size: 0.75rem; font-weight: 600; color: #e0e0e6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

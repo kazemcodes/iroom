@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ROLE_PERMISSIONS, ROLE_HIERARCHY, ROLE_LABELS, canMuteUser, canKickUser, type UserRole, type Participant } from '$lib/classroom/types';
+import { describe, it, expect } from 'vitest';
+import { ROLE_PERMISSIONS, ROLE_HIERARCHY, ROLE_LABELS, canMuteUser, canKickUser, type Participant } from '$lib/classroom/types';
 
 describe('Room Features', () => {
 	describe('ROLE_PERMISSIONS', () => {
@@ -14,8 +14,8 @@ describe('Room Features', () => {
 			expect(perms.canWatch).toBe(true);
 		});
 
-		it('student has limited permissions', () => {
-			const perms = ROLE_PERMISSIONS.student;
+		it('user has limited permissions', () => {
+			const perms = ROLE_PERMISSIONS.user;
 			expect(perms.canMic).toBe(false);
 			expect(perms.canWebcam).toBe(false);
 			expect(perms.canScreenShare).toBe(false);
@@ -23,53 +23,59 @@ describe('Room Features', () => {
 			expect(perms.canHandRaise).toBe(true);
 			expect(perms.canChat).toBe(true);
 			expect(perms.canWatch).toBe(true);
+			expect(perms.canKick).toBe(false);
+			expect(perms.canChangeRole).toBe(false);
 		});
 
-		it('teacher has full permissions', () => {
-			const perms = ROLE_PERMISSIONS.teacher;
+		it('presenter has media permissions but not admin', () => {
+			const perms = ROLE_PERMISSIONS.presenter;
 			expect(perms.canMic).toBe(true);
 			expect(perms.canWebcam).toBe(true);
 			expect(perms.canScreenShare).toBe(true);
 			expect(perms.canWhiteboard).toBe(true);
+			expect(perms.canKick).toBe(false);
+			expect(perms.canChangeRole).toBe(false);
+		});
+
+		it('operator has full permissions', () => {
+			const perms = ROLE_PERMISSIONS.operator;
+			expect(perms.canKick).toBe(true);
+			expect(perms.canChangeRole).toBe(true);
+			expect(perms.canCloseRoom).toBe(true);
 		});
 	});
 
 	describe('canMuteUser', () => {
-		it('admin can mute student', () => {
-			expect(canMuteUser('admin', 'student')).toBe(true);
+		it('admin can mute user', () => {
+			expect(canMuteUser('admin', 'user')).toBe(true);
 		});
 
-		it('admin can mute teacher', () => {
-			expect(canMuteUser('admin', 'teacher')).toBe(true);
+		it('user cannot mute admin', () => {
+			expect(canMuteUser('user', 'admin')).toBe(false);
 		});
 
-		it('student cannot mute admin', () => {
-			expect(canMuteUser('student', 'admin')).toBe(false);
-		});
-
-		it('teacher can mute student', () => {
-			expect(canMuteUser('teacher', 'student')).toBe(true);
+		it('operator can mute presenter', () => {
+			expect(canMuteUser('operator', 'presenter')).toBe(true);
 		});
 	});
 
 	describe('canKickUser', () => {
 		it('owner can kick anyone', () => {
 			expect(canKickUser('owner', 'admin')).toBe(true);
-			expect(canKickUser('owner', 'teacher')).toBe(true);
-			expect(canKickUser('owner', 'student')).toBe(true);
+			expect(canKickUser('owner', 'user')).toBe(true);
 		});
 
 		it('admin can kick lower roles', () => {
-			expect(canKickUser('admin', 'student')).toBe(true);
-			expect(canKickUser('admin', 'teacher')).toBe(true);
+			expect(canKickUser('admin', 'user')).toBe(true);
+			expect(canKickUser('admin', 'presenter')).toBe(true);
 		});
 
 		it('admin cannot kick other admins', () => {
 			expect(canKickUser('admin', 'admin')).toBe(false);
 		});
 
-		it('teacher cannot kick', () => {
-			expect(canKickUser('teacher', 'student')).toBe(false);
+		it('presenter cannot kick', () => {
+			expect(canKickUser('presenter', 'user')).toBe(false);
 		});
 	});
 
@@ -78,7 +84,7 @@ describe('Room Features', () => {
 			const p: Participant = {
 				id: '1',
 				name: 'Test User',
-				role: 'student',
+				role: 'user',
 				isSpeaking: false,
 				hasVideo: true,
 				hasAudio: false,
@@ -111,11 +117,11 @@ describe('Room Features', () => {
 	describe('Role hierarchy', () => {
 		it('owner is highest', () => {
 			expect(ROLE_HIERARCHY.owner).toBeLessThan(ROLE_HIERARCHY.admin);
-			expect(ROLE_HIERARCHY.admin).toBeLessThan(ROLE_HIERARCHY.teacher);
+			expect(ROLE_HIERARCHY.admin).toBeLessThan(ROLE_HIERARCHY.operator);
 		});
 
-		it('student and user have same rank', () => {
-			expect(ROLE_HIERARCHY.student).toBe(ROLE_HIERARCHY.user);
+		it('user has lowest rank', () => {
+			expect(ROLE_HIERARCHY.user).toBeGreaterThan(ROLE_HIERARCHY.presenter);
 		});
 	});
 });

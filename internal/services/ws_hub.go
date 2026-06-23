@@ -281,6 +281,18 @@ func (h *Hub) GetRoomClients(roomID string) []RoomClientInfo {
 	return result
 }
 
+// UpdateClientRole updates the role of a connected client by user ID
+func (h *Hub) UpdateClientRole(userID int64, role string) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	if clients, ok := h.clients[userID]; ok {
+		for client := range clients {
+			client.Role = role
+		}
+	}
+}
+
 // Register adds a client to the hub
 func (h *Hub) Register(client *Client) {
 	slog.Info("hub register", "user_id", client.UserID, "room_id", client.RoomID, "display_name", client.DisplayName)

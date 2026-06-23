@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// Mock browser globals before importing store
 const mockLocalStorage = {
 	getItem: vi.fn(),
 	setItem: vi.fn(),
@@ -10,7 +9,6 @@ const mockLocalStorage = {
 
 vi.stubGlobal('localStorage', mockLocalStorage);
 
-// Mock $app/environment
 vi.mock('$app/environment', () => ({
 	browser: true
 }));
@@ -44,7 +42,7 @@ describe('auth store', async () => {
 	});
 
 	it('init restores from localStorage', () => {
-		const user = { id: 1, email: 'test@test.com', display_name: 'Test', role: 'teacher' as const, phone: '', is_active: true, created_at: '', updated_at: '' };
+		const user = { id: 1, email: 'test@test.com', display_name: 'Test', role: 'operator' as const, phone: '', is_active: true, created_at: '', updated_at: '' };
 		mockLocalStorage.getItem.mockImplementation((key: string) => {
 			if (key === 'access_token') return 'token123';
 			if (key === 'user') return JSON.stringify(user);
@@ -56,7 +54,7 @@ describe('auth store', async () => {
 		let state: any;
 		auth.subscribe(s => state = s)();
 		expect(state.isLoggedIn).toBe(true);
-		expect(state.user?.role).toBe('teacher');
+		expect(state.user?.role).toBe('operator');
 	});
 
 	it('isAdmin derived store', () => {
@@ -68,8 +66,8 @@ describe('auth store', async () => {
 		expect(result).toBe(true);
 	});
 
-	it('isStudent derived store', () => {
-		const user = { id: 1, email: 'test@test.com', display_name: 'Test', role: 'student' as const, phone: '', is_active: true, created_at: '', updated_at: '' };
+	it('isStudent derived store maps to user role', () => {
+		const user = { id: 1, email: 'test@test.com', display_name: 'Test', role: 'user' as const, phone: '', is_active: true, created_at: '', updated_at: '' };
 		auth.login(user, { access_token: 't', refresh_token: 't' });
 
 		let result = false;
@@ -89,18 +87,20 @@ describe('ROLE_PERMISSIONS', async () => {
 		expect(p.canWhiteboard).toBe(true);
 		expect(p.canHandRaise).toBe(true);
 		expect(p.canChat).toBe(true);
+		expect(p.canKick).toBe(true);
 	});
 
-	it('presenter has mic/webcam/screen but no whiteboard', () => {
+	it('presenter has mic/webcam/screen/whiteboard', () => {
 		const p = ROLE_PERMISSIONS.presenter;
 		expect(p.canMic).toBe(true);
 		expect(p.canWebcam).toBe(true);
 		expect(p.canScreenShare).toBe(true);
-		expect(p.canWhiteboard).toBe(false);
+		expect(p.canWhiteboard).toBe(true);
+		expect(p.canKick).toBe(false);
 	});
 
-	it('student has only hand raise and chat', () => {
-		const p = ROLE_PERMISSIONS.student;
+	it('user has only hand raise and chat', () => {
+		const p = ROLE_PERMISSIONS.user;
 		expect(p.canMic).toBe(false);
 		expect(p.canWebcam).toBe(false);
 		expect(p.canScreenShare).toBe(false);
@@ -111,21 +111,17 @@ describe('ROLE_PERMISSIONS', async () => {
 });
 
 describe('canMuteUser', async () => {
-	const { canMuteUser, ROLE_HIERARCHY } = await import('$lib/classroom/types');
+	const { canMuteUser } = await import('$lib/classroom/types');
 
-	it('admin can mute student', () => {
-		expect(canMuteUser('admin', 'student')).toBe(true);
+	it('admin can mute user', () => {
+		expect(canMuteUser('admin', 'user')).toBe(true);
 	});
 
-	it('student cannot mute admin', () => {
-		expect(canMuteUser('student', 'admin')).toBe(false);
+	it('user cannot mute admin', () => {
+		expect(canMuteUser('user', 'admin')).toBe(false);
 	});
 
-	it('teacher can mute presenter', () => {
-		expect(canMuteUser('teacher', 'presenter')).toBe(true);
-	});
-
-	it('operator can mute teacher', () => {
-		expect(canMuteUser('operator', 'teacher')).toBe(true);
+	it('operator can mute presenter', () => {
+		expect(canMuteUser('operator', 'presenter')).toBe(true);
 	});
 });

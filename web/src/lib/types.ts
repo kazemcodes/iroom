@@ -16,7 +16,7 @@ export interface User {
 	id: number;
 	email: string;
 	display_name: string;
-	role: 'admin' | 'teacher' | 'student';
+	role: 'admin' | 'operator' | 'presenter' | 'user' | 'owner';
 	phone: string;
 	is_active: boolean;
 	two_factor_enabled?: boolean;

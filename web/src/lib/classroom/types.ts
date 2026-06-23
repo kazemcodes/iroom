@@ -12,7 +12,7 @@
  *   - canMuteUser/canKickUser: Permission check functions
  */
 
-export type UserRole = 'owner' | 'admin' | 'operator' | 'presenter' | 'teacher' | 'student' | 'user';
+export type UserRole = 'owner' | 'admin' | 'operator' | 'presenter' | 'user';
 
 export interface Participant {
 	id: string;
@@ -66,30 +66,24 @@ export const ROLE_HIERARCHY: Record<UserRole, number> = {
 	owner: 0,
 	admin: 1,
 	operator: 2,
-	teacher: 3,
-	presenter: 4,
-	user: 5,
-	student: 5,
+	presenter: 3,
+	user: 4,
 };
 
 export const ROLE_LABELS: Record<UserRole, string> = {
 	owner: 'مالک',
 	admin: 'مدیر',
 	operator: 'اپراتور',
-	teacher: 'مدرس',
 	presenter: 'ارائه‌دهنده',
-	user: 'کاربر',
-	student: 'دانش‌آموز',
+	user: 'کاربر عادی',
 };
 
-export const ROLE_PERMISSIONS: Record<UserRole, { canMic: boolean; canWebcam: boolean; canScreenShare: boolean; canWhiteboard: boolean; canHandRaise: boolean; canChat: boolean; canWatch: boolean }> = {
-	owner:     { canMic: true, canWebcam: true, canScreenShare: true, canWhiteboard: true, canHandRaise: true, canChat: true, canWatch: true },
-	admin:     { canMic: true, canWebcam: true, canScreenShare: true, canWhiteboard: true, canHandRaise: true, canChat: true, canWatch: true },
-	operator:  { canMic: true, canWebcam: true, canScreenShare: true, canWhiteboard: true, canHandRaise: true, canChat: true, canWatch: true },
-	teacher:   { canMic: true, canWebcam: true, canScreenShare: true, canWhiteboard: true, canHandRaise: true, canChat: true, canWatch: true },
-	presenter: { canMic: true, canWebcam: true, canScreenShare: true, canWhiteboard: false, canHandRaise: true, canChat: true, canWatch: true },
-	user:      { canMic: false, canWebcam: false, canScreenShare: false, canWhiteboard: false, canHandRaise: true, canChat: true, canWatch: true },
-	student:   { canMic: false, canWebcam: false, canScreenShare: false, canWhiteboard: false, canHandRaise: true, canChat: true, canWatch: true },
+export const ROLE_PERMISSIONS: Record<UserRole, { canMic: boolean; canWebcam: boolean; canScreenShare: boolean; canWhiteboard: boolean; canHandRaise: boolean; canChat: boolean; canWatch: boolean; canKick: boolean; canChangeRole: boolean; canCloseRoom: boolean }> = {
+	owner:     { canMic: true, canWebcam: true, canScreenShare: true, canWhiteboard: true, canHandRaise: true, canChat: true, canWatch: true, canKick: true, canChangeRole: true, canCloseRoom: true },
+	admin:     { canMic: true, canWebcam: true, canScreenShare: true, canWhiteboard: true, canHandRaise: true, canChat: true, canWatch: true, canKick: true, canChangeRole: true, canCloseRoom: true },
+	operator:  { canMic: true, canWebcam: true, canScreenShare: true, canWhiteboard: true, canHandRaise: true, canChat: true, canWatch: true, canKick: true, canChangeRole: true, canCloseRoom: true },
+	presenter: { canMic: true, canWebcam: true, canScreenShare: true, canWhiteboard: true, canHandRaise: true, canChat: true, canWatch: true, canKick: false, canChangeRole: false, canCloseRoom: false },
+	user:      { canMic: false, canWebcam: false, canScreenShare: false, canWhiteboard: false, canHandRaise: true, canChat: true, canWatch: true, canKick: false, canChangeRole: false, canCloseRoom: false },
 };
 
 export function canMuteUser(currentRole: UserRole, targetRole: UserRole): boolean {
@@ -97,5 +91,5 @@ export function canMuteUser(currentRole: UserRole, targetRole: UserRole): boolea
 }
 
 export function canKickUser(currentRole: UserRole, targetRole: UserRole): boolean {
-	return currentRole === 'owner' || (currentRole === 'admin' && ROLE_HIERARCHY[targetRole] > ROLE_HIERARCHY.admin);
+	return ROLE_HIERARCHY[currentRole] <= ROLE_HIERARCHY.admin && ROLE_HIERARCHY[currentRole] < ROLE_HIERARCHY[targetRole];
 }

@@ -54,6 +54,14 @@ function createAuthStore() {
 					set({ user: JSON.parse(savedUser), isLoggedIn: true });
 				}
 			}
+		},
+		updateRole: (role: string) => {
+			update(state => {
+				if (!state.user) return state;
+				const updated = { ...state.user, role: role as User['role'] };
+				if (browser) localStorage.setItem('user', JSON.stringify(updated));
+				return { ...state, user: updated };
+			});
 		}
 	};
 }
@@ -62,8 +70,8 @@ export const auth = createAuthStore();
 
 export const isAdmin = derived(auth, ($auth) => $auth.user?.role === 'admin');
 
-export const isTeacher = derived(auth, ($auth) => $auth.user?.role === 'teacher');
+export const isTeacher = derived(auth, ($auth) => $auth.user?.role === 'operator');
 
-export const isStudent = derived(auth, ($auth) => $auth.user?.role === 'student');
+export const isStudent = derived(auth, ($auth) => $auth.user?.role === 'user');
 
 export const sidebarOpen = writable(true);

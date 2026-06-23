@@ -40,7 +40,7 @@
 
 	// Create user
 	let showCreateUser = $state(false);
-	let newUser = $state({ email: '', password: '', display_name: '', phone: '', role: 'student' });
+	let newUser = $state({ email: '', password: '', display_name: '', phone: '', role: 'user' });
 	let createUserLoading = $state(false);
 	let createUserError = $state('');
 
@@ -172,7 +172,7 @@
 		const res = await api.post('/admin/users', newUser);
 		if (!res.success) { createUserError = res.error || 'خطا'; createUserLoading = false; return; }
 		showCreateUser = false;
-		newUser = { email: '', password: '', display_name: '', phone: '', role: 'student' };
+		newUser = { email: '', password: '', display_name: '', phone: '', role: 'user' };
 		createUserLoading = false;
 		await loadUsers();
 	}
@@ -206,7 +206,7 @@
 		return path.replace(/^\/api\/v1/, '').replace(/\/\d+/g, '/:id');
 	}
 
-	const roleLabels: Record<string, string> = { admin: 'مدیر', teacher: 'مدرس', student: 'دانش‌آموز' };
+	const roleLabels: Record<string, string> = { admin: 'مدیر', operator: 'اپراتور', presenter: 'ارائه‌دهنده', user: 'کاربر عادی' };
 	function toPersian(n: number) { return n.toLocaleString('fa-IR'); }
 	function formatDate(d: string) { return d ? new Date(d).toLocaleDateString('fa-IR', { year: 'numeric', month: 'short', day: 'numeric' }) : '—'; }
 	const statusLabels: Record<string, string> = { scheduled: 'برنامه‌ریزی شده', live: 'در حال برگزاری', ended: 'پایان یافته' };
@@ -347,7 +347,7 @@
 						<div class="flex justify-center py-8"><div class="animate-spin h-6 w-6 border-2 border-[var(--color-crystal-clear)] border-t-transparent rounded-full"></div></div>
 					{:else}
 						<table class="sky-table"><thead><tr><th>نام</th><th>ایمیل</th><th>نقش</th><th>عملیات</th></tr></thead>
-							<tbody>{#each users as u}<tr><td class="font-semibold">{u.display_name}</td><td dir="ltr" style="color:var(--color-mystic-sea);">{u.email}</td><td><span class="sky-badge sky-badge-{u.role === 'admin' ? 'danger' : u.role === 'teacher' ? 'info' : 'default'}">{roleLabels[u.role] || u.role}</span></td><td><button onclick={() => confirmDeleteUser(u.id)} class="sky-btn sky-btn-ghost" style="font-size:11px;color:var(--color-fiery-passion);">حذف</button></td></tr>{/each}</tbody>
+							<tbody>{#each users as u}<tr><td class="font-semibold">{u.display_name}</td><td dir="ltr" style="color:var(--color-mystic-sea);">{u.email}</td><td><span class="sky-badge sky-badge-{u.role === 'admin' ? 'danger' : u.role === 'operator' ? 'info' : 'default'}">{roleLabels[u.role] || u.role}</span></td><td><button onclick={() => confirmDeleteUser(u.id)} class="sky-btn sky-btn-ghost" style="font-size:11px;color:var(--color-fiery-passion);">حذف</button></td></tr>{/each}</tbody>
 						</table>
 					{/if}
 
@@ -406,7 +406,7 @@
 				<div><label class="sky-label">نام نمایشی</label><input type="text" bind:value={newUser.display_name} class="sky-input" required /></div>
 				<div><label class="sky-label">ایمیل</label><input type="email" bind:value={newUser.email} class="sky-input" dir="ltr" required /></div>
 				<div><label class="sky-label">رمز عبور</label><input type="password" bind:value={newUser.password} class="sky-input" dir="ltr" required /></div>
-				<div><label class="sky-label">نقش</label><select bind:value={newUser.role} class="sky-input"><option value="student">دانش‌آموز</option><option value="teacher">مدرس</option><option value="admin">مدیر</option></select></div>
+				<div><label class="sky-label">نقش</label><select bind:value={newUser.role} class="sky-input"><option value="user">کاربر عادی</option><option value="presenter">ارائه‌دهنده</option><option value="operator">اپراتور</option><option value="admin">مدیر</option></select></div>
 			</div>
 			<div class="sky-modal-footer"><button onclick={() => showCreateUser = false} class="sky-btn sky-btn-secondary">انصراف</button><button onclick={createUser} disabled={createUserLoading || !newUser.email || !newUser.password} class="sky-btn sky-btn-primary">{createUserLoading ? 'در حال ایجاد...' : 'ایجاد'}</button></div>
 		</div>

@@ -19,7 +19,7 @@
 	import type { UserRole } from '$lib/classroom/types';
 
 	let {
-		userRole = 'student',
+		userRole = 'user',
 		onUserInfo,
 		onConnectionStatus,
 		onSettings,

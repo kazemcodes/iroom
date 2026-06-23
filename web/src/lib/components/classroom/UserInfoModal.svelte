@@ -26,7 +26,7 @@
 			<div class="info-row"><span class="label">شناسه</span><span class="value">{info.id}</span></div>
 			<div class="info-row"><span class="label">نام کاربری</span><span class="value" dir="ltr">{info.username}</span></div>
 			<div class="info-row"><span class="label">نام نمایشی</span><span class="value">{info.displayName}</span></div>
-			<div class="info-row"><span class="label">نقش</span><span class="value">{info.role === 'admin' ? 'مدیر' : info.role === 'teacher' ? 'مدرس' : 'دانش‌آموز'}</span></div>
+			<div class="info-row"><span class="label">نقش</span><span class="value">{info.role === 'admin' ? 'مدیر' : info.role === 'operator' ? 'اپراتور' : info.role === 'presenter' ? 'ارائه‌دهنده' : 'کاربر عادی'}</span></div>
 			<div class="info-row"><span class="label">سیستم عامل</span><span class="value">{info.os}</span></div>
 			<div class="info-row"><span class="label">مرورگر</span><span class="value" dir="ltr">{info.browser}</span></div>
 			<div class="info-row"><span class="label">زمان ورود</span><span class="value">{info.entryTime}</span></div>

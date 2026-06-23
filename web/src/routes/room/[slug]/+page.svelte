@@ -40,7 +40,7 @@
 						};
 					}),
 					...res.data.filter((p: any) => !participants.find(ep => ep.id === p.id)).map((p: any) => ({
-						id: p.id, name: p.name, role: (p.role || 'student') as UserRole,
+						id: p.id, name: p.name, role: (p.role || 'user') as UserRole,
 						isSpeaking: false, hasVideo: !p.is_video_off, hasAudio: !p.is_muted,
 						hasScreen: p.is_screen_sharing || false, hasWhiteboard: false, handRaised: false,
 					})),
@@ -174,7 +174,7 @@
 	import { onMount as onClassroomMount, onDestroy } from 'svelte';
 	import { MediaClient } from '$lib/classroom/media-client';
 	import type { UserRole, Participant, ChatMessage } from '$lib/classroom/types';
-	import { ROLE_PERMISSIONS } from '$lib/classroom/types';
+	import { ROLE_PERMISSIONS, ROLE_LABELS } from '$lib/classroom/types';
 	import ChatPanel from '$lib/components/classroom/ChatPanel.svelte';
 	import UsersPanel from '$lib/components/classroom/UsersPanel.svelte';
 	import AppMenu from '$lib/components/classroom/AppMenu.svelte';
@@ -200,6 +200,8 @@
 	let showAppMenu = $state(false);
 	let showUsersMenu = $state(false);
 	let showChatMenu = $state(false);
+	let activeUserMenu = $state<string | null>(null);
+	let userMenuPos = $state<{ top: number; left: number }>({ top: 0, left: 0 });
 	let chatDisabled = $state(false);
 	let chatPrivate = $state(false);
 	let chatExpanded = $state(false);
@@ -211,6 +213,7 @@
 	let lastY = $state(0);
 	let showModal = $state<'userInfo' | 'connection' | 'settings' | 'layout' | 'attendance' | null>(null);
 	let joinNotification = $state<{ name: string; show: boolean }>({ name: '', show: false });
+	let roleNotification = $state<{ text: string; show: boolean }>({ text: '', show: false });
 	let menuPos = $state<{ top: number; left: number }>({ top: 0, left: 0 });
 	let participants = $state<Participant[]>([]);
 	let chatMessages = $state<ChatMessage[]>([]);
@@ -224,9 +227,9 @@
 	let entryMode = $state<'speaker' | 'listener'>('speaker');
 	let remoteStreams = $state<Array<{id: string; stream: MediaStream; isScreen: boolean}>>([]);
 
-	const currentUserRole = $derived(($auth.user?.role || 'student') as UserRole);
-	const perms = $derived(ROLE_PERMISSIONS[currentUserRole] || ROLE_PERMISSIONS.student);
-	const isPresenterOrAbove = $derived(['owner', 'admin', 'operator', 'teacher', 'presenter'].includes(currentUserRole));
+	const currentUserRole = $derived(($auth.user?.role || 'user') as UserRole);
+	const perms = $derived(ROLE_PERMISSIONS[currentUserRole] || ROLE_PERMISSIONS.user);
+	const isPresenterOrAbove = $derived(['owner', 'admin', 'operator', 'presenter'].includes(currentUserRole));
 	const gridCols = $derived.by(() => {
 		const count = participants.length;
 		if (count <= 1) return 'grid-cols-1';
@@ -243,10 +246,11 @@
 
 	function handleClickOutside(e: MouseEvent) {
 		const target = e.target as HTMLElement;
-		if (!target.closest('.app-menu') && !target.closest('.skyroom-icon-square') && !target.closest('.skyroom-dots-btn') && !target.closest('.skyroom-context-menu')) {
+		if (!target.closest('.app-menu') && !target.closest('.skyroom-icon-square') && !target.closest('.skyroom-dots-btn') && !target.closest('.skyroom-context-menu') && !target.closest('.user-action-menu') && !target.closest('.user-menu-arrow')) {
 			showUsersMenu = false;
 			showChatMenu = false;
 			showAppMenu = false;
+			activeUserMenu = null;
 		}
 	}
 
@@ -294,7 +298,7 @@
 				if (data.type === 'message') {
 					const msg = data.message;
 					const isOwn = msg.user_id === $auth.user?.id;
-					const isAdminUser = currentUserRole === 'admin' || currentUserRole === 'teacher';
+					const isAdminUser = currentUserRole === 'admin' || currentUserRole === 'operator' || currentUserRole === 'owner';
 					if (msg.is_private && !isOwn && !isAdminUser) {
 						chatDebug('private message filtered');
 						return;
@@ -356,6 +360,21 @@
 						data.command === 'webcam_on' || data.command === 'webcam_off' ||
 						data.command === 'screenshare_on' || data.command === 'screenshare_off') {
 						chatDebug('media command', { command: data.command, user_id: data.user_id });
+					} else if (data.command === 'role_change') {
+						const targetId = String(data.target_id);
+						const newRole = data.role;
+						chatDebug('role_change', { targetId, newRole });
+						participants = participants.map(p => {
+							if (p.id === targetId) return { ...p, role: newRole as UserRole };
+							return p;
+						});
+						if (targetId === String($auth.user?.id) && newRole !== currentUserRole) {
+							auth.updateRole(newRole);
+							showRoleNotification(`نقش شما تغییر کرد به «${ROLE_LABELS[newRole as UserRole] || newRole}»`);
+						} else {
+							const targetName = participants.find(p => p.id === targetId)?.name || 'کاربر';
+							showRoleNotification(`${targetName} → ${ROLE_LABELS[newRole as UserRole] || newRole}`);
+						}
 					} else if (data.command === 'pdf_open') {
 						showPdf = true;
 						showWhiteboard = false;
@@ -502,7 +521,7 @@
 		}
 	}
 	function toggleChatDisabled() {
-		if (currentUserRole !== 'admin' && currentUserRole !== 'teacher') return;
+		if (!perms.canChangeRole) return;
 		chatDisabled = !chatDisabled;
 		syncChatDisabled(chatDisabled);
 	}
@@ -513,17 +532,25 @@
 		participants = participants.map(p => ({ ...p, handRaised: false }));
 	}
 	function kickUser(userId: string, userName: string) {
-		if (currentUserRole !== 'admin' && currentUserRole !== 'teacher') return;
+		if (!perms.canKick) return;
 		if (!confirm(`آیا از اخراج ${userName} اطمینان دارید؟`)) return;
 		wsSend({ type: 'command', command: 'kick', user_id: userId });
 		chatDebug('kickUser', { userId, userName });
 	}
+	function changeUserRole(userId: string, userName: string, newRole: string, currentRole: string) {
+		if (!perms.canChangeRole) return;
+		const roleLabel = ROLE_LABELS[newRole as UserRole] || newRole;
+		if (!confirm(`آیا از تغییر نقش ${userName} به «${roleLabel}» اطمینان دارید؟`)) return;
+		wsSend({ type: 'command', command: 'role_change', target_id: userId, role: newRole });
+		activeUserMenu = null;
+		chatDebug('changeUserRole', { userId, newRole });
+	}
 	function allowWhiteboardDraw(userId: string) {
-		if (currentUserRole !== 'admin' && currentUserRole !== 'teacher') return;
+		if (!perms.canChangeRole) return;
 		wsSend({ type: 'command', command: 'whiteboard_allow', user_id: userId });
 	}
 	function revokeWhiteboardDraw(userId: string) {
-		if (currentUserRole !== 'admin' && currentUserRole !== 'teacher') return;
+		if (!perms.canChangeRole) return;
 		wsSend({ type: 'command', command: 'whiteboard_deny', user_id: userId });
 	}
 	function sendChatMessage(text: string, replyTo?: { sender: string; content: string }) {
@@ -534,7 +561,7 @@
 		}
 		const payload: any = { type: 'message', content: text };
 		if (replyTo) payload.reply_to = replyTo;
-		if (chatPrivate && (currentUserRole === 'admin' || currentUserRole === 'teacher')) payload.private = true;
+		if (chatPrivate && perms.canChangeRole) payload.private = true;
 		chatDebug('sendChatMessage', payload);
 		chatWs.send(JSON.stringify(payload));
 	}
@@ -586,6 +613,7 @@
 		goto('/');
 	}
 	function showJoinNotification(name: string) { joinNotification = { name, show: true }; setTimeout(() => { joinNotification = { name: '', show: false }; }, 3000); }
+	function showRoleNotification(text: string) { roleNotification = { text, show: true }; setTimeout(() => { roleNotification = { text: '', show: false }; }, 4000); }
 
 	async function startSession() {
 		if (!roomId) return;
@@ -838,7 +866,7 @@
 				{/if}
 			</div>
 		{:else}
-			<header class="skyroom-header">
+		<header class="skyroom-header">
 				<div class="skyroom-row" style="gap:8px;min-width:0;">
 					<div style="width:28px;height:28px;border-radius:6px;background:var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><span style="font-size:12px;font-weight:700;color:#fff;">{($auth.user?.display_name || 'م').charAt(0)}</span></div>
 					<span style="font-weight:600;font-size:var(--font-size);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{$auth.user?.display_name || 'مالک'}</span>
@@ -905,8 +933,8 @@
 										<div class="skyroom-block-content">
 											<div class="skyroom-users-list-wrapper"><div class="skyroom-users-list">
 												{#each participants as p}
-													<div class="skyroom-user-row">
-														<div class="skyroom-user-icon"><svg width="24" height="24" style="vertical-align:middle;fill:var(--text-color);width:16px;height:16px;display:inline-block;"><use xlink:href="#shape_person"></use></svg></div>
+													<div class="skyroom-user-row" onclick={(e) => { e.stopPropagation(); if (!p.isLocal && (currentUserRole === 'admin' || currentUserRole === 'owner')) activeUserMenu = activeUserMenu === p.id ? null : p.id; }}>
+														<div class="skyroom-user-icon" class:role-owner={p.role === 'owner'} class:role-admin={p.role === 'admin'} class:role-operator={p.role === 'operator'} class:role-presenter={p.role === 'presenter'}><svg width="24" height="24" style="vertical-align:middle;fill:currentColor;width:16px;height:16px;display:inline-block;"><use xlink:href="#shape_person"></use></svg></div>
 														<div class="skyroom-user-nickname">{p.name}{#if p.isLocal} <span style="font-size:10px;color:var(--accent);">(شما)</span>{/if}</div>
 														<div class="skyroom-user-media">
 															<span class="media-icon" class:muted={!p.hasAudio} class:speaking={p.isSpeaking && p.hasAudio} title={p.hasAudio ? 'میکروفون فعال' : 'میکروفون خاموش'}>
@@ -920,12 +948,25 @@
 																	<svg width="14" height="14" style="fill:#f59e0b;"><use xlink:href="#shape_hand"></use></svg>
 																</span>
 															{/if}
-															{#if !p.isLocal && (currentUserRole === 'admin' || currentUserRole === 'teacher')}
-																<button class="kick-btn" onclick={() => kickUser(p.id, p.name)} title="اخراج">
-																	<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#e05252" stroke-width="2"><path d="M9 17l-5-5 5-5"/><path d="M4 12h11a4 4 0 010 8h-1"/></svg>
+															{#if !p.isLocal && perms.canChangeRole}
+																<button class="user-menu-arrow" title="گزینه‌ها" onclick={(e) => { e.stopPropagation(); const r = (e.currentTarget as HTMLElement).getBoundingClientRect(); userMenuPos = { top: r.bottom + 4, left: Math.min(r.left, window.innerWidth - 160) }; activeUserMenu = activeUserMenu === p.id ? null : p.id; }}>
+																	<svg width="12" height="12" style="fill:currentColor;"><use xlink:href="#shape_keyboard_arrow_down"></use></svg>
 																</button>
 															{/if}
 														</div>
+														{#if activeUserMenu === p.id && !p.isLocal}
+															<div class="user-action-menu" style="top:{userMenuPos.top}px;left:{userMenuPos.left}px;" onclick={(e) => e.stopPropagation()}>
+																{#if perms.canChangeRole}
+																	<div class="user-action-item" onclick={() => changeUserRole(p.id, p.name, 'operator', p.role)}>اپراتور</div>
+																	<div class="user-action-item" onclick={() => changeUserRole(p.id, p.name, 'presenter', p.role)}>ارائه‌دهنده</div>
+																	<div class="user-action-item" onclick={() => changeUserRole(p.id, p.name, 'user', p.role)}>کاربر عادی</div>
+																	<div class="user-action-sep"></div>
+																{/if}
+																{#if perms.canKick}
+																	<div class="user-action-item danger" onclick={() => { kickUser(p.id, p.name); activeUserMenu = null; }}>اخراج</div>
+																{/if}
+															</div>
+														{/if}
 													</div>
 												{/each}
 											</div></div>
@@ -1088,6 +1129,7 @@
 		{/if}
 		{#if showAppMenu}<AppMenu userRole={currentUserRole} onUserInfo={() => showModal = 'userInfo'} onConnectionStatus={() => showModal = 'connection'} onSettings={() => showModal = 'settings'} onLayout={() => showModal = 'layout'} onLeave={leaveRoom} onCloseRoom={closeRoom} onDismiss={() => showAppMenu = false} />{/if}
 		{#if joinNotification.show}<div class="join-toast"><svg width="16" height="16" style="fill:#23b9d7;"><use xlink:href="#shape_group"></use></svg><span>{joinNotification.name} به کلاس پیوست</span></div>{/if}
+		{#if roleNotification.show}<div class="join-toast role-toast"><svg width="16" height="16" style="fill:#f59e0b;"><use xlink:href="#shape_person"></use></svg><span>{roleNotification.text}</span></div>{/if}
 		{#if showModal === 'userInfo'}<UserInfoModal onClose={() => showModal = null} />
 		{:else if showModal === 'connection'}<ConnectionStatusModal onClose={() => showModal = null} connected={connected} elapsedSeconds={elapsedSeconds} participantCount={participants.length} />
 		{:else if showModal === 'settings'}<SettingsModal onClose={() => showModal = null} />
@@ -1153,6 +1195,7 @@
 	<symbol id="shape_menu" viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></symbol>
 	<symbol id="shape_more_vert" viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></symbol>
 	<symbol id="shape_exit" viewBox="0 0 24 24"><path d="M10.09 15.59L11.5 17l5-5-5-5-1.41 1.41L12.67 11H3v2h9.67l-2.58 2.59zM19 3H5c-1.11 0-2 .9-2 2v4h2V5h14v14H5v-4H3v4c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/></symbol>
+	<symbol id="shape_keyboard_arrow_down" viewBox="0 0 24 24"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></symbol>
 </svg>
 
 <style>
@@ -1231,7 +1274,7 @@
 	.skyroom-users-count { font-size: var(--font-size-xs, .7rem); color: var(--text-secondary); background: rgba(255,255,255,0.06); padding: 1px 6px; border-radius: 10px; }
 	.skyroom-users-list-wrapper { overflow-y: auto; flex: 1; }
 	.skyroom-users-list { padding: 4px 2px; }
-	.skyroom-user-row { display: flex; align-items: center; gap: 6px; padding: 5px 6px; border-radius: var(--radius-sm); }
+	.skyroom-user-row { display: flex; align-items: center; gap: 6px; padding: 5px 6px; border-radius: var(--radius-sm); position: relative; }
 	.skyroom-user-icon { flex-shrink: 0; opacity: 0.4; }
 	.skyroom-user-nickname { text-overflow: ellipsis; white-space: nowrap; overflow: hidden; font-weight: 600; color: var(--text-color); font-size: var(--font-size-sm); }
 	.skyroom-icon-square { width: 36px; height: 36px; border-radius: var(--radius-sm); border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.05); color: var(--inactive); transition: all 0.2s ease; }
@@ -1252,6 +1295,7 @@
 	.media-icon.hand-raised svg { fill: #f59e0b; }
 	.media-icon.speaking svg { fill: #3b82f6; }
 	.join-toast { position: fixed; top: 60px; left: 50%; transform: translateX(-50%); background: #1c2a3a; border: 1px solid rgba(35, 185, 215, 0.3); color: #e0e0e6; padding: 8px 16px; border-radius: 8px; font-size: 0.8rem; display: flex; align-items: center; gap: 8px; z-index: 150; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+	.join-toast.role-toast { border-color: rgba(245, 158, 11, 0.3); }
 	.entry-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 200; animation: fadeIn 0.15s ease; }
 	.entry-modal { background: #1c2a3a; border-radius: 12px; width: 380px; max-width: 90vw; box-shadow: 0 12px 40px rgba(0,0,0,0.5); animation: slideUp 0.2s ease; }
 	.entry-modal-header { padding: 16px; border-bottom: 1px solid rgba(255,255,255,0.08); font-weight: 600; font-size: 0.95rem; color: #e0e0e6; text-align: center; }
@@ -1283,6 +1327,36 @@
 	}
 	.skyroom-user-row:hover .kick-btn { opacity: 1; }
 	.kick-btn:hover { background: rgba(224,82,82,0.15); }
+
+	/* User role dropdown menu */
+	.user-menu-arrow {
+		background: none; border: none; cursor: pointer; padding: 2px;
+		border-radius: 4px; display: flex; align-items: center; justify-content: center;
+		color: var(--inactive); transition: all 0.15s; opacity: 0;
+		min-width: 24px; min-height: 24px;
+	}
+	.skyroom-user-row:hover .user-menu-arrow { opacity: 1; }
+	.user-menu-arrow:hover { background: rgba(255,255,255,0.08); color: var(--text-color); }
+	.user-action-menu {
+		position: fixed; z-index: 9998;
+		background: #1c2a3a; border-radius: 8px; min-width: 140px;
+		box-shadow: 0 8px 24px rgba(0,0,0,0.5); padding: 4px 0;
+		animation: menuFadeIn 0.12s ease;
+	}
+	.user-action-item {
+		padding: 8px 14px; cursor: pointer; color: #e0e0e6; font-size: 0.8rem;
+		transition: background 0.12s;
+	}
+	.user-action-item:hover { background: rgba(255,255,255,0.06); }
+	.user-action-item.danger { color: #e05252; }
+	.user-action-item.danger:hover { background: rgba(224,82,82,0.1); }
+	.user-action-sep { height: 1px; background: rgba(255,255,255,0.08); margin: 3px 0; }
+
+	/* Role-colored avatars in user list */
+	.skyroom-user-icon.role-owner { background: rgba(245,158,11,0.2); color: #f59e0b; }
+	.skyroom-user-icon.role-admin { background: rgba(239,68,68,0.2); color: #ef4444; }
+	.skyroom-user-icon.role-operator { background: rgba(139,92,246,0.2); color: #8b5cf6; }
+	.skyroom-user-icon.role-presenter { background: rgba(35,185,215,0.2); color: #23b9d7; }
 
 	/* Mobile responsive */
 	@media (max-width: 768px) {

@@ -21,8 +21,8 @@
 	let showDeleteConfirm = $state(false);
 	let deleteUserId = $state(0);
 
-	let newUser = $state({ email: '', password: '', display_name: '', phone: '', role: 'student' });
-	let editForm = $state({ display_name: '', role: 'student', is_active: true });
+	let newUser = $state({ email: '', password: '', display_name: '', phone: '', role: 'user' });
+	let editForm = $state({ display_name: '', role: 'user', is_active: true });
 	let editPassword = $state('');
 	let editLoading = $state(false);
 	let editError = $state('');
@@ -77,7 +77,7 @@
 			return;
 		}
 		showCreateModal = false;
-		newUser = { email: '', password: '', display_name: '', phone: '', role: 'student' };
+		newUser = { email: '', password: '', display_name: '', phone: '', role: 'user' };
 		createLoading = false;
 		await loadUsers();
 	}
@@ -286,8 +286,8 @@
 		return n.toLocaleString('fa-IR');
 	}
 
-	const roleLabels: Record<string, string> = { admin: 'مدیر', teacher: 'مدرس', student: 'دانش‌آموز' };
-	const roleBadge: Record<string, string> = { admin: 'sky-badge sky-badge-danger', teacher: 'sky-badge badge-purple', student: 'sky-badge sky-badge-info' };
+	const roleLabels: Record<string, string> = { admin: 'مدیر', operator: 'اپراتور', presenter: 'ارائه‌دهنده', user: 'کاربر عادی' };
+	const roleBadge: Record<string, string> = { admin: 'sky-badge sky-badge-danger', operator: 'sky-badge badge-purple', presenter: 'sky-badge sky-badge-info', user: 'sky-badge sky-badge-default' };
 </script>
 
 <div class="space-y-6">
@@ -321,8 +321,9 @@
 		<select bind:value={roleFilter} onchange={() => { currentPage = 1; loadUsers(); }} class="sky-input" style="width:auto;">
 			<option value="all">همه نقش‌ها</option>
 			<option value="admin">مدیر</option>
-			<option value="teacher">مدرس</option>
-			<option value="student">دانش‌آموز</option>
+			<option value="operator">اپراتور</option>
+			<option value="presenter">ارائه‌دهنده</option>
+			<option value="user">کاربر عادی</option>
 		</select>
 	</div>
 
@@ -394,7 +395,7 @@
 				<div class="grid grid-cols-2 gap-3">
 					<div>
 						<label class="sky-label">نقش</label>
-						<select bind:value={newUser.role} class="sky-input"><option value="student">دانش‌آموز</option><option value="teacher">مدرس</option><option value="admin">مدیر</option></select>
+						<select bind:value={newUser.role} class="sky-input"><option value="user">کاربر عادی</option><option value="presenter">ارائه‌دهنده</option><option value="operator">اپراتور</option><option value="admin">مدیر</option></select>
 					</div>
 					<div><label class="sky-label">تلفن</label><input type="tel" bind:value={newUser.phone} class="sky-input" dir="ltr" /></div>
 				</div>
@@ -428,7 +429,7 @@
 				</div>
 				<div>
 					<label class="sky-label">نقش</label>
-					<select bind:value={editForm.role} class="sky-input"><option value="student">دانش‌آموز</option><option value="teacher">مدرس</option><option value="admin">مدیر</option></select>
+					<select bind:value={editForm.role} class="sky-input"><option value="user">کاربر عادی</option><option value="presenter">ارائه‌دهنده</option><option value="operator">اپراتور</option><option value="admin">مدیر</option></select>
 				</div>
 				<div class="flex items-center justify-between">
 					<span class="text-sm font-medium" style="color: var(--color-ocean-wave);">وضعیت فعال</span>

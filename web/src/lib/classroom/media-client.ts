@@ -71,6 +71,12 @@ export class MediaClient {
 		const tier = getTier(this.participantCount);
 		this.currentTier = tier;
 
+		if (!video && !audio) {
+			this.localStream = new MediaStream();
+			if (this.onLocalStream) this.onLocalStream(this.localStream);
+			return;
+		}
+
 		const constraints: MediaStreamConstraints = {
 			video: video ? { width: { ideal: tier.width }, height: { ideal: tier.height }, frameRate: { ideal: tier.frameRate } } : false,
 			audio: audio ? { echoCancellation: true, noiseSuppression: true, autoGainControl: true } : false,
@@ -175,13 +181,14 @@ export class MediaClient {
 			this.remoteEntries.set(senderId, entry);
 		}
 
-		if (entry.ready && entry.sb && !entry.sb.updating) {
+		if (entry.ready && entry.sb && !entry.sb.updating && entry.ms.readyState === 'open') {
 			try {
 				entry.sb.appendBuffer(new Uint8Array(chunk));
 			} catch (e) {
 				console.warn('[Media] appendBuffer error:', e);
+				entry.ready = false;
 			}
-		} else {
+		} else if (entry.ms.readyState === 'open') {
 			entry.pendingChunks.push(chunk);
 		}
 	}
@@ -227,10 +234,10 @@ export class MediaClient {
 		return entry;
 	}
 
-	private drainQueue(entry: { sb: SourceBuffer | null; pendingChunks: ArrayBuffer[]; ready: boolean }): void {
-		if (!entry.ready || !entry.sb || entry.sb.updating) return;
+	private drainQueue(entry: { ms: MediaSource; sb: SourceBuffer | null; pendingChunks: ArrayBuffer[]; ready: boolean }): void {
+		if (!entry.ready || !entry.sb || entry.sb.updating || entry.ms.readyState !== 'open') return;
 		while (entry.pendingChunks.length > 0) {
-			if (entry.sb.updating) break;
+			if (entry.sb.updating || entry.ms.readyState !== 'open') break;
 			const chunk = entry.pendingChunks.shift()!;
 			try {
 				entry.sb.appendBuffer(new Uint8Array(chunk));

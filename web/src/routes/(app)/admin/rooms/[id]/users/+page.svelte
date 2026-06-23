@@ -30,7 +30,7 @@
 
 	async function addUser() {
 		if (!selectedUserId) return;
-		await api.post(`/rooms/${roomId}/users`, { user_id: selectedUserId, role: 'student' });
+		await api.post(`/rooms/${roomId}/users`, { user_id: selectedUserId, role: 'user' });
 		selectedUserId = 0;
 		showAddModal = false;
 		await loadData();
