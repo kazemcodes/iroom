@@ -1003,9 +1003,10 @@
 							</div>
 						{/if}
 						<div class="skyroom-mainbar">
-							{#if showWhiteboard}
-								<div class="layout-main">
-									<div class="layout-center">
+							<div class="layout-two-col">
+								<!-- Column 2: Main content area -->
+								<div class="layout-col-main">
+									{#if showWhiteboard}
 										<div class="whiteboard-container">
 											<canvas id="whiteboard-canvas" class="whiteboard-canvas"></canvas>
 											<div class="whiteboard-tools">
@@ -1025,27 +1026,8 @@
 												</button>
 											</div>
 										</div>
-									</div>
-									{#if webcamOn || remoteStreams.length > 0}
-										<div class="layout-camstrip">
-											{#each remoteStreams as remote (remote.id)}
-												{#if !remote.isScreen}
-													<div class="cam-tile">
-														<video autoplay playsinline use:srcObject={remote.stream} class="w-full h-full object-cover"></video>
-														<div class="cam-label">{participants.find(p => p.id === remote.id)?.name || ''}</div>
-													</div>
-												{/if}
-											{/each}
-											{#if webcamOn}
-												<div class="cam-tile local"><video bind:this={localVideoEl} use:srcObject={localStream} autoplay muted playsinline class="w-full h-full object-cover"></video><div class="cam-label">شما</div></div>
-											{/if}
-										</div>
-									{/if}
-								</div>
 
-							{:else if showPdf}
-								<div class="layout-main">
-									<div class="layout-center">
+									{:else if showPdf}
 										<div class="pdf-viewer">
 											<div class="pdf-toolbar">
 												<span class="pdf-filename">{pdfFileName}</span>
@@ -1065,68 +1047,64 @@
 												<iframe src={pdfUrl} class="pdf-iframe" title="PDF"></iframe>
 											{/if}
 										</div>
-									</div>
-									{#if webcamOn || remoteStreams.length > 0}
-										<div class="layout-camstrip">
-											{#each remoteStreams as remote (remote.id)}
-												{#if !remote.isScreen}
-													<div class="cam-tile"><video autoplay playsinline use:srcObject={remote.stream} class="w-full h-full object-cover"></video><div class="cam-label">{participants.find(p => p.id === remote.id)?.name || ''}</div></div>
-												{/if}
-											{/each}
-											{#if webcamOn}<div class="cam-tile local"><video bind:this={localVideoEl} use:srcObject={localStream} autoplay muted playsinline class="w-full h-full object-cover"></video><div class="cam-label">شما</div></div>{/if}
-										</div>
-									{/if}
-								</div>
 
-							{:else if remoteStreams.some(r => r.isScreen)}
-								<div class="layout-main">
-									<div class="layout-center">
+									{:else if remoteStreams.some(r => r.isScreen)}
+										<!-- Screen share overlays full screen -->
 										{#each remoteStreams as remote (remote.id)}
 											{#if remote.isScreen}
 												<video autoplay playsinline use:srcObject={remote.stream} class="w-full h-full object-contain"></video>
 											{/if}
 										{/each}
-									</div>
-									{#if webcamOn || remoteStreams.some(r => !r.isScreen)}
-										<div class="layout-camstrip">
-											{#each remoteStreams as remote (remote.id)}
-												{#if !remote.isScreen}
-													<div class="cam-tile"><video autoplay playsinline use:srcObject={remote.stream} class="w-full h-full object-cover"></video><div class="cam-label">{participants.find(p => p.id === remote.id)?.name || ''}</div></div>
-												{/if}
-											{/each}
-											{#if webcamOn}<div class="cam-tile local"><video bind:this={localVideoEl} use:srcObject={localStream} autoplay muted playsinline class="w-full h-full object-cover"></video><div class="cam-label">شما</div></div>{/if}
+
+									{:else}
+										<!-- No screen share: webcam grid or idle -->
+										<div class="layout-center layout-idle">
+											{#if remoteStreams.length === 0 && !webcamOn}
+												<div class="idle-message">
+													<svg width="48" height="48" style="fill:var(--inactive);opacity:0.3;"><use xlink:href="#shape_videocam"></use></svg>
+													<p>وبکم فعال نیست</p>
+													<p class="idle-hint">وبکم خود را روشن کنید یا منتظر دیگران باشید</p>
+												</div>
+											{:else}
+												<div class="cam-grid">
+													{#each remoteStreams as remote (remote.id)}
+														{#if !remote.isScreen}
+															<div class="cam-tile-large">
+																<video autoplay playsinline use:srcObject={remote.stream} class="w-full h-full object-cover"></video>
+																<div class="cam-label">{participants.find(p => p.id === remote.id)?.name || ''}</div>
+															</div>
+														{/if}
+													{/each}
+													{#if webcamOn}
+														<div class="cam-tile-large local"><video bind:this={localVideoEl} use:srcObject={localStream} autoplay muted playsinline class="w-full h-full object-cover"></video><div class="cam-label">شما</div></div>
+													{/if}
+												</div>
+											{/if}
 										</div>
 									{/if}
 								</div>
 
-							{:else}
-								<div class="layout-main">
-									<div class="layout-center layout-idle">
-										{#if remoteStreams.length === 0 && !webcamOn}
-											<div class="idle-message">
-												<svg width="48" height="48" style="fill:var(--inactive);opacity:0.3;"><use xlink:href="#shape_videocam"></use></svg>
-												<p>وبکم فعال نیست</p>
-												<p class="idle-hint">وبکم خود را روشن کنید یا منتظر دیگران باشید</p>
-											</div>
-										{:else}
-											<div class="cam-grid">
-												{#each remoteStreams as remote (remote.id)}
-													{#if !remote.isScreen}
-														<div class="cam-tile-large">
-															<video autoplay playsinline use:srcObject={remote.stream} class="w-full h-full object-cover"></video>
-															<div class="cam-label">{participants.find(p => p.id === remote.id)?.name || ''}</div>
-														</div>
-													{/if}
-												{/each}
-												{#if webcamOn}
-													<div class="cam-tile-large local"><video bind:this={localVideoEl} use:srcObject={localStream} autoplay muted playsinline class="w-full h-full object-cover"></video><div class="cam-label">شما</div></div>
-												{/if}
-											</div>
+								<!-- Column 1: Webcam strip (right sidebar, max 4) -->
+								{#if webcamOn || remoteStreams.some(r => !r.isScreen)}
+									<div class="layout-col-webcams">
+										{#each remoteStreams.slice(0, 3) as remote (remote.id)}
+											{#if !remote.isScreen}
+												<div class="cam-tile-sidebar">
+													<video autoplay playsinline use:srcObject={remote.stream} class="w-full h-full object-cover"></video>
+													<div class="cam-label">{participants.find(p => p.id === remote.id)?.name || ''}</div>
+												</div>
+											{/if}
+										{/each}
+										{#if webcamOn}
+											<div class="cam-tile-sidebar local"><video bind:this={localVideoEl} use:srcObject={localStream} autoplay muted playsinline class="w-full h-full object-cover"></video><div class="cam-label">شما</div></div>
+										{/if}
+										{#if remoteStreams.filter(r => !r.isScreen).length + (webcamOn ? 1 : 0) > 4}
+											<div class="cam-max-notify">حداکثر ۴ وبکم نمایش داده می‌شود</div>
 										{/if}
 									</div>
-								</div>
-							{/if}
-				</div>
+								{/if}
+							</div>
+					</div>
 				{/if}
 			</div>
 			</div>
@@ -1214,30 +1192,35 @@
 	.skyroom-sidebar { flex-grow: 1; min-width: 260px; max-width: 320px; display: flex; flex-direction: column; gap: 6px; }
 	.skyroom-mainbar { flex: 1; position: relative; display: flex; overflow: hidden; border-radius: var(--radius); background: #0a0e14; min-height: 200px; }
 
-	/* === Unified layout: content center + cam strip on right === */
-	.layout-main { display: flex; width: 100%; height: 100%; }
-	.layout-center { flex: 1; display: flex; align-items: center; justify-content: center; min-width: 0; position: relative; overflow: hidden; }
-	.layout-center video { max-width: 100%; max-height: 100%; }
+	/* === Two-column layout === */
+	.layout-two-col { display: flex; width: 100%; height: 100%; }
+	.layout-col-main { flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden; position: relative; }
+	.layout-col-webcams { width: 180px; display: flex; flex-direction: column; gap: 6px; padding: 8px 6px; overflow-y: auto; flex-shrink: 0; background: rgba(10,14,20,0.6); border-left: 1px solid rgba(255,255,255,0.05); }
+	.cam-tile-sidebar { position: relative; width: 100%; aspect-ratio: 16/9; border-radius: var(--radius-sm); overflow: hidden; background: #000; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.08); }
+	.cam-tile-sidebar video { width: 100%; height: 100%; object-fit: cover; }
+	.cam-tile-sidebar.local { border-color: var(--accent); }
+	.cam-max-notify { font-size: 0.7rem; color: var(--inactive); text-align: center; padding: 8px; }
 
-	/* Cam strip — vertical column on the right edge */
-	.layout-camstrip { width: 170px; display: flex; flex-direction: column; gap: 6px; padding: 8px 6px; overflow-y: auto; flex-shrink: 0; background: rgba(10,14,20,0.6); border-left: 1px solid rgba(255,255,255,0.05); }
-	.cam-tile { position: relative; width: 100%; aspect-ratio: 4/3; border-radius: var(--radius-sm); overflow: hidden; background: #000; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.08); }
-	.cam-tile video { width: 100%; height: 100%; object-fit: cover; }
-	.cam-tile.local { border-color: var(--accent); }
-	.cam-label { position: absolute; bottom: 3px; left: 3px; background: rgba(0,0,0,0.7); color: #e0e0e6; padding: 1px 6px; border-radius: 3px; font-size: 0.65rem; font-weight: 500; pointer-events: none; }
-
-	/* Webcam-only mode — small tiles at top-right, NOT centered */
-	.cam-grid { position: absolute; top: 12px; right: 12px; display: flex; flex-direction: column; gap: 8px; z-index: 5; max-height: calc(100% - 24px); overflow-y: auto; }
-	.cam-tile-large { position: relative; width: 200px; height: 150px; border-radius: var(--radius); overflow: hidden; background: #000; border: 2px solid rgba(255,255,255,0.08); flex-shrink: 0; }
-	.cam-tile-large video { width: 100%; height: 100%; object-fit: cover; }
-	.cam-tile-large.local { border-color: var(--accent); }
-	.cam-tile-large .cam-label { font-size: 0.75rem; padding: 2px 8px; }
+	/* Screen share: full width main + webcam tiles below */
+	.layout-screen-share { display: flex; flex-direction: column; width: 100%; height: 100%; }
+	.screen-share-main { flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+	.screen-share-main video { max-width: 100%; max-height: 100%; }
+	.screen-share-cams { display: flex; flex-direction: row; gap: 6px; padding: 6px 8px; overflow-x: auto; flex-shrink: 0; background: rgba(10,14,20,0.6); border-top: 1px solid rgba(255,255,255,0.05); }
+	.cam-tile-sm { position: relative; width: 140px; height: 100px; flex-shrink: 0; border-radius: var(--radius-sm); overflow: hidden; background: #000; border: 1px solid rgba(255,255,255,0.08); }
+	.cam-tile-sm video { width: 100%; height: 100%; object-fit: cover; }
+	.cam-tile-sm.local { border-color: var(--accent); }
 
 	/* Idle message when nothing is active */
-	.layout-idle { flex-direction: column; }
+	.layout-idle { flex-direction: column; display: flex; align-items: center; justify-content: center; flex: 1; }
 	.idle-message { text-align: center; color: var(--inactive); }
 	.idle-message p { margin: 8px 0 0; font-size: 0.9rem; }
 	.idle-hint { font-size: 0.75rem !important; opacity: 0.6; }
+	.cam-label { position: absolute; bottom: 3px; left: 3px; background: rgba(0,0,0,0.7); color: #e0e0e6; padding: 1px 6px; border-radius: 3px; font-size: 0.65rem; font-weight: 500; pointer-events: none; }
+	.cam-grid { display: flex; flex-direction: column; gap: 8px; max-height: 100%; overflow-y: auto; padding: 12px; }
+	.cam-tile-large { position: relative; width: 100%; max-width: 280px; aspect-ratio: 16/9; border-radius: var(--radius); overflow: hidden; background: #000; border: 2px solid rgba(255,255,255,0.08); flex-shrink: 0; }
+	.cam-tile-large video { width: 100%; height: 100%; object-fit: cover; }
+	.cam-tile-large.local { border-color: var(--accent); }
+	.cam-tile-large .cam-label { font-size: 0.75rem; padding: 2px 8px; }
 
 	/* === Whiteboard === */
 	.whiteboard-container { position: absolute; inset: 0; background: #1c2a3a; }
@@ -1372,11 +1355,12 @@
 		.skyroom-icon-square { width: 32px; height: 32px; }
 		.skyroom-icon-square svg { width: 16px; height: 16px; }
 		.skyroom-header { padding: 0 8px; min-height: 36px; }
-		.layout-camstrip { width: 100px; padding: 4px; gap: 4px; border-left: none; border-top: 1px solid rgba(255,255,255,0.05); }
-		.cam-tile { aspect-ratio: 16/10; }
-		.layout-main { flex-direction: column; }
-		.layout-main .layout-camstrip { flex-direction: row; width: auto; height: 75px; overflow-x: auto; overflow-y: hidden; }
-		.layout-main .cam-tile { width: 90px; height: 67px; flex-shrink: 0; }
+		/* Two-column mobile: stack columns */
+		.layout-two-col { flex-direction: column; }
+		.layout-col-webcams { width: 100%; flex-direction: row; overflow-x: auto; overflow-y: hidden; padding: 6px; gap: 6px; border-left: none; border-top: 1px solid rgba(255,255,255,0.05); max-height: 100px; }
+		.cam-tile-sidebar { width: 120px; height: 70px; flex-shrink: 0; }
+		.screen-share-cams { flex-direction: row; overflow-x: auto; }
+		.cam-tile-sm { width: 110px; height: 80px; }
 		.cam-grid { top: 8px; right: 8px; }
 		.cam-tile-large { width: 140px; height: 105px; }
 		.whiteboard-tools { top: 8px; right: 8px; padding: 4px; gap: 3px; }
@@ -1387,6 +1371,7 @@
 		.skyroom-header span:not(:first-child) { display: none; }
 		.skyroom-layout { gap: 0; }
 		.cam-tile-large { width: 120px; height: 90px; }
-		.layout-main .cam-tile { width: 70px; height: 52px; }
+		.cam-tile-sidebar { width: 100px; height: 60px; }
+		.cam-tile-sm { width: 90px; height: 65px; }
 	}
 </style>
