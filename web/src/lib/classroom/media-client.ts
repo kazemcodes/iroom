@@ -42,6 +42,7 @@ export class MediaClient {
 	private userId: number;
 	private localStream: MediaStream | null = null;
 	private recorder: MediaRecorder | null = null;
+	private screenStream: MediaStream | null = null;
 	private videoEnabled = true;
 	private audioEnabled = true;
 	private currentTier: QualityTier = QUALITY_TIERS[3];
@@ -61,6 +62,7 @@ export class MediaClient {
 	onRemoteStream?: (stream: MediaStream, participantId: string) => void;
 	onRemoteStreamEnd?: (participantId: string) => void;
 	onQualityChange?: (tier: QualityTier, userCount: number) => void;
+	onScreenStream?: (stream: MediaStream | null) => void;
 
 	constructor(ws: WebSocket, userId: number) {
 		this.ws = ws;
@@ -318,6 +320,9 @@ export class MediaClient {
 
 		if (!this.localStream || !this.recorder) return;
 
+		this.screenStream = screenStream;
+		if (this.onScreenStream) this.onScreenStream(screenStream);
+
 		const composedStream = new MediaStream([
 			screenTrack,
 			...this.localStream.getAudioTracks()
@@ -349,6 +354,11 @@ export class MediaClient {
 
 	stopScreenShare(): void {
 		if (!this.localStream) return;
+		if (this.screenStream) {
+			this.screenStream.getTracks().forEach(t => t.stop());
+			this.screenStream = null;
+			if (this.onScreenStream) this.onScreenStream(null);
+		}
 		if (this.recorder && this.recorder.state !== 'inactive') this.recorder.stop();
 		this.startRecorder();
 	}

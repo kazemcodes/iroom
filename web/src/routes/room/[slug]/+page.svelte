@@ -227,6 +227,7 @@
 	let showEntryModal = $state(false);
 	let entryMode = $state<'speaker' | 'listener'>('speaker');
 	let remoteStreams = $state<Array<{id: string; stream: MediaStream; isScreen: boolean}>>([]);
+	let localScreenStream = $state<MediaStream | null>(null);
 
 	const currentUserRole = $derived(($auth.user?.role || 'user') as UserRole);
 	const perms = $derived(ROLE_PERMISSIONS[currentUserRole] || ROLE_PERMISSIONS.user);
@@ -452,6 +453,9 @@
 					return p;
 				});
 			};
+			mediaClient.onScreenStream = (stream) => {
+				localScreenStream = stream;
+			};
 			mediaClient.onRemoteStream = (stream, participantId) => {
 				const hasVideo = stream.getVideoTracks().length > 0;
 				const hasAudio = stream.getAudioTracks().length > 0;
@@ -650,19 +654,28 @@
 		const canvas = document.getElementById('whiteboard-canvas') as HTMLCanvasElement;
 		if (!canvas) return;
 		whiteboardCanvas = canvas;
-		const ctx = canvas.getContext('2d');
-		if (!ctx) return;
-
-		canvas.width = canvas.offsetWidth;
-		canvas.height = canvas.offsetHeight;
-
-		ctx.fillStyle = '#1c2a3a';
-		ctx.fillRect(0, 0, canvas.width, canvas.height);
-
+		resizeWhiteboard();
 		canvas.addEventListener('mousedown', startDrawing);
 		canvas.addEventListener('mousemove', draw);
 		canvas.addEventListener('mouseup', stopDrawing);
 		canvas.addEventListener('mouseout', stopDrawing);
+	}
+
+	function resizeWhiteboard() {
+		if (!whiteboardCanvas) return;
+		const ctx = whiteboardCanvas.getContext('2d');
+		if (!ctx) return;
+		let saved: ImageData | null = null;
+		if (whiteboardCanvas.width > 0 && whiteboardCanvas.height > 0) {
+			try { saved = ctx.getImageData(0, 0, whiteboardCanvas.width, whiteboardCanvas.height); } catch {}
+		}
+		whiteboardCanvas.width = whiteboardCanvas.offsetWidth;
+		whiteboardCanvas.height = whiteboardCanvas.offsetHeight;
+		ctx.fillStyle = '#1c2a3a';
+		ctx.fillRect(0, 0, whiteboardCanvas.width, whiteboardCanvas.height);
+		if (saved) {
+			try { ctx.putImageData(saved, 0, 0); } catch {}
+		}
 	}
 
 	function startDrawing(e: MouseEvent) {
@@ -823,7 +836,15 @@
 
 	$effect(() => {
 		if (showWhiteboard) {
-			setTimeout(initWhiteboard, 100);
+			// Re-resize canvas when split layout changes
+			void showPdf;
+			void screenShareOn;
+			void remoteStreams;
+			if (whiteboardCanvas) {
+				setTimeout(resizeWhiteboard, 100);
+			} else {
+				setTimeout(initWhiteboard, 100);
+			}
 		}
 	});
 </script>
@@ -1130,10 +1151,14 @@
 													{/if}
 												{/each}
 												{#if screenShareOn && !remoteStreams.some(r => r.isScreen)}
-													<div class="screen-share-placeholder">
-														<svg width="48" height="48" style="fill:var(--accent);opacity:0.4;"><use xlink:href="#shape_laptop"></use></svg>
-														<p>در حال اشتراک‌گذاری صفحه</p>
-													</div>
+													{#if localScreenStream}
+														<video autoplay playsinline use:srcObject={localScreenStream} class="w-full h-full object-contain" muted></video>
+													{:else}
+														<div class="screen-share-placeholder">
+															<svg width="48" height="48" style="fill:var(--accent);opacity:0.4;"><use xlink:href="#shape_laptop"></use></svg>
+															<p>در حال اشتراک‌گذاری صفحه</p>
+														</div>
+													{/if}
 												{/if}
 											</div>
 											{#if webcamOn || remoteStreams.some(r => !r.isScreen)}
@@ -1181,8 +1206,8 @@
 									{/if}
 								</div>
 
-								<!-- Column 1: Webcam strip (only when NOT screen sharing) -->
-								{#if (webcamOn || remoteStreams.some(r => !r.isScreen)) && !screenShareOn && !remoteStreams.some(r => r.isScreen)}
+								<!-- Column 1: Webcam strip (only when whiteboard/PDF is open, not during screen share or plain grid) -->
+								{#if (webcamOn || remoteStreams.some(r => !r.isScreen)) && (showWhiteboard || showPdf) && !screenShareOn && !remoteStreams.some(r => r.isScreen)}
 									<div class="layout-col-webcams">
 										{#each remoteStreams.slice(0, 3) as remote (remote.id)}
 											{#if !remote.isScreen}
