@@ -45,7 +45,7 @@
 						hasScreen: p.is_screen_sharing || false, hasWhiteboard: false, handRaised: false,
 					})),
 				];
-				if (pion) pion.updateParticipantCount(participants.length);
+				if (mediaClient) mediaClient.updateParticipantCount(participants.length);
 			}
 		} catch (e) {}
 	}
@@ -186,7 +186,7 @@
 
 	let roomId = $state<number | null>(null);
 	let currentSession = $state<any>(null);
-	let pion = $state<MediaClient | null>(null);
+	let mediaClient = $state<MediaClient | null>(null);
 	let connected = $state(false);
 	let audioOn = $state(true);
 	let micOn = $state(false);
@@ -277,7 +277,7 @@
 			if (event.data instanceof ArrayBuffer || event.data instanceof Blob) {
 				const handleBinary = (buf: ArrayBuffer) => {
 					if (buf.byteLength < 5) return;
-					pion?.handleBinaryMessage(buf);
+					mediaClient?.handleBinaryMessage(buf);
 				};
 				if (event.data instanceof Blob) {
 					event.data.arrayBuffer().then(handleBinary);
@@ -391,7 +391,7 @@
 		const joinRes = await api.get<any>('/sessions/' + roomId + '/classroom');
 		if (!joinRes.success || !joinRes.data) return;
 		const { user_id } = joinRes.data as { user_id: number };
-		const isListener = entryMode === 'listener';
+		const isListener = entryMode === 'listener' || !perms.canMic;
 		try {
 			if (!chatWs || chatWs.readyState !== WebSocket.OPEN) {
 				chatDebug('WebSocket not ready, waiting...');
@@ -405,8 +405,8 @@
 					setTimeout(() => { clearInterval(check); resolve(); }, 5000);
 				});
 			}
-			pion = new MediaClient(chatWs!, Number(user_id));
-			pion.onLocalStream = (stream) => {
+			mediaClient = new MediaClient(chatWs!, Number(user_id));
+			mediaClient.onLocalStream = (stream) => {
 				if (localVideoEl) localVideoEl.srcObject = stream;
 				micOn = stream.getAudioTracks().length > 0 && stream.getAudioTracks()[0].enabled;
 				webcamOn = stream.getVideoTracks().length > 0 && stream.getVideoTracks()[0].enabled;
@@ -417,7 +417,7 @@
 					return p;
 				});
 			};
-			pion.onRemoteStream = (stream, participantId) => {
+			mediaClient.onRemoteStream = (stream, participantId) => {
 				const hasVideo = stream.getVideoTracks().length > 0;
 				const hasAudio = stream.getAudioTracks().length > 0;
 				chatDebug('onRemoteStream', { participantId, tracks: stream.getTracks().map(t => t.kind), hasVideo, hasAudio });
@@ -436,7 +436,7 @@
 					return p;
 				});
 			};
-			await pion.start(!isListener, !isListener);
+			await mediaClient.start(!isListener && perms.canWebcam, !isListener && perms.canMic);
 			connected = true;
 			startTimer();
 			startParticipantRefresh();
@@ -447,7 +447,7 @@
 	}
 
 	function disconnect() {
-		if (pion) { pion.stop(); pion = null; }
+		if (mediaClient) { mediaClient.stop(); mediaClient = null; }
 		connected = false;
 		if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
 		if (participantInterval) { clearInterval(participantInterval); participantInterval = null; }
@@ -459,14 +459,14 @@
 
 	function toggleMic() {
 		if (!perms.canMic) return;
-		if (pion) pion.toggleAudio();
+		if (mediaClient) mediaClient.toggleAudio();
 		micOn = !micOn;
 		chatDebug('toggleMic', { micOn });
 		wsSend({ type: 'command', command: micOn ? 'mic_on' : 'mic_off' });
 	}
 	function toggleWebcam() {
 		if (!perms.canWebcam) return;
-		if (pion) pion.toggleVideo();
+		if (mediaClient) mediaClient.toggleVideo();
 		webcamOn = !webcamOn;
 		chatDebug('toggleWebcam', { webcamOn });
 		wsSend({ type: 'command', command: webcamOn ? 'webcam_on' : 'webcam_off' });
@@ -475,10 +475,10 @@
 		if (!perms.canScreenShare) return;
 		try {
 			if (!screenShareOn) {
-				await pion?.shareScreen();
+				await mediaClient?.shareScreen();
 				screenShareOn = true;
 			} else {
-				await pion?.stopScreenShare();
+				await mediaClient?.stopScreenShare();
 				screenShareOn = false;
 			}
 			chatDebug('toggleScreenShare', { screenShareOn });

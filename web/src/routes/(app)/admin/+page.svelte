@@ -148,7 +148,7 @@
 
 	// Health
 	let healthLoading = $state(true);
-	let healthData = $state({ serverUptime: '', dbSize: '', webrtcStatus: 'pion_builtin', activeRooms: 0 });
+	let healthData = $state({ serverUptime: '', dbSize: '', activeRooms: 0 });
 
 	async function loadHealth() {
 		healthLoading = true;
@@ -159,7 +159,6 @@
 				healthData = {
 					serverUptime: data.uptime || '',
 					dbSize: data.db_size || '',
-					webrtcStatus: data.webrtc_status || 'pion_builtin',
 					activeRooms: data.active_rooms ?? 0,
 				};
 			}
@@ -261,7 +260,7 @@
 					<div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
 						{#each [
 							{ label: 'آپتایم سرور', value: healthData.serverUptime || '—' },
-							{ label: 'WebRTC', value: 'فعال (Pion)' },
+							{ label: 'Media', value: 'WebSocket' },
 							{ label: 'حجم پایگاه داده', value: healthData.dbSize || '—' },
 							{ label: 'اتاق‌های فعال', value: toPersian(healthData.activeRooms) },
 						] as item}
