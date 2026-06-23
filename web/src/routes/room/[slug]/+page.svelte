@@ -654,11 +654,21 @@
 		const canvas = document.getElementById('whiteboard-canvas') as HTMLCanvasElement;
 		if (!canvas) return;
 		whiteboardCanvas = canvas;
-		resizeWhiteboard();
-		canvas.addEventListener('mousedown', startDrawing);
-		canvas.addEventListener('mousemove', draw);
-		canvas.addEventListener('mouseup', stopDrawing);
-		canvas.addEventListener('mouseout', stopDrawing);
+		const ctx = canvas.getContext('2d');
+		if (!ctx) return;
+
+		canvas.width = canvas.offsetWidth;
+		canvas.height = canvas.offsetHeight;
+		ctx.fillStyle = '#1c2a3a';
+		ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+		if (!(canvas as any)._wbInit) {
+			canvas.addEventListener('mousedown', startDrawing);
+			canvas.addEventListener('mousemove', draw);
+			canvas.addEventListener('mouseup', stopDrawing);
+			canvas.addEventListener('mouseout', stopDrawing);
+			(canvas as any)._wbInit = true;
+		}
 	}
 
 	function resizeWhiteboard() {
@@ -836,14 +846,15 @@
 
 	$effect(() => {
 		if (showWhiteboard) {
-			// Re-resize canvas when split layout changes
 			void showPdf;
 			void screenShareOn;
 			void remoteStreams;
-			if (whiteboardCanvas) {
-				setTimeout(resizeWhiteboard, 100);
-			} else {
+			const canvas = document.getElementById('whiteboard-canvas') as HTMLCanvasElement;
+			if (!canvas || canvas !== whiteboardCanvas) {
+				whiteboardCanvas = null;
 				setTimeout(initWhiteboard, 100);
+			} else {
+				setTimeout(resizeWhiteboard, 100);
 			}
 		}
 	});

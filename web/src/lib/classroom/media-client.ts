@@ -94,6 +94,7 @@ export class MediaClient {
 
 	private startRecorder(): void {
 		if (!this.localStream) return;
+		if (this.localStream.getTracks().length === 0) return;
 		if (!MediaRecorder.isTypeSupported(MIME_TYPE)) {
 			console.error('[Media] MIME type not supported:', MIME_TYPE);
 			return;
@@ -318,19 +319,19 @@ export class MediaClient {
 		const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
 		const screenTrack = screenStream.getVideoTracks()[0];
 
-		if (!this.localStream || !this.recorder) return;
+		if (!this.localStream) return;
 
 		this.screenStream = screenStream;
 		if (this.onScreenStream) this.onScreenStream(screenStream);
+
+		screenTrack.onended = () => this.stopScreenShare();
+
+		if (this.recorder && this.recorder.state !== 'inactive') this.recorder.stop();
 
 		const composedStream = new MediaStream([
 			screenTrack,
 			...this.localStream.getAudioTracks()
 		]);
-
-		screenTrack.onended = () => this.stopScreenShare();
-
-		if (this.recorder.state !== 'inactive') this.recorder.stop();
 
 		this.recorder = new MediaRecorder(composedStream, {
 			mimeType: MIME_TYPE,
@@ -360,7 +361,11 @@ export class MediaClient {
 			if (this.onScreenStream) this.onScreenStream(null);
 		}
 		if (this.recorder && this.recorder.state !== 'inactive') this.recorder.stop();
-		this.startRecorder();
+		if (this.localStream.getTracks().length > 0) {
+			this.startRecorder();
+		} else {
+			this.recorder = null;
+		}
 	}
 
 	stop(): void {
