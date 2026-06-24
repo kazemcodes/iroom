@@ -232,14 +232,9 @@
 	const currentUserRole = $derived(($auth.user?.role || 'user') as UserRole);
 	const perms = $derived(ROLE_PERMISSIONS[currentUserRole] || ROLE_PERMISSIONS.user);
 	const isPresenterOrAbove = $derived(['owner', 'admin', 'operator', 'presenter'].includes(currentUserRole));
-	const gridCols = $derived.by(() => {
-		const count = participants.length;
-		if (count <= 1) return 'grid-cols-1';
-		if (count <= 2) return 'grid-cols-2';
-		if (count <= 4) return 'grid-cols-2';
-		if (count <= 6) return 'grid-cols-3';
-		return 'grid-cols-4';
-	});
+	const activeRemoteCams = $derived(remoteStreams.filter(r => !r.isScreen && participants.find(p => p.id === r.id)?.hasVideo !== false));
+	const hasScreenShare = $derived(remoteStreams.some(r => r.isScreen) || screenShareOn);
+	const hasContent = $derived(showWhiteboard || showPdf || hasScreenShare);
 	const formattedTime = $derived.by(() => {
 		const m = Math.floor(elapsedSeconds / 60);
 		const s = elapsedSeconds % 60;
@@ -1053,190 +1048,129 @@
 								{/if}
 							</div>
 						{/if}
-						<div class="skyroom-mainbar">
-							<div class="layout-two-col">
-								<!-- Column 2: Main content area -->
-								<div class="layout-col-main">
-									{#if showWhiteboard && (showPdf || remoteStreams.some(r => r.isScreen))}
-										<div class="layout-split">
-											<div class="layout-split-pane">
-												<div class="whiteboard-container">
-													<canvas id="whiteboard-canvas" class="whiteboard-canvas"></canvas>
-													<div class="whiteboard-tools">
-														<button class="wb-btn" class:active={whiteboardTool === 'pen'} onclick={() => whiteboardTool = 'pen'} title="مداد">
-															<svg width="18" height="18"><use xlink:href="#shape_brush"></use></svg>
-														</button>
-														<button class="wb-btn" class:active={whiteboardTool === 'eraser'} onclick={() => whiteboardTool = 'eraser'} title="پاک‌کن">
-															<svg width="18" height="18"><use xlink:href="#shape_clear"></use></svg>
-														</button>
-														<input type="color" bind:value={whiteboardColor} class="wb-color" title="رنگ" />
-														<div class="wb-sep"></div>
-														<button class="wb-btn" onclick={clearWhiteboard} title="پاک کردن همه">
-															<svg width="16" height="16"><use xlink:href="#shape_power_settings_new"></use></svg>
-														</button>
-														<button class="wb-btn wb-close" onclick={() => showWhiteboard = false} title="بستن">
-															<svg width="16" height="16"><use xlink:href="#shape_exit"></use></svg>
-														</button>
-													</div>
-												</div>
-											</div>
-											<div class="layout-split-pane">
-												{#if showPdf}
-													<div class="pdf-viewer">
-														<div class="pdf-toolbar">
-															<span class="pdf-filename">{pdfFileName}</span>
-															<div class="pdf-actions">
-																<button class="pdf-btn" onclick={() => { const f = document.querySelector('.pdf-iframe') as HTMLIFrameElement; if(f) f.contentWindow?.postMessage({type:'zoom',delta:-0.2},'*'); }} title="کوچک‌تر">−</button>
-																<button class="pdf-btn" onclick={() => { const f = document.querySelector('.pdf-iframe') as HTMLIFrameElement; if(f) f.contentWindow?.postMessage({type:'zoom',delta:0},'*'); }} title="اندازه اصلی">↺</button>
-																<button class="pdf-btn" onclick={() => { const f = document.querySelector('.pdf-iframe') as HTMLIFrameElement; if(f) f.contentWindow?.postMessage({type:'zoom',delta:0.2},'*'); }} title="بزرگ‌تر">+</button>
-																{#if isPresenterOrAbove}
-																	<div class="pdf-sep"></div>
-																	<button class="pdf-btn pdf-close" onclick={closePdf} title="بستن">
-																		<svg width="16" height="16"><use xlink:href="#shape_exit"></use></svg>
-																	</button>
-																{/if}
-															</div>
-														</div>
-														{#if pdfUrl}
-															<iframe src={pdfUrl} class="pdf-iframe" title="PDF"></iframe>
-														{/if}
-													</div>
-												{:else}
-													{#each remoteStreams as remote (remote.id)}
-														{#if remote.isScreen}
-															<video autoplay playsinline use:srcObject={remote.stream} class="w-full h-full object-contain"></video>
-														{/if}
-													{/each}
+					<div class="skyroom-mainbar">
+						<div class="layout-two-col">
+							<!-- Column 2: Main content area (one content at a time) -->
+							<div class="layout-col-main">
+								{#if showWhiteboard}
+									<div class="whiteboard-container">
+										<canvas id="whiteboard-canvas" class="whiteboard-canvas"></canvas>
+										<div class="whiteboard-tools">
+											<button class="wb-btn" class:active={whiteboardTool === 'pen'} onclick={() => whiteboardTool = 'pen'} title="مداد">
+												<svg width="18" height="18"><use xlink:href="#shape_brush"></use></svg>
+											</button>
+											<button class="wb-btn" class:active={whiteboardTool === 'eraser'} onclick={() => whiteboardTool = 'eraser'} title="پاک‌کن">
+												<svg width="18" height="18"><use xlink:href="#shape_clear"></use></svg>
+											</button>
+											<input type="color" bind:value={whiteboardColor} class="wb-color" title="رنگ" />
+											<div class="wb-sep"></div>
+											<button class="wb-btn" onclick={clearWhiteboard} title="پاک کردن همه">
+												<svg width="16" height="16"><use xlink:href="#shape_power_settings_new"></use></svg>
+											</button>
+											<button class="wb-btn wb-close" onclick={() => showWhiteboard = false} title="بستن">
+												<svg width="16" height="16"><use xlink:href="#shape_exit"></use></svg>
+											</button>
+										</div>
+									</div>
+
+								{:else if showPdf}
+									<div class="pdf-viewer">
+										<div class="pdf-toolbar">
+											<span class="pdf-filename">{pdfFileName}</span>
+											<div class="pdf-actions">
+												<button class="pdf-btn" onclick={() => { const f = document.querySelector('.pdf-iframe') as HTMLIFrameElement; if(f) f.contentWindow?.postMessage({type:'zoom',delta:-0.2},'*'); }} title="کوچک‌تر">−</button>
+												<button class="pdf-btn" onclick={() => { const f = document.querySelector('.pdf-iframe') as HTMLIFrameElement; if(f) f.contentWindow?.postMessage({type:'zoom',delta:0},'*'); }} title="اندازه اصلی">↺</button>
+												<button class="pdf-btn" onclick={() => { const f = document.querySelector('.pdf-iframe') as HTMLIFrameElement; if(f) f.contentWindow?.postMessage({type:'zoom',delta:0.2},'*'); }} title="بزرگ‌تر">+</button>
+												{#if isPresenterOrAbove}
+													<div class="pdf-sep"></div>
+													<button class="pdf-btn pdf-close" onclick={closePdf} title="بستن">
+														<svg width="16" height="16"><use xlink:href="#shape_exit"></use></svg>
+													</button>
 												{/if}
 											</div>
 										</div>
-
-									{:else if showWhiteboard}
-										<div class="whiteboard-container">
-											<canvas id="whiteboard-canvas" class="whiteboard-canvas"></canvas>
-											<div class="whiteboard-tools">
-												<button class="wb-btn" class:active={whiteboardTool === 'pen'} onclick={() => whiteboardTool = 'pen'} title="مداد">
-													<svg width="18" height="18"><use xlink:href="#shape_brush"></use></svg>
-												</button>
-												<button class="wb-btn" class:active={whiteboardTool === 'eraser'} onclick={() => whiteboardTool = 'eraser'} title="پاک‌کن">
-													<svg width="18" height="18"><use xlink:href="#shape_clear"></use></svg>
-												</button>
-												<input type="color" bind:value={whiteboardColor} class="wb-color" title="رنگ" />
-												<div class="wb-sep"></div>
-												<button class="wb-btn" onclick={clearWhiteboard} title="پاک کردن همه">
-													<svg width="16" height="16"><use xlink:href="#shape_power_settings_new"></use></svg>
-												</button>
-												<button class="wb-btn wb-close" onclick={() => showWhiteboard = false} title="بستن">
-													<svg width="16" height="16"><use xlink:href="#shape_exit"></use></svg>
-												</button>
-											</div>
-										</div>
-
-									{:else if showPdf}
-										<div class="pdf-viewer">
-											<div class="pdf-toolbar">
-												<span class="pdf-filename">{pdfFileName}</span>
-												<div class="pdf-actions">
-													<button class="pdf-btn" onclick={() => { const f = document.querySelector('.pdf-iframe') as HTMLIFrameElement; if(f) f.contentWindow?.postMessage({type:'zoom',delta:-0.2},'*'); }} title="کوچک‌تر">−</button>
-													<button class="pdf-btn" onclick={() => { const f = document.querySelector('.pdf-iframe') as HTMLIFrameElement; if(f) f.contentWindow?.postMessage({type:'zoom',delta:0},'*'); }} title="اندازه اصلی">↺</button>
-													<button class="pdf-btn" onclick={() => { const f = document.querySelector('.pdf-iframe') as HTMLIFrameElement; if(f) f.contentWindow?.postMessage({type:'zoom',delta:0.2},'*'); }} title="بزرگ‌تر">+</button>
-													{#if isPresenterOrAbove}
-														<div class="pdf-sep"></div>
-														<button class="pdf-btn pdf-close" onclick={closePdf} title="بستن">
-															<svg width="16" height="16"><use xlink:href="#shape_exit"></use></svg>
-														</button>
-													{/if}
-												</div>
-											</div>
-											{#if pdfUrl}
-												<iframe src={pdfUrl} class="pdf-iframe" title="PDF"></iframe>
-											{/if}
-										</div>
-
-									{:else if remoteStreams.some(r => r.isScreen) || screenShareOn}
-										<div class="layout-screen-share">
-											<div class="screen-share-main">
-												{#each remoteStreams as remote (remote.id)}
-													{#if remote.isScreen}
-														<video autoplay playsinline use:srcObject={remote.stream} class="w-full h-full object-contain"></video>
-													{/if}
-												{/each}
-												{#if screenShareOn && !remoteStreams.some(r => r.isScreen)}
-													{#if localScreenStream}
-														<video autoplay playsinline use:srcObject={localScreenStream} class="w-full h-full object-contain" muted></video>
-													{:else}
-														<div class="screen-share-placeholder">
-															<svg width="48" height="48" style="fill:var(--accent);opacity:0.4;"><use xlink:href="#shape_laptop"></use></svg>
-															<p>در حال اشتراک‌گذاری صفحه</p>
-														</div>
-													{/if}
-												{/if}
-											</div>
-											{#if webcamOn || remoteStreams.some(r => !r.isScreen)}
-												<div class="screen-share-cams">
-													{#each remoteStreams as remote (remote.id)}
-														{#if !remote.isScreen}
-															<div class="cam-tile-sm">
-																<video autoplay playsinline use:srcObject={remote.stream} class="w-full h-full object-cover"></video>
-																<div class="cam-label">{participants.find(p => p.id === remote.id)?.name || ''}</div>
-															</div>
-														{/if}
-													{/each}
-													{#if webcamOn}
-														<div class="cam-tile-sm local"><video use:srcObject={localStream} autoplay muted playsinline class="w-full h-full object-cover"></video><div class="cam-label">شما</div></div>
-													{/if}
-												</div>
-											{/if}
-										</div>
-
-									{:else}
-										<!-- No screen share: webcam grid or idle -->
-										<div class="layout-center layout-idle">
-											{#if remoteStreams.length === 0 && !webcamOn}
-												<div class="idle-message">
-													<svg width="48" height="48" style="fill:var(--inactive);opacity:0.3;"><use xlink:href="#shape_videocam"></use></svg>
-													<p>وبکم فعال نیست</p>
-													<p class="idle-hint">وبکم خود را روشن کنید یا منتظر دیگران باشید</p>
-												</div>
-											{:else}
-												<div class="cam-grid">
-													{#each remoteStreams as remote (remote.id)}
-														{#if !remote.isScreen}
-															<div class="cam-tile-large">
-																<video autoplay playsinline use:srcObject={remote.stream} class="w-full h-full object-cover"></video>
-																<div class="cam-label">{participants.find(p => p.id === remote.id)?.name || ''}</div>
-															</div>
-														{/if}
-													{/each}
-													{#if webcamOn}
-														<div class="cam-tile-large local"><video bind:this={localVideoEl} use:srcObject={localStream} autoplay muted playsinline class="w-full h-full object-cover"></video><div class="cam-label">شما</div></div>
-													{/if}
-												</div>
-											{/if}
-										</div>
-									{/if}
-								</div>
-
-								<!-- Column 1: Webcam strip (only when whiteboard/PDF is open, not during screen share or plain grid) -->
-								{#if (webcamOn || remoteStreams.some(r => !r.isScreen)) && (showWhiteboard || showPdf) && !screenShareOn && !remoteStreams.some(r => r.isScreen)}
-									<div class="layout-col-webcams">
-										{#each remoteStreams.slice(0, 3) as remote (remote.id)}
-											{#if !remote.isScreen}
-												<div class="cam-tile-sidebar">
-													<video autoplay playsinline use:srcObject={remote.stream} class="w-full h-full object-cover"></video>
-													<div class="cam-label">{participants.find(p => p.id === remote.id)?.name || ''}</div>
-												</div>
-											{/if}
-										{/each}
-										{#if webcamOn}
-											<div class="cam-tile-sidebar local"><video bind:this={localVideoEl} use:srcObject={localStream} autoplay muted playsinline class="w-full h-full object-cover"></video><div class="cam-label">شما</div></div>
+										{#if pdfUrl}
+											<iframe src={pdfUrl} class="pdf-iframe" title="PDF"></iframe>
 										{/if}
-										{#if remoteStreams.filter(r => !r.isScreen).length + (webcamOn ? 1 : 0) > 4}
-											<div class="cam-max-notify">حداکثر ۴ وبکم نمایش داده می‌شود</div>
+									</div>
+
+								{:else if hasScreenShare}
+									<div class="layout-screen-share">
+										<div class="screen-share-main">
+											{#each remoteStreams as remote (remote.id)}
+												{#if remote.isScreen}
+													<video autoplay playsinline use:srcObject={remote.stream} class="w-full h-full object-contain"></video>
+												{/if}
+											{/each}
+											{#if screenShareOn && !remoteStreams.some(r => r.isScreen)}
+												{#if localScreenStream}
+													<video autoplay playsinline use:srcObject={localScreenStream} class="w-full h-full object-contain" muted></video>
+												{:else}
+													<div class="screen-share-placeholder">
+														<svg width="48" height="48" style="fill:var(--accent);opacity:0.4;"><use xlink:href="#shape_laptop"></use></svg>
+														<p>در حال اشتراک‌گذاری صفحه</p>
+													</div>
+												{/if}
+											{/if}
+										</div>
+										{#if webcamOn || activeRemoteCams.length > 0}
+											<div class="screen-share-cams">
+												{#each activeRemoteCams as remote (remote.id)}
+													<div class="cam-tile-sm">
+														<video autoplay playsinline use:srcObject={remote.stream} class="w-full h-full object-cover"></video>
+														<div class="cam-label">{participants.find(p => p.id === remote.id)?.name || ''}</div>
+													</div>
+												{/each}
+												{#if webcamOn}
+													<div class="cam-tile-sm local"><video use:srcObject={localStream} autoplay muted playsinline class="w-full h-full object-cover"></video><div class="cam-label">شما</div></div>
+												{/if}
+											</div>
+										{/if}
+									</div>
+
+								{:else}
+									<div class="layout-center layout-idle">
+										{#if activeRemoteCams.length === 0 && !webcamOn}
+											<div class="idle-message">
+												<svg width="48" height="48" style="fill:var(--inactive);opacity:0.3;"><use xlink:href="#shape_videocam"></use></svg>
+												<p>وبکم فعال نیست</p>
+												<p class="idle-hint">وبکم خود را روشن کنید یا منتظر دیگران باشید</p>
+											</div>
+										{:else}
+											<div class="cam-grid">
+												{#each activeRemoteCams as remote (remote.id)}
+													<div class="cam-tile-large">
+														<video autoplay playsinline use:srcObject={remote.stream} class="w-full h-full object-cover"></video>
+														<div class="cam-label">{participants.find(p => p.id === remote.id)?.name || ''}</div>
+													</div>
+												{/each}
+												{#if webcamOn}
+													<div class="cam-tile-large local"><video bind:this={localVideoEl} use:srcObject={localStream} autoplay muted playsinline class="w-full h-full object-cover"></video><div class="cam-label">شما</div></div>
+												{/if}
+											</div>
 										{/if}
 									</div>
 								{/if}
 							</div>
+
+							<!-- Column 1: Webcam strip (only when content is shown in col 2, not during plain grid) -->
+							{#if (webcamOn || activeRemoteCams.length > 0) && hasContent}
+								<div class="layout-col-webcams">
+									{#each activeRemoteCams.slice(0, 3) as remote (remote.id)}
+										<div class="cam-tile-sidebar">
+											<video autoplay playsinline use:srcObject={remote.stream} class="w-full h-full object-cover"></video>
+											<div class="cam-label">{participants.find(p => p.id === remote.id)?.name || ''}</div>
+										</div>
+									{/each}
+									{#if webcamOn}
+										<div class="cam-tile-sidebar local"><video bind:this={localVideoEl} use:srcObject={localStream} autoplay muted playsinline class="w-full h-full object-cover"></video><div class="cam-label">شما</div></div>
+									{/if}
+									{#if activeRemoteCams.length + (webcamOn ? 1 : 0) > 4}
+										<div class="cam-max-notify">حداکثر ۴ وبکم نمایش داده می‌شود</div>
+									{/if}
+								</div>
+							{/if}
+						</div>
 					</div>
 				{/if}
 			</div>
