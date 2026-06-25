@@ -11,6 +11,9 @@
 
 const MIME_TYPE = 'video/webm;codecs=vp8,opus';
 
+/** Offset added to userId for screen-share streams so receivers can distinguish them from webcam. */
+const SCREEN_SHARE_ID_OFFSET = 1_000_000;
+
 interface QualityTier {
 	maxUsers: number;
 	videoBitrate: number;
@@ -42,6 +45,7 @@ export class MediaClient {
 	private userId: number;
 	private localStream: MediaStream | null = null;
 	private recorder: MediaRecorder | null = null;
+	private screenRecorder: MediaRecorder | null = null;
 	private screenStream: MediaStream | null = null;
 	private videoEnabled = true;
 	private audioEnabled = true;
@@ -174,9 +178,11 @@ export class MediaClient {
 
 	handleBinaryMessage(data: ArrayBuffer): void {
 		if (data.byteLength < 4) return;
-		const senderId = new DataView(data).getUint32(0, false).toString();
-		if (senderId === this.userId.toString()) return;
+		const rawSenderId = new DataView(data).getUint32(0, false);
+		// Skip our own webcam stream (but not our screen share — others receive it)
+		if (rawSenderId === this.userId) return;
 
+		const senderId = rawSenderId.toString();
 		const chunk = data.slice(4);
 
 		let entry = this.remoteEntries.get(senderId);
@@ -348,23 +354,24 @@ export class MediaClient {
 
 		screenTrack.onended = () => this.stopScreenShare();
 
-		if (this.recorder && this.recorder.state !== 'inactive') this.recorder.stop();
+		// Keep the webcam recorder running — screen share uses a separate ID
+		const screenShareId = this.userId + SCREEN_SHARE_ID_OFFSET;
 
 		const composedStream = new MediaStream([
 			screenTrack,
 			...this.localStream.getAudioTracks()
 		]);
 
-		this.recorder = new MediaRecorder(composedStream, {
+		this.screenRecorder = new MediaRecorder(composedStream, {
 			mimeType: MIME_TYPE,
 			videoBitsPerSecond: this.currentTier.videoBitrate * 2,
 		});
 
-		this.recorder.ondataavailable = async (e) => {
+		this.screenRecorder.ondataavailable = async (e) => {
 			if (e.data.size > 0 && this.ws.readyState === WebSocket.OPEN) {
 				const chunk = await e.data.arrayBuffer();
 				const header = new ArrayBuffer(4);
-				new DataView(header).setUint32(0, this.userId, false);
+				new DataView(header).setUint32(0, screenShareId, false);
 				const msg = new Uint8Array(4 + chunk.byteLength);
 				msg.set(new Uint8Array(header), 0);
 				msg.set(new Uint8Array(chunk), 4);
@@ -372,7 +379,7 @@ export class MediaClient {
 			}
 		};
 
-		this.recorder.start(CHUNK_INTERVAL_MS);
+		this.screenRecorder.start(CHUNK_INTERVAL_MS);
 	}
 
 	stopScreenShare(): void {
@@ -382,18 +389,20 @@ export class MediaClient {
 			this.screenStream = null;
 			if (this.onScreenStream) this.onScreenStream(null);
 		}
-		if (this.recorder && this.recorder.state !== 'inactive') this.recorder.stop();
-		if (this.localStream.getTracks().length > 0) {
-			this.startRecorder();
-		} else {
-			this.recorder = null;
+		if (this.screenRecorder && this.screenRecorder.state !== 'inactive') {
+			this.screenRecorder.stop();
 		}
+		this.screenRecorder = null;
 	}
 
 	stop(): void {
 		if (this.recorder && this.recorder.state !== 'inactive') {
 			this.recorder.stop();
 		}
+		if (this.screenRecorder && this.screenRecorder.state !== 'inactive') {
+			this.screenRecorder.stop();
+		}
+		this.screenRecorder = null;
 		if (this.localStream) {
 			this.localStream.getTracks().forEach(t => t.stop());
 			this.localStream = null;

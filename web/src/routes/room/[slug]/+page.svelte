@@ -360,13 +360,14 @@
 						const uid = String(data.user_id);
 						if (data.command === 'screenshare_on') {
 							screenSharingUsers = new Set([...screenSharingUsers, uid]);
-							remoteStreams = remoteStreams.map(r => r.id === uid ? { ...r, isScreen: true } : r);
 							participants = participants.map(p => p.id === uid ? { ...p, hasScreen: true } : p);
 						} else if (data.command === 'screenshare_off') {
 							const newSet = new Set(screenSharingUsers);
 							newSet.delete(uid);
 							screenSharingUsers = newSet;
-							remoteStreams = remoteStreams.map(r => r.id === uid ? { ...r, isScreen: false } : r);
+							// Remove the screen share stream entry (uses offset ID)
+							const screenShareId = String(Number(uid) + 1_000_000);
+							remoteStreams = remoteStreams.filter(r => r.id !== screenShareId);
 							participants = participants.map(p => p.id === uid ? { ...p, hasScreen: false } : p);
 						} else if (data.command === 'webcam_on') {
 							participants = participants.map(p => p.id === uid ? { ...p, hasVideo: true } : p);
@@ -464,8 +465,11 @@
 				const hasVideo = stream.getVideoTracks().length > 0;
 				const hasAudio = stream.getAudioTracks().length > 0;
 				chatDebug('onRemoteStream', { participantId, tracks: stream.getTracks().map(t => t.kind), hasVideo, hasAudio });
-				// Use screenSharingUsers set to determine if this is a screen share
-				const isScreen = screenSharingUsers.has(participantId);
+				// Screen share IDs use userId + 1_000_000 offset
+				const numId = Number(participantId);
+				const isScreenShare = numId >= 1_000_000;
+				const realUserId = isScreenShare ? String(numId - 1_000_000) : participantId;
+				const isScreen = isScreenShare || screenSharingUsers.has(participantId);
 				const existingIdx = remoteStreams.findIndex(r => r.id === participantId);
 				if (existingIdx >= 0) {
 					const updated = [...remoteStreams];
@@ -474,12 +478,14 @@
 				} else {
 					remoteStreams = [...remoteStreams, { id: participantId, stream, isScreen }];
 				}
-				participants = participants.map(p => {
-					if (p.id === participantId) {
-						return { ...p, hasVideo: p.hasVideo || hasVideo, hasAudio: p.hasAudio || hasAudio };
-					}
-					return p;
-				});
+				if (!isScreenShare) {
+					participants = participants.map(p => {
+						if (p.id === participantId) {
+							return { ...p, hasVideo: p.hasVideo || hasVideo, hasAudio: p.hasAudio || hasAudio };
+						}
+						return p;
+					});
+				}
 			};
 			await mediaClient.start(!isListener && perms.canWebcam, !isListener && perms.canMic);
 			connected = true;
