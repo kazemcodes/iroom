@@ -228,13 +228,13 @@
 	let entryMode = $state<'speaker' | 'listener'>('speaker');
 	let remoteStreams = $state<Array<{id: string; stream: MediaStream; isScreen: boolean}>>([]);
 	let localScreenStream = $state<MediaStream | null>(null);
+	let screenSharingUsers = $state<Set<string>>(new Set());
 
 	const currentUserRole = $derived(($auth.user?.role || 'user') as UserRole);
 	const perms = $derived(ROLE_PERMISSIONS[currentUserRole] || ROLE_PERMISSIONS.user);
 	const isPresenterOrAbove = $derived(['owner', 'admin', 'operator', 'presenter'].includes(currentUserRole));
-	const activeRemoteCams = $derived(remoteStreams.filter(r => !r.isScreen && participants.find(p => p.id === r.id)?.hasVideo !== false));
+	const activeRemoteCams = $derived(remoteStreams.filter(r => !r.isScreen && !screenSharingUsers.has(r.id) && participants.find(p => p.id === r.id)?.hasVideo !== false));
 	const hasScreenShare = $derived(remoteStreams.some(r => r.isScreen) || screenShareOn);
-	const hasContent = $derived(showWhiteboard || showPdf || hasScreenShare);
 	const formattedTime = $derived.by(() => {
 		const m = Math.floor(elapsedSeconds / 60);
 		const s = elapsedSeconds % 60;
@@ -359,15 +359,24 @@
 						chatDebug('media command', { command: data.command, user_id: data.user_id });
 						const uid = String(data.user_id);
 						if (data.command === 'screenshare_on') {
+							screenSharingUsers = new Set([...screenSharingUsers, uid]);
 							remoteStreams = remoteStreams.map(r => r.id === uid ? { ...r, isScreen: true } : r);
 							participants = participants.map(p => p.id === uid ? { ...p, hasScreen: true } : p);
 						} else if (data.command === 'screenshare_off') {
+							const newSet = new Set(screenSharingUsers);
+							newSet.delete(uid);
+							screenSharingUsers = newSet;
 							remoteStreams = remoteStreams.map(r => r.id === uid ? { ...r, isScreen: false } : r);
 							participants = participants.map(p => p.id === uid ? { ...p, hasScreen: false } : p);
 						} else if (data.command === 'webcam_on') {
 							participants = participants.map(p => p.id === uid ? { ...p, hasVideo: true } : p);
 						} else if (data.command === 'webcam_off') {
 							participants = participants.map(p => p.id === uid ? { ...p, hasVideo: false } : p);
+							if (uid === String($auth.user?.id) && webcamOn) {
+								// Admin disabled our webcam — stop video track and recorder
+								webcamOn = false;
+								mediaClient?.stopVideo();
+							}
 						} else if (data.command === 'mic_on') {
 							participants = participants.map(p => p.id === uid ? { ...p, hasAudio: true } : p);
 						} else if (data.command === 'mic_off') {
@@ -455,13 +464,15 @@
 				const hasVideo = stream.getVideoTracks().length > 0;
 				const hasAudio = stream.getAudioTracks().length > 0;
 				chatDebug('onRemoteStream', { participantId, tracks: stream.getTracks().map(t => t.kind), hasVideo, hasAudio });
-				const existingIdx = remoteStreams.findIndex(r => r.id === participantId && !r.isScreen);
+				// Use screenSharingUsers set to determine if this is a screen share
+				const isScreen = screenSharingUsers.has(participantId);
+				const existingIdx = remoteStreams.findIndex(r => r.id === participantId);
 				if (existingIdx >= 0) {
 					const updated = [...remoteStreams];
-					updated[existingIdx] = { id: participantId, stream, isScreen: false };
+					updated[existingIdx] = { id: participantId, stream, isScreen };
 					remoteStreams = updated;
 				} else {
-					remoteStreams = [...remoteStreams, { id: participantId, stream, isScreen: false }];
+					remoteStreams = [...remoteStreams, { id: participantId, stream, isScreen }];
 				}
 				participants = participants.map(p => {
 					if (p.id === participantId) {
@@ -1050,113 +1061,10 @@
 						{/if}
 					<div class="skyroom-mainbar">
 						<div class="layout-two-col">
-							<!-- Column 2: Main content area (one content at a time) -->
-							<div class="layout-col-main">
-								{#if showWhiteboard}
-									<div class="whiteboard-container">
-										<canvas id="whiteboard-canvas" class="whiteboard-canvas"></canvas>
-										<div class="whiteboard-tools">
-											<button class="wb-btn" class:active={whiteboardTool === 'pen'} onclick={() => whiteboardTool = 'pen'} title="مداد">
-												<svg width="18" height="18"><use xlink:href="#shape_brush"></use></svg>
-											</button>
-											<button class="wb-btn" class:active={whiteboardTool === 'eraser'} onclick={() => whiteboardTool = 'eraser'} title="پاک‌کن">
-												<svg width="18" height="18"><use xlink:href="#shape_clear"></use></svg>
-											</button>
-											<input type="color" bind:value={whiteboardColor} class="wb-color" title="رنگ" />
-											<div class="wb-sep"></div>
-											<button class="wb-btn" onclick={clearWhiteboard} title="پاک کردن همه">
-												<svg width="16" height="16"><use xlink:href="#shape_power_settings_new"></use></svg>
-											</button>
-											<button class="wb-btn wb-close" onclick={() => showWhiteboard = false} title="بستن">
-												<svg width="16" height="16"><use xlink:href="#shape_exit"></use></svg>
-											</button>
-										</div>
-									</div>
-
-								{:else if showPdf}
-									<div class="pdf-viewer">
-										<div class="pdf-toolbar">
-											<span class="pdf-filename">{pdfFileName}</span>
-											<div class="pdf-actions">
-												<button class="pdf-btn" onclick={() => { const f = document.querySelector('.pdf-iframe') as HTMLIFrameElement; if(f) f.contentWindow?.postMessage({type:'zoom',delta:-0.2},'*'); }} title="کوچک‌تر">−</button>
-												<button class="pdf-btn" onclick={() => { const f = document.querySelector('.pdf-iframe') as HTMLIFrameElement; if(f) f.contentWindow?.postMessage({type:'zoom',delta:0},'*'); }} title="اندازه اصلی">↺</button>
-												<button class="pdf-btn" onclick={() => { const f = document.querySelector('.pdf-iframe') as HTMLIFrameElement; if(f) f.contentWindow?.postMessage({type:'zoom',delta:0.2},'*'); }} title="بزرگ‌تر">+</button>
-												{#if isPresenterOrAbove}
-													<div class="pdf-sep"></div>
-													<button class="pdf-btn pdf-close" onclick={closePdf} title="بستن">
-														<svg width="16" height="16"><use xlink:href="#shape_exit"></use></svg>
-													</button>
-												{/if}
-											</div>
-										</div>
-										{#if pdfUrl}
-											<iframe src={pdfUrl} class="pdf-iframe" title="PDF"></iframe>
-										{/if}
-									</div>
-
-								{:else if hasScreenShare}
-									<div class="layout-screen-share">
-										<div class="screen-share-main">
-											{#each remoteStreams as remote (remote.id)}
-												{#if remote.isScreen}
-													<video autoplay playsinline use:srcObject={remote.stream} class="w-full h-full object-contain"></video>
-												{/if}
-											{/each}
-											{#if screenShareOn && !remoteStreams.some(r => r.isScreen)}
-												{#if localScreenStream}
-													<video autoplay playsinline use:srcObject={localScreenStream} class="w-full h-full object-contain" muted></video>
-												{:else}
-													<div class="screen-share-placeholder">
-														<svg width="48" height="48" style="fill:var(--accent);opacity:0.4;"><use xlink:href="#shape_laptop"></use></svg>
-														<p>در حال اشتراک‌گذاری صفحه</p>
-													</div>
-												{/if}
-											{/if}
-										</div>
-										{#if webcamOn || activeRemoteCams.length > 0}
-											<div class="screen-share-cams">
-												{#each activeRemoteCams as remote (remote.id)}
-													<div class="cam-tile-sm">
-														<video autoplay playsinline use:srcObject={remote.stream} class="w-full h-full object-cover"></video>
-														<div class="cam-label">{participants.find(p => p.id === remote.id)?.name || ''}</div>
-													</div>
-												{/each}
-												{#if webcamOn}
-													<div class="cam-tile-sm local"><video use:srcObject={localStream} autoplay muted playsinline class="w-full h-full object-cover"></video><div class="cam-label">شما</div></div>
-												{/if}
-											</div>
-										{/if}
-									</div>
-
-								{:else}
-									<div class="layout-center layout-idle">
-										{#if activeRemoteCams.length === 0 && !webcamOn}
-											<div class="idle-message">
-												<svg width="48" height="48" style="fill:var(--inactive);opacity:0.3;"><use xlink:href="#shape_videocam"></use></svg>
-												<p>وبکم فعال نیست</p>
-												<p class="idle-hint">وبکم خود را روشن کنید یا منتظر دیگران باشید</p>
-											</div>
-										{:else}
-											<div class="cam-grid">
-												{#each activeRemoteCams as remote (remote.id)}
-													<div class="cam-tile-large">
-														<video autoplay playsinline use:srcObject={remote.stream} class="w-full h-full object-cover"></video>
-														<div class="cam-label">{participants.find(p => p.id === remote.id)?.name || ''}</div>
-													</div>
-												{/each}
-												{#if webcamOn}
-													<div class="cam-tile-large local"><video bind:this={localVideoEl} use:srcObject={localStream} autoplay muted playsinline class="w-full h-full object-cover"></video><div class="cam-label">شما</div></div>
-												{/if}
-											</div>
-										{/if}
-									</div>
-								{/if}
-							</div>
-
-							<!-- Column 1: Webcam strip (only when content is shown in col 2, not during plain grid) -->
-							{#if (webcamOn || activeRemoteCams.length > 0) && hasContent}
+							<!-- Column 1: Webcam strip (always visible when webcams exist) -->
+							{#if webcamOn || activeRemoteCams.length > 0}
 								<div class="layout-col-webcams">
-									{#each activeRemoteCams.slice(0, 3) as remote (remote.id)}
+									{#each activeRemoteCams as remote (remote.id)}
 										<div class="cam-tile-sidebar">
 											<video autoplay playsinline use:srcObject={remote.stream} class="w-full h-full object-cover"></video>
 											<div class="cam-label">{participants.find(p => p.id === remote.id)?.name || ''}</div>
@@ -1165,11 +1073,87 @@
 									{#if webcamOn}
 										<div class="cam-tile-sidebar local"><video bind:this={localVideoEl} use:srcObject={localStream} autoplay muted playsinline class="w-full h-full object-cover"></video><div class="cam-label">شما</div></div>
 									{/if}
-									{#if activeRemoteCams.length + (webcamOn ? 1 : 0) > 4}
-										<div class="cam-max-notify">حداکثر ۴ وبکم نمایش داده می‌شود</div>
+								</div>
+							{/if}
+
+						<!-- Column 2: Main content area — stacked rows -->
+						<div class="layout-col-main">
+							{#if showWhiteboard}
+								<div class="content-row whiteboard-container">
+									<canvas id="whiteboard-canvas" class="whiteboard-canvas"></canvas>
+									<div class="whiteboard-tools">
+										<button class="wb-btn" class:active={whiteboardTool === 'pen'} onclick={() => whiteboardTool = 'pen'} title="مداد">
+											<svg width="18" height="18"><use xlink:href="#shape_brush"></use></svg>
+										</button>
+										<button class="wb-btn" class:active={whiteboardTool === 'eraser'} onclick={() => whiteboardTool = 'eraser'} title="پاک‌کن">
+											<svg width="18" height="18"><use xlink:href="#shape_clear"></use></svg>
+										</button>
+										<input type="color" bind:value={whiteboardColor} class="wb-color" title="رنگ" />
+										<div class="wb-sep"></div>
+										<button class="wb-btn" onclick={clearWhiteboard} title="پاک کردن همه">
+											<svg width="16" height="16"><use xlink:href="#shape_power_settings_new"></use></svg>
+										</button>
+										<button class="wb-btn wb-close" onclick={() => showWhiteboard = false} title="بستن">
+											<svg width="16" height="16"><use xlink:href="#shape_exit"></use></svg>
+										</button>
+									</div>
+								</div>
+							{/if}
+
+							{#if showPdf}
+								<div class="content-row pdf-viewer">
+									<div class="pdf-toolbar">
+										<span class="pdf-filename">{pdfFileName}</span>
+										<div class="pdf-actions">
+											<button class="pdf-btn" onclick={() => { const f = document.querySelector('.pdf-iframe') as HTMLIFrameElement; if(f) f.contentWindow?.postMessage({type:'zoom',delta:-0.2},'*'); }} title="کوچک‌تر">−</button>
+											<button class="pdf-btn" onclick={() => { const f = document.querySelector('.pdf-iframe') as HTMLIFrameElement; if(f) f.contentWindow?.postMessage({type:'zoom',delta:0},'*'); }} title="اندازه اصلی">↺</button>
+											<button class="pdf-btn" onclick={() => { const f = document.querySelector('.pdf-iframe') as HTMLIFrameElement; if(f) f.contentWindow?.postMessage({type:'zoom',delta:0.2},'*'); }} title="بزرگ‌تر">+</button>
+											{#if isPresenterOrAbove}
+												<div class="pdf-sep"></div>
+												<button class="pdf-btn pdf-close" onclick={closePdf} title="بستن">
+													<svg width="16" height="16"><use xlink:href="#shape_exit"></use></svg>
+												</button>
+											{/if}
+										</div>
+									</div>
+									{#if pdfUrl}
+										<iframe src={pdfUrl} class="pdf-iframe" title="PDF"></iframe>
 									{/if}
 								</div>
 							{/if}
+
+							{#if hasScreenShare}
+								<div class="content-row layout-screen-share">
+									<div class="screen-share-main">
+										{#each remoteStreams as remote (remote.id)}
+											{#if remote.isScreen}
+												<video autoplay playsinline use:srcObject={remote.stream} class="w-full h-full object-contain"></video>
+											{/if}
+										{/each}
+										{#if screenShareOn && !remoteStreams.some(r => r.isScreen)}
+											{#if localScreenStream}
+												<video autoplay playsinline use:srcObject={localScreenStream} class="w-full h-full object-contain" muted></video>
+											{:else}
+												<div class="screen-share-placeholder">
+													<svg width="48" height="48" style="fill:var(--accent);opacity:0.4;"><use xlink:href="#shape_laptop"></use></svg>
+													<p>در حال اشتراک‌گذاری صفحه</p>
+												</div>
+											{/if}
+										{/if}
+									</div>
+								</div>
+							{/if}
+
+							{#if !showWhiteboard && !showPdf && !hasScreenShare}
+								<div class="content-row layout-center layout-idle">
+									<div class="idle-message">
+										<svg width="48" height="48" style="fill:var(--inactive);opacity:0.3;"><use xlink:href="#shape_videocam"></use></svg>
+										<p>محتوایی نمایش داده نشده</p>
+										<p class="idle-hint">یکی از ابزارها را انتخاب کنید</p>
+									</div>
+								</div>
+							{/if}
+						</div>
 						</div>
 					</div>
 				{/if}
@@ -1261,8 +1245,9 @@
 
 	/* === Two-column layout === */
 	.layout-two-col { display: flex; width: 100%; height: 100%; }
-	.layout-col-main { flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden; position: relative; }
-	.layout-col-webcams { width: 180px; display: flex; flex-direction: column; gap: 6px; padding: 8px 6px; overflow-y: auto; flex-shrink: 0; background: rgba(10,14,20,0.6); border-left: 1px solid rgba(255,255,255,0.05); }
+	.layout-col-main { flex: 1; display: flex; flex-direction: column; min-width: 0; overflow-y: auto; overflow-x: hidden; position: relative; gap: 2px; }
+	.layout-col-webcams { width: 180px; display: flex; flex-direction: column; gap: 6px; padding: 8px 6px; overflow-y: auto; flex-shrink: 0; background: rgba(10,14,20,0.6); border-right: 1px solid rgba(255,255,255,0.05); }
+	.content-row { flex: 1 1 0; min-height: 200px; position: relative; overflow: hidden; background: #0a0e14; border-radius: var(--radius-sm); }
 
 	/* Split layout: whiteboard + content side by side */
 	.layout-split { display: flex; width: 100%; height: 100%; gap: 2px; background: #0a0e14; }
@@ -1272,16 +1257,11 @@
 	.cam-tile-sidebar { position: relative; width: 100%; aspect-ratio: 16/9; border-radius: var(--radius-sm); overflow: hidden; background: #000; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.08); }
 	.cam-tile-sidebar video { width: 100%; height: 100%; object-fit: cover; }
 	.cam-tile-sidebar.local { border-color: var(--accent); }
-	.cam-max-notify { font-size: 0.7rem; color: var(--inactive); text-align: center; padding: 8px; }
 
-	/* Screen share: full width main + webcam tiles below */
+	/* Screen share: fills its content-row */
 	.layout-screen-share { display: flex; flex-direction: column; width: 100%; height: 100%; }
 	.screen-share-main { flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; }
 	.screen-share-main video { max-width: 100%; max-height: 100%; }
-	.screen-share-cams { display: flex; flex-direction: row; gap: 6px; padding: 6px 8px; overflow-x: auto; flex-shrink: 0; background: rgba(10,14,20,0.6); border-top: 1px solid rgba(255,255,255,0.05); }
-	.cam-tile-sm { position: relative; width: 140px; height: 100px; flex-shrink: 0; border-radius: var(--radius-sm); overflow: hidden; background: #000; border: 1px solid rgba(255,255,255,0.08); }
-	.cam-tile-sm video { width: 100%; height: 100%; object-fit: cover; }
-	.cam-tile-sm.local { border-color: var(--accent); }
 
 	/* Idle message when nothing is active */
 	.layout-idle { flex-direction: column; display: flex; align-items: center; justify-content: center; flex: 1; }
@@ -1289,14 +1269,9 @@
 	.idle-message p { margin: 8px 0 0; font-size: 0.9rem; }
 	.idle-hint { font-size: 0.75rem !important; opacity: 0.6; }
 	.cam-label { position: absolute; bottom: 3px; left: 3px; background: rgba(0,0,0,0.7); color: #e0e0e6; padding: 1px 6px; border-radius: 3px; font-size: 0.65rem; font-weight: 500; pointer-events: none; }
-	.cam-grid { display: flex; flex-direction: column; gap: 8px; max-height: 100%; overflow-y: auto; padding: 12px; }
-	.cam-tile-large { position: relative; width: 100%; max-width: 280px; aspect-ratio: 16/9; border-radius: var(--radius); overflow: hidden; background: #000; border: 2px solid rgba(255,255,255,0.08); flex-shrink: 0; }
-	.cam-tile-large video { width: 100%; height: 100%; object-fit: cover; }
-	.cam-tile-large.local { border-color: var(--accent); }
-	.cam-tile-large .cam-label { font-size: 0.75rem; padding: 2px 8px; }
 
 	/* === Whiteboard === */
-	.whiteboard-container { position: absolute; inset: 0; background: #1c2a3a; }
+	.whiteboard-container { width: 100%; height: 100%; background: #1c2a3a; position: relative; }
 	.whiteboard-canvas { width: 100%; height: 100%; cursor: crosshair; }
 	.whiteboard-tools { position: absolute; top: 12px; right: 12px; display: flex; align-items: center; gap: 4px; background: rgba(20,30,45,0.92); backdrop-filter: blur(8px); padding: 6px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08); z-index: 10; }
 	.wb-btn { width: 34px; height: 34px; border-radius: 8px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; background: transparent; color: var(--inactive); transition: all 0.15s; }
@@ -1430,12 +1405,8 @@
 		.skyroom-header { padding: 0 8px; min-height: 36px; }
 		/* Two-column mobile: stack columns */
 		.layout-two-col { flex-direction: column; }
-		.layout-col-webcams { width: 100%; flex-direction: row; overflow-x: auto; overflow-y: hidden; padding: 6px; gap: 6px; border-left: none; border-top: 1px solid rgba(255,255,255,0.05); max-height: 100px; }
+		.layout-col-webcams { width: 100%; flex-direction: row; overflow-x: auto; overflow-y: hidden; padding: 6px; gap: 6px; border-right: none; border-top: 1px solid rgba(255,255,255,0.05); max-height: 100px; }
 		.cam-tile-sidebar { width: 120px; height: 70px; flex-shrink: 0; }
-		.screen-share-cams { flex-direction: row; overflow-x: auto; }
-		.cam-tile-sm { width: 110px; height: 80px; }
-		.cam-grid { top: 8px; right: 8px; }
-		.cam-tile-large { width: 140px; height: 105px; }
 		.whiteboard-tools { top: 8px; right: 8px; padding: 4px; gap: 3px; }
 		.wb-btn { width: 30px; height: 30px; }
 		.pdf-toolbar { padding: 4px 8px; min-height: 36px; }
@@ -1444,8 +1415,6 @@
 	@media (max-width: 480px) {
 		.skyroom-header span:not(:first-child) { display: none; }
 		.skyroom-layout { gap: 0; }
-		.cam-tile-large { width: 120px; height: 90px; }
 		.cam-tile-sidebar { width: 100px; height: 60px; }
-		.cam-tile-sm { width: 90px; height: 65px; }
 	}
 </style>

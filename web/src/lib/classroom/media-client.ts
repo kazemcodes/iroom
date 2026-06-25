@@ -289,6 +289,28 @@ export class MediaClient {
 		return true;
 	}
 
+	/**
+	 * Force-stop video: stops video tracks, stops the recorder, and restarts
+	 * recorder with audio-only so remote users stop receiving video frames.
+	 * Called when admin disables our webcam.
+	 */
+	stopVideo(): void {
+		if (!this.localStream) return;
+		this.videoEnabled = false;
+		this.localConstraints.video = false;
+		const vt = this.localStream.getVideoTracks();
+		vt.forEach(t => { t.stop(); this.localStream!.removeTrack(t); });
+		if (this.recorder && this.recorder.state !== 'inactive') {
+			this.recorder.stop();
+		}
+		if (this.localStream.getAudioTracks().length > 0) {
+			this.startRecorder();
+		} else {
+			this.recorder = null;
+		}
+		if (this.onLocalStream) this.onLocalStream(this.localStream);
+	}
+
 	async toggleAudio(): Promise<boolean> {
 		if (!this.localStream) return false;
 		const tracks = this.localStream.getAudioTracks();
