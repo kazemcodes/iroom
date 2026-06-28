@@ -235,6 +235,15 @@
 	const isPresenterOrAbove = $derived(['owner', 'admin', 'operator', 'presenter'].includes(currentUserRole));
 	const activeRemoteCams = $derived(remoteStreams.filter(r => !r.isScreen && !screenSharingUsers.has(r.id) && participants.find(p => p.id === r.id)?.hasVideo !== false));
 	const hasScreenShare = $derived(remoteStreams.some(r => r.isScreen) || screenShareOn);
+	const screenStreams = $derived(remoteStreams.filter(r => r.isScreen));
+	const tileCount = $derived(
+		(showWhiteboard ? 1 : 0) +
+		(showPdf ? 1 : 0) +
+		screenStreams.length +
+		((screenShareOn && !remoteStreams.some(r => r.isScreen)) ? 1 : 0) +
+		activeRemoteCams.length +
+		(webcamOn ? 1 : 0)
+	);
 	const formattedTime = $derived.by(() => {
 		const m = Math.floor(elapsedSeconds / 60);
 		const s = elapsedSeconds % 60;
@@ -1066,26 +1075,19 @@
 							</div>
 						{/if}
 					<div class="skyroom-mainbar">
-						<div class="layout-two-col">
-							<!-- Column 1: Webcam strip (always visible when webcams exist) -->
-							{#if webcamOn || activeRemoteCams.length > 0}
-								<div class="layout-col-webcams">
-									{#each activeRemoteCams as remote (remote.id)}
-										<div class="cam-tile-sidebar">
-											<video autoplay playsinline use:srcObject={remote.stream} class="w-full h-full object-cover"></video>
-											<div class="cam-label">{participants.find(p => p.id === remote.id)?.name || ''}</div>
-										</div>
-									{/each}
-									{#if webcamOn}
-										<div class="cam-tile-sidebar local"><video bind:this={localVideoEl} use:srcObject={localStream} autoplay muted playsinline class="w-full h-full object-cover"></video><div class="cam-label">شما</div></div>
-									{/if}
+						<div class="layout-dynamic-grid grid-{Math.min(tileCount || 1, 10)}">
+							{#if tileCount === 0}
+								<div class="layout-idle" style="grid-column: 1 / -1; grid-row: 1 / -1;">
+									<div class="idle-message">
+										<svg width="48" height="48" style="fill:var(--inactive);opacity:0.3;"><use xlink:href="#shape_videocam"></use></svg>
+										<p>محتوایی نمایش داده نشده</p>
+										<p class="idle-hint">یکی از ابزارها را انتخاب کنید</p>
+									</div>
 								</div>
 							{/if}
 
-						<!-- Column 2: Main content area — stacked rows -->
-						<div class="layout-col-main">
 							{#if showWhiteboard}
-								<div class="content-row whiteboard-container">
+								<div class="grid-tile whiteboard-container">
 									<canvas id="whiteboard-canvas" class="whiteboard-canvas"></canvas>
 									<div class="whiteboard-tools">
 										<button class="wb-btn" class:active={whiteboardTool === 'pen'} onclick={() => whiteboardTool = 'pen'} title="مداد">
@@ -1107,7 +1109,7 @@
 							{/if}
 
 							{#if showPdf}
-								<div class="content-row pdf-viewer">
+								<div class="grid-tile pdf-viewer">
 									<div class="pdf-toolbar">
 										<span class="pdf-filename">{pdfFileName}</span>
 										<div class="pdf-actions">
@@ -1128,38 +1130,38 @@
 								</div>
 							{/if}
 
-							{#if hasScreenShare}
-								<div class="content-row layout-screen-share">
-									<div class="screen-share-main">
-										{#each remoteStreams as remote (remote.id)}
-											{#if remote.isScreen}
-												<video autoplay playsinline use:srcObject={remote.stream} class="w-full h-full object-contain"></video>
-											{/if}
-										{/each}
-										{#if screenShareOn && !remoteStreams.some(r => r.isScreen)}
-											{#if localScreenStream}
-												<video autoplay playsinline use:srcObject={localScreenStream} class="w-full h-full object-contain" muted></video>
-											{:else}
-												<div class="screen-share-placeholder">
-													<svg width="48" height="48" style="fill:var(--accent);opacity:0.4;"><use xlink:href="#shape_laptop"></use></svg>
-													<p>در حال اشتراک‌گذاری صفحه</p>
-												</div>
-											{/if}
-										{/if}
-									</div>
+							{#each screenStreams as remote (remote.id)}
+								<div class="grid-tile screen-share-main">
+									<video autoplay playsinline use:srcObject={remote.stream} class="w-full h-full object-contain"></video>
+								</div>
+							{/each}
+
+							{#if screenShareOn && !remoteStreams.some(r => r.isScreen)}
+								<div class="grid-tile screen-share-main">
+									{#if localScreenStream}
+										<video autoplay playsinline use:srcObject={localScreenStream} class="w-full h-full object-contain" muted></video>
+									{:else}
+										<div class="screen-share-placeholder">
+											<svg width="48" height="48" style="fill:var(--accent);opacity:0.4;"><use xlink:href="#shape_laptop"></use></svg>
+											<p>در حال اشتراک‌گذاری صفحه</p>
+										</div>
+									{/if}
 								</div>
 							{/if}
 
-							{#if !showWhiteboard && !showPdf && !hasScreenShare}
-								<div class="content-row layout-center layout-idle">
-									<div class="idle-message">
-										<svg width="48" height="48" style="fill:var(--inactive);opacity:0.3;"><use xlink:href="#shape_videocam"></use></svg>
-										<p>محتوایی نمایش داده نشده</p>
-										<p class="idle-hint">یکی از ابزارها را انتخاب کنید</p>
-									</div>
+							{#each activeRemoteCams as remote (remote.id)}
+								<div class="grid-tile cam-tile">
+									<video autoplay playsinline use:srcObject={remote.stream} class="w-full h-full object-cover"></video>
+									<div class="cam-label">{participants.find(p => p.id === remote.id)?.name || ''}</div>
+								</div>
+							{/each}
+
+							{#if webcamOn}
+								<div class="grid-tile cam-tile local">
+									<video bind:this={localVideoEl} use:srcObject={localStream} autoplay muted playsinline class="w-full h-full object-cover"></video>
+									<div class="cam-label">شما</div>
 								</div>
 							{/if}
-						</div>
 						</div>
 					</div>
 				{/if}
@@ -1249,23 +1251,56 @@
 	.skyroom-sidebar { flex-grow: 1; min-width: 260px; max-width: 320px; display: flex; flex-direction: column; gap: 6px; }
 	.skyroom-mainbar { flex: 1; position: relative; display: flex; overflow: hidden; border-radius: var(--radius); background: #0a0e14; min-height: 200px; }
 
-	/* === Two-column layout === */
-	.layout-two-col { display: flex; width: 100%; height: 100%; }
-	.layout-col-main { flex: 1; display: flex; flex-direction: column; min-width: 0; overflow-y: auto; overflow-x: hidden; position: relative; gap: 2px; }
-	.layout-col-webcams { width: 180px; display: flex; flex-direction: column; gap: 6px; padding: 8px 6px; overflow-y: auto; flex-shrink: 0; background: rgba(10,14,20,0.6); border-right: 1px solid rgba(255,255,255,0.05); }
-	.content-row { flex: 1 1 0; min-height: 200px; position: relative; overflow: hidden; background: #0a0e14; border-radius: var(--radius-sm); }
+	/* === Dynamic Grid Layout === */
+	.layout-dynamic-grid {
+		display: grid;
+		width: 100%;
+		height: 100%;
+		gap: 6px;
+		padding: 0;
+		box-sizing: border-box;
+	}
+	.layout-dynamic-grid.grid-1 { grid-template-columns: 1fr; grid-template-rows: 1fr; }
+	.layout-dynamic-grid.grid-2 { grid-template-columns: repeat(2, 1fr); grid-template-rows: 1fr; }
+	.layout-dynamic-grid.grid-3 { grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(2, 1fr); }
+	.layout-dynamic-grid.grid-3 > .grid-tile:last-child { grid-column: span 2; }
+	.layout-dynamic-grid.grid-4 { grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(2, 1fr); }
+	.layout-dynamic-grid.grid-5,
+	.layout-dynamic-grid.grid-6 { grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr); }
+	.layout-dynamic-grid.grid-7,
+	.layout-dynamic-grid.grid-8,
+	.layout-dynamic-grid.grid-9 { grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); }
+	.layout-dynamic-grid.grid-10 { grid-template-columns: repeat(4, 1fr); grid-auto-rows: 1fr; }
+
+	/* Grid tile wrapper */
+	.grid-tile {
+		position: relative;
+		width: 100%;
+		height: 100%;
+		min-width: 0;
+		min-height: 0;
+		border-radius: var(--radius-sm);
+		overflow: hidden;
+		background: #0a0e14;
+		display: flex;
+		flex-direction: column;
+	}
 
 	/* Split layout: whiteboard + content side by side */
 	.layout-split { display: flex; width: 100%; height: 100%; gap: 2px; background: #0a0e14; }
 	.layout-split-pane { flex: 1; min-width: 0; position: relative; overflow: hidden; }
 	.screen-share-placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 12px; color: var(--inactive); }
 	.screen-share-placeholder p { font-size: 0.85rem; }
+	.cam-tile { position: relative; width: 100%; height: 100%; border-radius: var(--radius-sm); overflow: hidden; background: #000; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.08); }
+	.cam-tile video { width: 100%; height: 100%; object-fit: cover; }
+	.cam-tile.local { border-color: var(--accent); }
+
+	/* Legacy cam-tile-sidebar kept for compatibility */
 	.cam-tile-sidebar { position: relative; width: 100%; aspect-ratio: 16/9; border-radius: var(--radius-sm); overflow: hidden; background: #000; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.08); }
 	.cam-tile-sidebar video { width: 100%; height: 100%; object-fit: cover; }
 	.cam-tile-sidebar.local { border-color: var(--accent); }
 
-	/* Screen share: fills its content-row */
-	.layout-screen-share { display: flex; flex-direction: column; width: 100%; height: 100%; }
+	/* Screen share tile: fills its grid cell */
 	.screen-share-main { flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; }
 	.screen-share-main video { max-width: 100%; max-height: 100%; }
 
@@ -1409,10 +1444,9 @@
 		.skyroom-icon-square { width: 32px; height: 32px; }
 		.skyroom-icon-square svg { width: 16px; height: 16px; }
 		.skyroom-header { padding: 0 8px; min-height: 36px; }
-		/* Two-column mobile: stack columns */
-		.layout-two-col { flex-direction: column; }
-		.layout-col-webcams { width: 100%; flex-direction: row; overflow-x: auto; overflow-y: hidden; padding: 6px; gap: 6px; border-right: none; border-top: 1px solid rgba(255,255,255,0.05); max-height: 100px; }
-		.cam-tile-sidebar { width: 120px; height: 70px; flex-shrink: 0; }
+		/* Grid mobile: adjust gaps */
+		.layout-dynamic-grid { gap: 3px; }
+		.grid-tile { border-radius: 4px; }
 		.whiteboard-tools { top: 8px; right: 8px; padding: 4px; gap: 3px; }
 		.wb-btn { width: 30px; height: 30px; }
 		.pdf-toolbar { padding: 4px 8px; min-height: 36px; }
@@ -1421,6 +1455,5 @@
 	@media (max-width: 480px) {
 		.skyroom-header span:not(:first-child) { display: none; }
 		.skyroom-layout { gap: 0; }
-		.cam-tile-sidebar { width: 100px; height: 60px; }
 	}
 </style>
