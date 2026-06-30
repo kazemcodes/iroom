@@ -2,7 +2,7 @@
   SettingsModal — Classroom settings with 3 tabs.
   
   Tabs:
-    - عمومی (General): Webcam display, mirror, desktop, echo prevention
+    - عمومی (General): Webcam display, mirror, desktop, echo prevention, waiting room (operator only)
     - صدا و تصویر (Audio/Video): Microphone/webcam device selection, quality
     - اعلان‌ها (Notifications): Toggle notifications for various events
   
@@ -10,11 +10,22 @@
   
   Props:
     onClose: Callback to close the modal
+    roomId: The actual room ID (not session ID) for API calls
+    waitingRoomEnabled: Current waiting room state
+    isOperator: Whether the current user is an operator
+    onWaitingRoomChange: Callback when waiting room is toggled
 -->
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { api } from '$lib/api';
 
-	let { onClose }: { onClose: () => void } = $props();
+	let { onClose, roomId = 0, waitingRoomEnabled = false, isOperator = false, onWaitingRoomChange }: {
+		onClose: () => void;
+		roomId?: number;
+		waitingRoomEnabled?: boolean;
+		isOperator?: boolean;
+		onWaitingRoomChange?: (enabled: boolean) => void;
+	} = $props();
 
 	let activeTab = $state<'general' | 'audio' | 'notifications'>('general');
 
@@ -45,6 +56,38 @@
 
 	let micDevices = $state<string[]>([]);
 	let webcamDevices = $state<string[]>([]);
+
+	// Waiting room toggle state (local copy for immediate UI feedback)
+	let waitingRoomLocal = $state(waitingRoomEnabled);
+	let waitingRoomSaving = $state(false);
+
+	// Keep local state in sync if parent updates the prop while modal is open
+	$effect(() => {
+		waitingRoomLocal = waitingRoomEnabled;
+	});
+
+	async function toggleWaitingRoom() {
+		if (!roomId || waitingRoomSaving) return;
+		waitingRoomSaving = true;
+		const newValue = !waitingRoomLocal;
+		// Optimistic update
+		waitingRoomLocal = newValue;
+		onWaitingRoomChange?.(newValue);
+		try {
+			const res = await api.put(`/rooms/${roomId}/settings`, { waiting_room_enabled: newValue });
+			if (!res.success) {
+				// Rollback on failure
+				waitingRoomLocal = !newValue;
+				onWaitingRoomChange?.(!newValue);
+			}
+		} catch {
+			// Rollback on error
+			waitingRoomLocal = !newValue;
+			onWaitingRoomChange?.(!newValue);
+		} finally {
+			waitingRoomSaving = false;
+		}
+	}
 
 	onMount(async () => {
 		try {
@@ -99,6 +142,19 @@
 						<span>ارسال صدای سیستم به هنگام اشتراک دسکتاپ</span>
 						<input type="checkbox" bind:checked={generalSettings.sendSystemAudio} class="toggle" />
 					</label>
+					{#if isOperator}
+						<div class="settings-separator"></div>
+						<div class="setting-section-title">تنظیمات اتاق</div>
+						<label class="toggle-row">
+							<span>اتاق انتظار</span>
+							<span class="toggle-hint">کاربران تا زمان ورود میزبان در اتاق انتظار می‌مانند</span>
+							{#if waitingRoomSaving}
+								<span class="toggle-saving">...</span>
+							{:else}
+								<input type="checkbox" checked={waitingRoomLocal} onchange={toggleWaitingRoom} class="toggle" />
+							{/if}
+						</label>
+					{/if}
 				</div>
 			{:else if activeTab === 'audio'}
 				<div class="settings-group">
@@ -302,4 +358,33 @@
 		transition: background 0.15s;
 	}
 	.btn-confirm:hover { background: #1a9fc0; }
+
+	/* Waiting room section */
+	.settings-separator {
+		height: 1px;
+		background: rgba(255,255,255,0.08);
+		margin: 8px 0 4px;
+	}
+	.setting-section-title {
+		font-size: 0.75rem;
+		font-weight: 600;
+		color: #8a8a96;
+		padding: 4px 0;
+	}
+	.toggle-hint {
+		display: block;
+		font-size: 0.7rem;
+		color: #5a6070;
+		margin-top: -2px;
+		line-height: 1.4;
+	}
+	.toggle-saving {
+		font-size: 0.75rem;
+		color: var(--accent);
+		animation: pulse 0.8s ease-in-out infinite;
+	}
+	@keyframes pulse {
+		0%, 100% { opacity: 0.4; }
+		50% { opacity: 1; }
+	}
 </style>

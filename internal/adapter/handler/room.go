@@ -62,8 +62,18 @@ func (h *RoomHandler) GetBySlug(c echo.Context) error {
 	if err != nil {
 		return response.NotFound(c, "اتاق یافت نشد")
 	}
+
+	// Include waiting_room_enabled from room settings
+	settings, _ := h.roomUC.GetSettings(room.ID)
+	waitingRoomEnabled := false
+	if settings != nil {
+		waitingRoomEnabled = settings.WaitingRoomEnabled
+	}
+
 	return response.Success(c, map[string]interface{}{
-		"room": room,
+		"room":                  room,
+		"owner_id":              room.OwnerID,
+		"waiting_room_enabled":  waitingRoomEnabled,
 	})
 }
 

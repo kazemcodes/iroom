@@ -209,7 +209,7 @@ func main() {
 	api.GET("/sessions/:id/messages", messageHandler.List)
 	api.POST("/sessions/:id/messages", messageHandler.Send)
 
-	chatHandler := handler.NewChatHandler(messageRepo, userRepo, cfg.JWT.Secret, wsHub)
+	chatHandler := handler.NewChatHandler(messageRepo, userRepo, sessionRepo, sessionUC, cfg.JWT.Secret, wsHub)
 	wsGroup := e.Group("/ws")
 	wsGroup.Use(middleware.RateLimit(30, time.Minute))
 	wsGroup.GET("/sessions/:id", chatHandler.HandleWS)

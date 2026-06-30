@@ -1,10 +1,12 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -21,6 +23,11 @@ var chatUpgrader = websocket.Upgrader{
 	},
 }
 
+type autoEndTimer struct {
+	cancel    context.CancelFunc
+	sessionID int64
+}
+
 type ChatHandler struct {
 	messageRepo interface {
 		Create(m *entity.Message) error
@@ -28,16 +35,40 @@ type ChatHandler struct {
 	userRepo interface {
 		GetByID(id int64) (*entity.User, error)
 	}
-	hub    *services.Hub
-	secret string
+	sessionRepo interface {
+		GetRoomBySessionID(sessionID int64) (*entity.Room, error)
+		GetAutoEndMinutesBySessionID(sessionID int64) int
+		IsSessionLive(sessionID int64) bool
+	}
+	sessionUC interface {
+		AutoEnd(id int64) error
+	}
+	hub          *services.Hub
+	secret       string
+	autoEndMu    sync.Mutex
+	autoEndTimers map[string]*autoEndTimer // keyed by roomID
 }
 
 func NewChatHandler(messageRepo interface {
 	Create(m *entity.Message) error
 }, userRepo interface {
 	GetByID(id int64) (*entity.User, error)
+}, sessionRepo interface {
+	GetRoomBySessionID(sessionID int64) (*entity.Room, error)
+	GetAutoEndMinutesBySessionID(sessionID int64) int
+	IsSessionLive(sessionID int64) bool
+}, sessionUC interface {
+	AutoEnd(id int64) error
 }, secret string, hub *services.Hub) *ChatHandler {
-	return &ChatHandler{messageRepo: messageRepo, userRepo: userRepo, hub: hub, secret: secret}
+	return &ChatHandler{
+		messageRepo:   messageRepo,
+		userRepo:      userRepo,
+		sessionRepo:   sessionRepo,
+		sessionUC:     sessionUC,
+		hub:           hub,
+		secret:        secret,
+		autoEndTimers: make(map[string]*autoEndTimer),
+	}
 }
 
 func (h *ChatHandler) GetHub() *services.Hub {
@@ -83,6 +114,19 @@ func (h *ChatHandler) HandleWS(c echo.Context) error {
 		client.DisplayName = claims.Email
 	}
 
+	// Determine if this client is an operator for the room
+	room, _ := h.sessionRepo.GetRoomBySessionID(sessionID)
+	client.IsOperator = claims.Role == "admin" || claims.Role == "operator" || (room != nil && room.OwnerID == claims.UserID)		// If this is the first operator, broadcast operator_joined and cancel any pending auto-end
+	if client.IsOperator && h.hub.GetOperatorConnectionCount(client.RoomID) == 0 {
+		debug.Log("operator joined", "user_id", client.UserID, "session_id", sessionID)
+		// Cancel any pending auto-end timer for this room
+		h.cancelAutoEnd(client.RoomID)
+		h.hub.BroadcastToRoom(client.RoomID, "chat", map[string]interface{}{
+			"type":    "command",
+			"command": "operator_joined",
+		}, 0)
+	}
+
 	debug.Log("chat WS connect",
 		"user_id", client.UserID,
 		"display_name", client.DisplayName,
@@ -100,6 +144,16 @@ func (h *ChatHandler) HandleWS(c echo.Context) error {
 func (h *ChatHandler) readPump(client *services.Client, sessionID int64) {
 	defer func() {
 		debug.Log("chat WS disconnect", "user_id", client.UserID, "session_id", sessionID)
+		// If this is the last operator connection, broadcast operator_left and start auto-end timer
+		if client.IsOperator && h.hub.GetOperatorConnectionCount(client.RoomID) == 1 {
+			debug.Log("operator left", "user_id", client.UserID, "session_id", sessionID)
+			h.hub.BroadcastToRoom(client.RoomID, "chat", map[string]interface{}{
+				"type":    "command",
+				"command": "operator_left",
+			}, 0)
+			// Start auto-end countdown if configured
+			h.startAutoEnd(client.RoomID, sessionID)
+		}
 		h.hub.Unregister(client)
 		client.Conn.Close()
 	}()
@@ -225,6 +279,80 @@ func (h *ChatHandler) readPump(client *services.Client, sessionID int64) {
 			)
 			h.hub.BroadcastToRoom(strconv.FormatInt(sessionID, 10), "chat", broadcast, 0)
 		}
+	}
+}
+
+// startAutoEnd begins a countdown to auto-end the session when the last operator leaves.
+func (h *ChatHandler) startAutoEnd(roomID string, sessionID int64) {
+	// Only auto-end live sessions
+	if !h.sessionRepo.IsSessionLive(sessionID) {
+		return
+	}
+
+	minutes := h.sessionRepo.GetAutoEndMinutesBySessionID(sessionID)
+	if minutes <= 0 {
+		return
+	}
+
+	h.autoEndMu.Lock()
+	// Cancel any existing timer for this room (shouldn't happen, but be safe)
+	if existing, ok := h.autoEndTimers[roomID]; ok {
+		existing.cancel()
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	h.autoEndTimers[roomID] = &autoEndTimer{cancel: cancel, sessionID: sessionID}
+	h.autoEndMu.Unlock()
+
+	debug.Log("auto-end started", "room_id", roomID, "session_id", sessionID, "minutes", minutes)
+
+	// Notify users about the auto-end countdown
+	h.hub.BroadcastToRoom(roomID, "chat", map[string]interface{}{
+		"type":    "command",
+		"command": "auto_end_warning",
+		"minutes": minutes,
+	}, 0)
+
+	go func() {
+		select {
+		case <-ctx.Done():
+			// Cancelled — operator rejoined
+			debug.Log("auto-end cancelled", "room_id", roomID, "session_id", sessionID)
+		case <-time.After(time.Duration(minutes) * time.Minute):
+			// Timeout — end the session
+			debug.Log("auto-end firing", "room_id", roomID, "session_id", sessionID)
+			if err := h.sessionUC.AutoEnd(sessionID); err != nil {
+				slog.Error("auto-end session failed", "error", err, "session_id", sessionID)
+			}
+			// Notify all users that the session has ended
+			h.hub.BroadcastToRoom(roomID, "chat", map[string]interface{}{
+				"type":    "command",
+				"command": "session_ended",
+			}, 0)
+			// Clean up the timer
+			h.autoEndMu.Lock()
+			delete(h.autoEndTimers, roomID)
+			h.autoEndMu.Unlock()
+		}
+	}()
+}
+
+// cancelAutoEnd cancels a pending auto-end timer for the given room.
+func (h *ChatHandler) cancelAutoEnd(roomID string) {
+	h.autoEndMu.Lock()
+	timer, ok := h.autoEndTimers[roomID]
+	if ok {
+		timer.cancel()
+		delete(h.autoEndTimers, roomID)
+	}
+	h.autoEndMu.Unlock()
+
+	if ok {
+		// Notify users that the auto-end has been cancelled
+		h.hub.BroadcastToRoom(roomID, "chat", map[string]interface{}{
+			"type":    "command",
+			"command": "auto_end_cancelled",
+		}, 0)
 	}
 }
 

@@ -215,3 +215,26 @@ func (r *SessionRepo) GetRoomBySessionID(sessionID int64) (*entity.Room, error) 
 	}
 	return room, nil
 }
+
+// IsSessionLive checks if a session is currently in 'live' status.
+func (r *SessionRepo) IsSessionLive(sessionID int64) bool {
+	var status string
+	err := r.db.QueryRow(`SELECT status FROM sessions WHERE id = ?`, sessionID).Scan(&status)
+	return err == nil && status == "live"
+}
+
+// GetAutoEndMinutesBySessionID returns the session_auto_end_minutes setting
+// for the room associated with the given session. Returns 0 if disabled.
+func (r *SessionRepo) GetAutoEndMinutesBySessionID(sessionID int64) int {
+	var minutes int
+	err := r.db.QueryRow(
+		`SELECT COALESCE(rs.session_auto_end_minutes, 120)
+		 FROM room_settings rs
+		 JOIN sessions s ON s.room_id = rs.room_id
+		 WHERE s.id = ?`, sessionID,
+	).Scan(&minutes)
+	if err != nil || minutes <= 0 {
+		return 0
+	}
+	return minutes
+}

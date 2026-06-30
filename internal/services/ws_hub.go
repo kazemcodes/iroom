@@ -28,6 +28,7 @@ type Client struct {
 	DisplayName string
 	Role        string
 	RoomID      string
+	IsOperator  bool // true if this client is an operator (admin, operator role, or room owner)
 }
 
 // BroadcastMessage represents a message to be broadcast to clients
@@ -209,6 +210,22 @@ func (h *Hub) IsUserOnline(userID int64) bool {
 
 	clients, ok := h.clients[userID]
 	return ok && len(clients) > 0
+}
+
+// GetOperatorConnectionCount returns the number of operator connections in a room.
+// Counts connections, not unique users, so multiple tabs are counted individually.
+func (h *Hub) GetOperatorConnectionCount(roomID string) int {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	count := 0
+	for _, clients := range h.clients {
+		for c := range clients {
+			if c.RoomID == roomID && c.IsOperator {
+				count++
+			}
+		}
+	}
+	return count
 }
 
 // GetClientCount returns the total number of connected clients

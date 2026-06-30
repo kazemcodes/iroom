@@ -8,6 +8,7 @@
 	import type { User, Tokens, Room } from '$lib/types';
 
 	const chatDebug = (...args: any[]) => { if (dev) console.debug('[chat]', ...args); };
+	const streamDebug = (...args: any[]) => console.debug('[stream]', ...args);
 
 	let room = $state<Room | null>(null);
 	let loading = $state(true);
@@ -17,6 +18,8 @@
 	let actionLoading = $state(false);
 	let error = $state('');
 	let showGuestForm = $state(false);
+	let waitingRoomEnabled = $state(false);
+	let roomOwnerId = $state(0);
 
 	const slug = $derived(page.params.slug!);
 	const isLoggedIn = $derived($auth.isLoggedIn);
@@ -91,6 +94,8 @@
 			return;
 		}
 		room = res.data.room ?? null;
+		waitingRoomEnabled = res.data.waiting_room_enabled === true;
+		roomOwnerId = typeof res.data.owner_id === 'number' ? res.data.owner_id : 0;
 
 		// Find or create session
 		let foundSession = null;
@@ -229,8 +234,13 @@
 	let remoteStreams = $state<Array<{id: string; stream: MediaStream; isScreen: boolean}>>([]);
 	let localScreenStream = $state<MediaStream | null>(null);
 	let screenSharingUsers = $state<Set<string>>(new Set());
+	let togglingWebcam = $state(false);
+	let togglingMic = $state(false);
+	let operatorPresent = $state(false);
+	let waitingRoomChecked = $state(false);
 
 	const currentUserRole = $derived(($auth.user?.role || 'user') as UserRole);
+	const isOperator = $derived(['owner', 'admin', 'operator'].includes(currentUserRole) || $auth.user?.id === roomOwnerId);
 	const perms = $derived(ROLE_PERMISSIONS[currentUserRole] || ROLE_PERMISSIONS.user);
 	const isPresenterOrAbove = $derived(['owner', 'admin', 'operator', 'presenter'].includes(currentUserRole));
 	const activeRemoteCams = $derived(remoteStreams.filter(r => !r.isScreen && !screenSharingUsers.has(r.id) && participants.find(p => p.id === r.id)?.hasVideo !== false));
@@ -282,7 +292,13 @@
 		const url = `${proto}//${wsHost}/ws/sessions/${roomId}?token=${token}`;
 		chatDebug('connecting', { url, roomId });
 		chatWs = new WebSocket(url);
-		chatWs.onopen = () => { chatDebug('WS connected', { readyState: chatWs?.readyState }); };
+		chatWs.onopen = () => {
+			chatDebug('WS connected', { readyState: chatWs?.readyState });
+			// Check waiting room status on WS connect
+			if (waitingRoomEnabled && !isOperator) {
+				checkWaitingRoomStatus();
+			}
+		};
 		chatWs.onmessage = (event) => {
 			if (event.data instanceof ArrayBuffer || event.data instanceof Blob) {
 				const handleBinary = (buf: ArrayBuffer) => {
@@ -362,36 +378,71 @@
 							alert('شما از کلاس اخراج شدید');
 							goto('/');
 						}
+					} else if (data.command === 'operator_joined') {
+						chatDebug('operator_joined received');
+						operatorPresent = true;
+					} else if (data.command === 'operator_left') {
+						chatDebug('operator_left received');
+						operatorPresent = false;
+					} else if (data.command === 'auto_end_warning') {
+						const mins = data.minutes || 0;
+						chatDebug('auto_end_warning', { minutes: mins });
+						showRoleNotification(`میزبان از اتاق خارج شد. جلسه ${mins} دقیقه دیگر به صورت خودکار پایان می‌یابد.`, 15000);
+					} else if (data.command === 'auto_end_cancelled') {
+						chatDebug('auto_end_cancelled');
+						showRoleNotification('میزبان بازگشت — پایان خودکار جلسه لغو شد', 5000);
+					} else if (data.command === 'session_ended') {
+						chatDebug('session_ended received');
+						disconnect();
+						alert('جلسه توسط سیستم به پایان رسید.');
+						goto('/');
 					} else if (data.command === 'mic_on' || data.command === 'mic_off' ||
 						data.command === 'webcam_on' || data.command === 'webcam_off' ||
 						data.command === 'screenshare_on' || data.command === 'screenshare_off') {
-						chatDebug('media command', { command: data.command, user_id: data.user_id });
-						const uid = String(data.user_id);
-						if (data.command === 'screenshare_on') {
-							screenSharingUsers = new Set([...screenSharingUsers, uid]);
-							participants = participants.map(p => p.id === uid ? { ...p, hasScreen: true } : p);
-						} else if (data.command === 'screenshare_off') {
-							const newSet = new Set(screenSharingUsers);
-							newSet.delete(uid);
-							screenSharingUsers = newSet;
-							// Remove the screen share stream entry (uses offset ID)
-							const screenShareId = String(Number(uid) + 1_000_000);
-							remoteStreams = remoteStreams.filter(r => r.id !== screenShareId);
-							participants = participants.map(p => p.id === uid ? { ...p, hasScreen: false } : p);
-						} else if (data.command === 'webcam_on') {
-							participants = participants.map(p => p.id === uid ? { ...p, hasVideo: true } : p);
-						} else if (data.command === 'webcam_off') {
-							participants = participants.map(p => p.id === uid ? { ...p, hasVideo: false } : p);
-							if (uid === String($auth.user?.id) && webcamOn) {
-								// Admin disabled our webcam — stop video track and recorder
-								webcamOn = false;
-								mediaClient?.stopVideo();
-							}
-						} else if (data.command === 'mic_on') {
-							participants = participants.map(p => p.id === uid ? { ...p, hasAudio: true } : p);
-						} else if (data.command === 'mic_off') {
-							participants = participants.map(p => p.id === uid ? { ...p, hasAudio: false } : p);
-						}
+						streamDebug('WS command', { command: data.command, user_id: data.user_id, myId: String($auth.user?.id), togglingWebcam, togglingMic });
+						const uid = String(data.user_id);					if (data.command === 'screenshare_on') {
+						screenSharingUsers = new Set([...screenSharingUsers, uid]);
+						participants = participants.map(p => p.id === uid ? { ...p, hasScreen: true } : p);
+						const screenShareId = String(Number(uid) + 1_000_000);
+						streamDebug('WS screenshare_on resetting', { uid, screenShareId });
+						mediaClient?.resetRemoteStream(screenShareId);
+						remoteStreams = remoteStreams.filter(r => r.id !== screenShareId);
+						streamDebug('WS screenshare_on done', { remoteStreamsCount: remoteStreams.length });
+					} else if (data.command === 'screenshare_off') {
+						const newSet = new Set(screenSharingUsers);
+						newSet.delete(uid);
+						screenSharingUsers = newSet;
+						const screenShareId = String(Number(uid) + 1_000_000);
+						streamDebug('WS screenshare_off resetting', { uid, screenShareId });
+						mediaClient?.resetRemoteStream(screenShareId);
+						remoteStreams = remoteStreams.filter(r => r.id !== screenShareId);
+						participants = participants.map(p => p.id === uid ? { ...p, hasScreen: false } : p);
+						streamDebug('WS screenshare_off done', { remoteStreamsCount: remoteStreams.length });					} else if (data.command === 'webcam_on') {
+						streamDebug('WS webcam_on', { uid, togglingWebcam, isSelf: uid === String($auth.user?.id) });
+						participants = participants.map(p => p.id === uid ? { ...p, hasVideo: true } : p);
+						mediaClient?.resetRemoteStream(uid);
+						remoteStreams = remoteStreams.filter(r => r.id !== uid);
+					} else if (data.command === 'webcam_off') {
+						streamDebug('WS webcam_off', { uid, togglingWebcam, isSelf: uid === String($auth.user?.id), webcamOn });
+						participants = participants.map(p => p.id === uid ? { ...p, hasVideo: false } : p);
+						mediaClient?.resetRemoteStream(uid);
+						remoteStreams = remoteStreams.filter(r => r.id !== uid);
+						if (uid === String($auth.user?.id) && webcamOn && !togglingWebcam) {
+						// Admin disabled our webcam — stop video track and recorder
+						webcamOn = false;
+						mediaClient?.stopVideo();
+					}
+					} else if (data.command === 'mic_on') {
+						streamDebug('WS mic_on', { uid });
+						participants = participants.map(p => p.id === uid ? { ...p, hasAudio: true } : p);
+						mediaClient?.resetRemoteStream(uid);
+						remoteStreams = remoteStreams.filter(r => r.id !== uid);
+					} else if (data.command === 'mic_off') {
+						streamDebug('WS mic_off', { uid });
+						participants = participants.map(p => p.id === uid ? { ...p, hasAudio: false } : p);
+						mediaClient?.resetRemoteStream(uid);
+						remoteStreams = remoteStreams.filter(r => r.id !== uid);
+					}
 					} else if (data.command === 'role_change') {
 						const targetId = String(data.target_id);
 						const newRole = data.role;
@@ -455,47 +506,47 @@
 					setTimeout(() => { clearInterval(check); resolve(); }, 5000);
 				});
 			}
-			mediaClient = new MediaClient(chatWs!, Number(user_id));
-			mediaClient.onLocalStream = (stream) => {
-				localStream = stream;
-				micOn = stream.getAudioTracks().length > 0 && stream.getAudioTracks()[0].enabled;
-				webcamOn = stream.getVideoTracks().length > 0 && stream.getVideoTracks()[0].enabled;
-				participants = participants.map(p => {
-					if (p.id === String(user_id)) {
-						return { ...p, hasAudio: micOn, hasVideo: webcamOn, isLocal: true };
-					}
-					return p;
-				});
-			};
-			mediaClient.onScreenStream = (stream) => {
-				localScreenStream = stream;
-			};
-			mediaClient.onRemoteStream = (stream, participantId) => {
-				const hasVideo = stream.getVideoTracks().length > 0;
-				const hasAudio = stream.getAudioTracks().length > 0;
-				chatDebug('onRemoteStream', { participantId, tracks: stream.getTracks().map(t => t.kind), hasVideo, hasAudio });
-				// Screen share IDs use userId + 1_000_000 offset
-				const numId = Number(participantId);
-				const isScreenShare = numId >= 1_000_000;
-				const realUserId = isScreenShare ? String(numId - 1_000_000) : participantId;
-				const isScreen = isScreenShare || screenSharingUsers.has(participantId);
-				const existingIdx = remoteStreams.findIndex(r => r.id === participantId);
-				if (existingIdx >= 0) {
-					const updated = [...remoteStreams];
-					updated[existingIdx] = { id: participantId, stream, isScreen };
-					remoteStreams = updated;
-				} else {
-					remoteStreams = [...remoteStreams, { id: participantId, stream, isScreen }];
-				}
-				if (!isScreenShare) {
+			mediaClient = new MediaClient(chatWs!, Number(user_id));				mediaClient.onLocalStream = (stream) => {
+					localStream = stream;
+					micOn = stream.getAudioTracks().length > 0 && stream.getAudioTracks()[0].enabled;
+					webcamOn = stream.getVideoTracks().length > 0 && stream.getVideoTracks()[0].enabled;
+					streamDebug('onLocalStream', { micOn, webcamOn, audioTracks: stream.getAudioTracks().length, videoTracks: stream.getVideoTracks().length });
 					participants = participants.map(p => {
-						if (p.id === participantId) {
-							return { ...p, hasVideo: p.hasVideo || hasVideo, hasAudio: p.hasAudio || hasAudio };
+						if (p.id === String(user_id)) {
+							return { ...p, hasAudio: micOn, hasVideo: webcamOn, isLocal: true };
 						}
 						return p;
 					});
-				}
-			};
+				};
+			mediaClient.onScreenStream = (stream) => {
+				localScreenStream = stream;
+			};				mediaClient.onRemoteStream = (stream, participantId) => {
+					const hasVideo = stream.getVideoTracks().length > 0;
+					const hasAudio = stream.getAudioTracks().length > 0;
+					const numId = Number(participantId);
+					const isScreenShare = numId >= 1_000_000;
+					const realUserId = isScreenShare ? String(numId - 1_000_000) : participantId;
+					const isScreen = isScreenShare || screenSharingUsers.has(participantId);
+					streamDebug('onRemoteStream', { participantId, isScreenShare, isScreen, hasVideo, hasAudio, remoteStreamsCount: remoteStreams.length });
+					const existingIdx = remoteStreams.findIndex(r => r.id === participantId);
+					if (existingIdx >= 0) {
+						const updated = [...remoteStreams];
+						updated[existingIdx] = { id: participantId, stream, isScreen };
+						remoteStreams = updated;
+						streamDebug('onRemoteStream updated existing', { participantId, remoteStreamsCount: remoteStreams.length });
+					} else {
+						remoteStreams = [...remoteStreams, { id: participantId, stream, isScreen }];
+						streamDebug('onRemoteStream added new', { participantId, remoteStreamsCount: remoteStreams.length });
+					}
+					if (!isScreenShare) {
+						participants = participants.map(p => {
+							if (p.id === participantId) {
+								return { ...p, hasVideo, hasAudio };
+							}
+							return p;
+						});
+					}
+				};
 			await mediaClient.start(!isListener && perms.canWebcam, !isListener && perms.canMic);
 			connected = true;
 			startTimer();
@@ -518,39 +569,71 @@
 	function startParticipantRefresh() { participantInterval = setInterval(() => { fetchParticipants(); }, 5000); }
 
 	async function toggleMic() {
-		if (!perms.canMic) return;
-		if (mediaClient) {
-			const ok = await mediaClient.toggleAudio();
-			if (!ok) return;
+		if (!perms.canMic || togglingMic) return;
+		togglingMic = true;
+		try {
+			if (mediaClient) {
+				const targetOn = !micOn;
+				streamDebug('toggleMic', { current: micOn, target: targetOn });
+				wsSend({ type: 'command', command: targetOn ? 'mic_on' : 'mic_off' });
+				await new Promise(r => setTimeout(r, 100));
+				const ok = await mediaClient.toggleAudio();
+				if (!ok) {
+					streamDebug('toggleMic FAILED, rolling back');
+					wsSend({ type: 'command', command: !targetOn ? 'mic_on' : 'mic_off' });
+					return;
+				}
+				streamDebug('toggleMic done', { newState: micOn });
+			} else {
+				micOn = !micOn;
+				streamDebug('toggleMic no client', { newState: micOn });
+				wsSend({ type: 'command', command: micOn ? 'mic_on' : 'mic_off' });
+			}
+		} finally {
+			togglingMic = false;
 		}
-		micOn = !micOn;
-		chatDebug('toggleMic', { micOn });
-		wsSend({ type: 'command', command: micOn ? 'mic_on' : 'mic_off' });
 	}
 	async function toggleWebcam() {
-		if (!perms.canWebcam) return;
-		if (mediaClient) {
-			const ok = await mediaClient.toggleVideo();
-			if (!ok) return;
+		if (!perms.canWebcam || togglingWebcam) return;
+		togglingWebcam = true;
+		try {
+			if (mediaClient) {
+				const targetOn = !webcamOn;
+				streamDebug('toggleWebcam', { current: webcamOn, target: targetOn });
+				wsSend({ type: 'command', command: targetOn ? 'webcam_on' : 'webcam_off' });
+				await new Promise(r => setTimeout(r, 100));
+				const ok = await mediaClient.toggleVideo();
+				if (!ok) {
+					streamDebug('toggleWebcam FAILED, rolling back');
+					wsSend({ type: 'command', command: !targetOn ? 'webcam_on' : 'webcam_off' });
+					return;
+				}
+				streamDebug('toggleWebcam done', { newState: webcamOn });
+			} else {
+				webcamOn = !webcamOn;
+				streamDebug('toggleWebcam no client', { newState: webcamOn });
+				wsSend({ type: 'command', command: webcamOn ? 'webcam_on' : 'webcam_off' });
+			}
+		} finally {
+			togglingWebcam = false;
 		}
-		webcamOn = !webcamOn;
-		chatDebug('toggleWebcam', { webcamOn });
-		wsSend({ type: 'command', command: webcamOn ? 'webcam_on' : 'webcam_off' });
 	}
 	async function toggleScreenShare() {
 		if (!perms.canScreenShare) return;
 		try {
 			if (!screenShareOn) {
+				streamDebug('toggleScreenShare ON');
 				await mediaClient?.shareScreen();
 				screenShareOn = true;
 			} else {
+				streamDebug('toggleScreenShare OFF');
 				await mediaClient?.stopScreenShare();
 				screenShareOn = false;
 			}
-			chatDebug('toggleScreenShare', { screenShareOn });
+			streamDebug('toggleScreenShare done', { screenShareOn });
 			wsSend({ type: 'command', command: screenShareOn ? 'screenshare_on' : 'screenshare_off' });
 		} catch (e) {
-			chatDebug('screen share error', e);
+			streamDebug('toggleScreenShare error', e);
 			screenShareOn = false;
 		}
 	}
@@ -659,7 +742,25 @@
 		goto('/');
 	}
 	function showJoinNotification(name: string) { joinNotification = { name, show: true }; setTimeout(() => { joinNotification = { name: '', show: false }; }, 3000); }
-	function showRoleNotification(text: string) { roleNotification = { text, show: true }; setTimeout(() => { roleNotification = { text: '', show: false }; }, 4000); }
+	function showRoleNotification(text: string, duration = 4000) { roleNotification = { text, show: true }; setTimeout(() => { roleNotification = { text: '', show: false }; }, duration); }
+
+	async function checkWaitingRoomStatus() {
+		if (!roomId) return;
+		try {
+			const res = await api.get<any[]>(`/sessions/${roomId}/classroom/participants`);
+			if (res.success && Array.isArray(res.data)) {
+				// An operator is present if any participant has operator role or is the room owner
+				const hasOp = res.data.some((p: any) => {
+					return p.role === 'admin' || p.role === 'operator' || p.role === 'owner' || Number(p.id) === roomOwnerId;
+				});
+				operatorPresent = hasOp;
+				chatDebug('waiting room check', { operatorPresent: hasOp, participantCount: res.data.length });
+			}
+		} catch (e) {
+			chatDebug('waiting room check failed', e);
+		}
+		waitingRoomChecked = true;
+	}
 
 	async function startSession() {
 		if (!roomId) return;
@@ -737,12 +838,18 @@
 		ctx.stroke();
 
 		if (chatWs && chatWs.readyState === WebSocket.OPEN) {
+			// Normalize coords to 0-1 range so all users see the same drawing
+			// regardless of their canvas pixel dimensions
+			const cw = whiteboardCanvas.width || 1;
+			const ch = whiteboardCanvas.height || 1;
+			const lw = (isEraser ? 20 : 2) / Math.max(cw, ch);
 			chatWs.send(JSON.stringify({
 				type: 'whiteboard',
 				action: 'draw',
-				x1: lastX, y1: lastY, x2: x, y2: y,
+				x1: lastX / cw, y1: lastY / ch,
+				x2: x / cw, y2: y / ch,
 				color: isEraser ? '#1c2a3a' : whiteboardColor,
-				width: isEraser ? 20 : 2
+				width: lw
 			}));
 		}
 
@@ -769,11 +876,15 @@
 		if (!whiteboardCanvas) return;
 		const ctx = whiteboardCanvas.getContext('2d');
 		if (!ctx) return;
+		// Denormalize from 0-1 range back to pixel coords for this canvas size
+		const cw = whiteboardCanvas.width || 1;
+		const ch = whiteboardCanvas.height || 1;
+		const refDim = Math.max(cw, ch);
 		ctx.beginPath();
-		ctx.moveTo(data.x1, data.y1);
-		ctx.lineTo(data.x2, data.y2);
+		ctx.moveTo(data.x1 * cw, data.y1 * ch);
+		ctx.lineTo(data.x2 * cw, data.y2 * ch);
 		ctx.strokeStyle = data.color;
-		ctx.lineWidth = data.width;
+		ctx.lineWidth = data.width * refDim;
 		ctx.lineCap = 'round';
 		ctx.stroke();
 	}
@@ -870,6 +981,8 @@
 			void showPdf;
 			void screenShareOn;
 			void remoteStreams;
+			void webcamOn;
+			void tileCount;
 			const canvas = document.getElementById('whiteboard-canvas') as HTMLCanvasElement;
 			if (!canvas || canvas !== whiteboardCanvas) {
 				whiteboardCanvas = null;
@@ -928,7 +1041,25 @@
 					<span style="font-size:32px;font-weight:700;color:var(--accent);">{$auth.user?.display_name?.charAt(0) || '?'}</span>
 				</div>
 				<p style="color:var(--text-secondary);font-size:var(--font-size);">{$auth.user?.display_name || 'کاربر'}</p>
-				{#if currentSession?.status === 'live'}
+				{#if waitingRoomEnabled && !isOperator && currentSession?.status === 'live' && !waitingRoomChecked}
+					<div class="waiting-room">
+						<div class="waiting-room-spinner"></div>
+						<p class="waiting-room-desc">در حال بررسی وضعیت اتاق...</p>
+					</div>
+				{:else if waitingRoomEnabled && !isOperator && currentSession?.status === 'live' && !operatorPresent && waitingRoomChecked}
+					<div class="waiting-room">
+						<div class="waiting-room-icon">
+							<svg width="48" height="48" viewBox="0 0 24 24" style="fill:var(--accent);"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
+						</div>
+						<p class="waiting-room-title">در انتظار میزبان</p>
+						<p class="waiting-room-desc">جلسه به زودی توسط میزبان آغاز خواهد شد. لطفاً منتظر بمانید.</p>
+						<div class="waiting-room-dots">
+							<span class="dot"></span>
+							<span class="dot"></span>
+							<span class="dot"></span>
+						</div>
+					</div>
+				{:else if currentSession?.status === 'live'}
 					<button onclick={() => showEntryModal = true} class="skyroom-btn">پیوستن به کلاس</button>
 				{:else if currentSession?.status === 'scheduled'}
 					<p style="color:var(--inactive);font-size:var(--font-size-sm);">جلسه هنوز شروع نشده</p>
@@ -1173,7 +1304,7 @@
 		{#if roleNotification.show}<div class="join-toast role-toast"><svg width="16" height="16" style="fill:#f59e0b;"><use xlink:href="#shape_person"></use></svg><span>{roleNotification.text}</span></div>{/if}
 		{#if showModal === 'userInfo'}<UserInfoModal onClose={() => showModal = null} />
 		{:else if showModal === 'connection'}<ConnectionStatusModal onClose={() => showModal = null} connected={connected} elapsedSeconds={elapsedSeconds} participantCount={participants.length} />
-		{:else if showModal === 'settings'}<SettingsModal onClose={() => showModal = null} />
+		{:else if showModal === 'settings'}<SettingsModal onClose={() => showModal = null} roomId={room?.id ?? 0} waitingRoomEnabled={waitingRoomEnabled} isOperator={isOperator} onWaitingRoomChange={(enabled) => { waitingRoomEnabled = enabled; if (!enabled) operatorPresent = true; }} />
 		{:else if showModal === 'layout'}<LayoutModal showUsers={showUsersPanel} showChat={showChatPanel} onToggleUsers={() => { showUsersPanel = !showUsersPanel; syncUsersPanel(showUsersPanel); }} onToggleChat={() => { showChatPanel = !showChatPanel; syncChatPanel(showChatPanel); }} onClose={() => showModal = null} />
 		{:else if showModal === 'attendance'}<AttendanceModal participants={participants} onClose={() => showModal = null} />{/if}
 	</div>
@@ -1389,6 +1520,83 @@
 	.entry-option-desc { font-size: 0.75rem; color: #8a8a96; }
 	.entry-modal-footer { padding: 16px; border-top: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: center; }
 	.media-icon.speaking svg { fill: #3b82f6; }
+
+	/* === Waiting Room === */
+	.waiting-room {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 12px;
+		padding: 32px 16px;
+		background: var(--block-bg);
+		border-radius: var(--radius);
+		border: 1px solid rgba(255,255,255,0.06);
+		max-width: 360px;
+		width: 100%;
+		animation: waitingFadeIn 0.4s ease;
+	}
+	@keyframes waitingFadeIn {
+		from { opacity: 0; transform: translateY(12px); }
+		to { opacity: 1; transform: translateY(0); }
+	}
+	.waiting-room-icon {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 72px;
+		height: 72px;
+		border-radius: 50%;
+		background: rgba(35, 185, 215, 0.1);
+		animation: waitingPulse 2s ease-in-out infinite;
+	}
+	@keyframes waitingPulse {
+		0%, 100% { box-shadow: 0 0 0 0 rgba(35, 185, 215, 0.3); }
+		50% { box-shadow: 0 0 0 12px rgba(35, 185, 215, 0); }
+	}
+	.waiting-room-title {
+		font-size: 1rem;
+		font-weight: 600;
+		color: var(--text-color);
+		margin: 0;
+	}
+	.waiting-room-desc {
+		font-size: 0.8rem;
+		color: var(--text-secondary);
+		text-align: center;
+		line-height: 1.6;
+		margin: 0;
+	}
+	.waiting-room-dots {
+		display: flex;
+		gap: 6px;
+		margin-top: 4px;
+	}
+	.waiting-room-dots .dot {
+		width: 8px;
+		height: 8px;
+		border-radius: 50%;
+		background: var(--accent);
+		animation: dotBounce 1.4s ease-in-out infinite both;
+	}
+	.waiting-room-dots .dot:nth-child(1) { animation-delay: 0s; }
+	.waiting-room-dots .dot:nth-child(2) { animation-delay: 0.2s; }
+	.waiting-room-dots .dot:nth-child(3) { animation-delay: 0.4s; }
+	@keyframes dotBounce {
+		0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+		40% { transform: scale(1); opacity: 1; }
+	}
+	.waiting-room-spinner {
+		width: 36px;
+		height: 36px;
+		border: 3px solid rgba(255,255,255,0.08);
+		border-top-color: var(--accent);
+		border-radius: 50%;
+		animation: spin 0.8s linear infinite;
+	}
+	@keyframes spin {
+		to { transform: rotate(360deg); }
+	}
+
 	.kick-btn {
 		background: none;
 		border: none;

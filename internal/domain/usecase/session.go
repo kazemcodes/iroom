@@ -109,6 +109,12 @@ func (uc *SessionUseCase) End(id, userID int64, role string) error {
 	return uc.sessionRepo.UpdateStatus(id, "ended", "")
 }
 
+// AutoEnd ends a session without permission checks — used for auto-end timers
+// when the last operator disconnects from a room.
+func (uc *SessionUseCase) AutoEnd(id int64) error {
+	return uc.sessionRepo.UpdateStatus(id, "ended", "")
+}
+
 func (uc *SessionUseCase) Delete(id, userID int64, role string) error {
 	s, err := uc.sessionRepo.GetByID(id)
 	if err != nil {
