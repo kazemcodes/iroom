@@ -207,6 +207,218 @@ func TestRoomHandler_Update(t *testing.T) {
 	assert.Equal(t, false, updateData["guest_login_enabled"])
 }
 
+// ---------- New hardening tests ----------
+
+func TestRoomHandler_Update_RenameDoesNotChangeSlug(t *testing.T) {
+	h, _ := setupRoomHandler(t)
+
+	createBody := map[string]string{"name": "stable-name"}
+	c, rec := newEchoContext(http.MethodPost, "/api/rooms", createBody, nil)
+	c.Set("user_id", int64(1))
+	require.NoError(t, h.Create(c))
+
+	var createResp map[string]interface{}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &createResp))
+	data := createResp["data"].(map[string]interface{})
+	roomID := int64(data["id"].(float64))
+	originalSlug := data["slug"].(string)
+
+	updateBody := map[string]interface{}{"name": "Brand New Name"}
+	c2, rec2 := newEchoContext(http.MethodPut, "/api/rooms/"+strconv.FormatInt(roomID, 10), updateBody,
+		map[string]string{"id": strconv.FormatInt(roomID, 10)})
+	c2.Set("user_id", int64(1))
+	c2.Set("role", "admin")
+	require.NoError(t, h.Update(c2))
+	assert.Equal(t, http.StatusOK, rec2.Code)
+
+	var updateResp map[string]interface{}
+	require.NoError(t, json.Unmarshal(rec2.Body.Bytes(), &updateResp))
+	updated := updateResp["data"].(map[string]interface{})
+	assert.Equal(t, originalSlug, updated["slug"], "slug must stay stable across renames")
+}
+
+func TestRoomHandler_Update_ClearDescription(t *testing.T) {
+	h, _ := setupRoomHandler(t)
+
+	createBody := map[string]string{"name": "R", "description": "to be cleared", "color": "#123"}
+	c, rec := newEchoContext(http.MethodPost, "/api/rooms", createBody, nil)
+	c.Set("user_id", int64(1))
+	require.NoError(t, h.Create(c))
+
+	var createResp map[string]interface{}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &createResp))
+	roomID := int64(createResp["data"].(map[string]interface{})["id"].(float64))
+
+	updateBody := map[string]interface{}{"description": "", "color": ""}
+	c2, rec2 := newEchoContext(http.MethodPut, "/api/rooms/"+strconv.FormatInt(roomID, 10), updateBody,
+		map[string]string{"id": strconv.FormatInt(roomID, 10)})
+	c2.Set("user_id", int64(1))
+	c2.Set("role", "admin")
+	require.NoError(t, h.Update(c2))
+	assert.Equal(t, http.StatusOK, rec2.Code)
+
+	var resp map[string]interface{}
+	require.NoError(t, json.Unmarshal(rec2.Body.Bytes(), &resp))
+	d := resp["data"].(map[string]interface{})
+	assert.Equal(t, "", d["description"])
+	assert.Equal(t, "", d["color"])
+}
+
+func TestRoomHandler_Update_Forbidden_NonOwner(t *testing.T) {
+	h, _ := setupRoomHandler(t)
+
+	createBody := map[string]string{"name": "R"}
+	c, rec := newEchoContext(http.MethodPost, "/api/rooms", createBody, nil)
+	c.Set("user_id", int64(1))
+	require.NoError(t, h.Create(c))
+
+	var createResp map[string]interface{}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &createResp))
+	roomID := int64(createResp["data"].(map[string]interface{})["id"].(float64))
+
+	updateBody := map[string]interface{}{"name": "hacked"}
+	c2, rec2 := newEchoContext(http.MethodPut, "/api/rooms/"+strconv.FormatInt(roomID, 10), updateBody,
+		map[string]string{"id": strconv.FormatInt(roomID, 10)})
+	c2.Set("user_id", int64(999)) // not owner
+	c2.Set("role", "teacher")     // not admin
+	require.NoError(t, h.Update(c2))
+	assert.Equal(t, http.StatusForbidden, rec2.Code)
+}
+
+func TestRoomHandler_AddUser_InvalidRole_400(t *testing.T) {
+	h, _ := setupRoomHandler(t)
+
+	createBody := map[string]string{"name": "R"}
+	c, rec := newEchoContext(http.MethodPost, "/api/rooms", createBody, nil)
+	c.Set("user_id", int64(1))
+	require.NoError(t, h.Create(c))
+
+	var createResp map[string]interface{}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &createResp))
+	roomID := int64(createResp["data"].(map[string]interface{})["id"].(float64))
+
+	addBody := map[string]interface{}{"user_id": 5, "role": "hacker", "access": 1}
+	c2, rec2 := newEchoContext(http.MethodPost, "/api/rooms/"+strconv.FormatInt(roomID, 10)+"/users", addBody,
+		map[string]string{"id": strconv.FormatInt(roomID, 10)})
+	c2.Set("user_id", int64(1))
+	c2.Set("role", "admin")
+	require.NoError(t, h.AddUser(c2))
+	assert.Equal(t, http.StatusBadRequest, rec2.Code)
+}
+
+func TestRoomHandler_AddUser_InvalidAccess_400(t *testing.T) {
+	h, _ := setupRoomHandler(t)
+
+	createBody := map[string]string{"name": "R"}
+	c, rec := newEchoContext(http.MethodPost, "/api/rooms", createBody, nil)
+	c.Set("user_id", int64(1))
+	require.NoError(t, h.Create(c))
+
+	var createResp map[string]interface{}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &createResp))
+	roomID := int64(createResp["data"].(map[string]interface{})["id"].(float64))
+
+	addBody := map[string]interface{}{"user_id": 5, "role": "student", "access": 99}
+	c2, rec2 := newEchoContext(http.MethodPost, "/api/rooms/"+strconv.FormatInt(roomID, 10)+"/users", addBody,
+		map[string]string{"id": strconv.FormatInt(roomID, 10)})
+	c2.Set("user_id", int64(1))
+	c2.Set("role", "admin")
+	require.NoError(t, h.AddUser(c2))
+	assert.Equal(t, http.StatusBadRequest, rec2.Code)
+}
+
+func TestRoomHandler_AddUser_MaxUsersExceeded_409(t *testing.T) {
+	h, _ := setupRoomHandler(t)
+
+	createBody := map[string]interface{}{"name": "R", "max_users": 2}
+	c, rec := newEchoContext(http.MethodPost, "/api/rooms", createBody, nil)
+	c.Set("user_id", int64(1))
+	require.NoError(t, h.Create(c))
+
+	var createResp map[string]interface{}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &createResp))
+	roomID := int64(createResp["data"].(map[string]interface{})["id"].(float64))
+
+	// Fill it
+	require.NoError(t, h.roomUC.AddUser(roomID, 10, 1, "student", 1, "admin"))
+	require.NoError(t, h.roomUC.AddUser(roomID, 11, 1, "student", 1, "admin"))
+
+	// 3rd through handler → expect 409
+	addBody := map[string]interface{}{"user_id": 12, "role": "student", "access": 1}
+	c2, rec2 := newEchoContext(http.MethodPost, "/api/rooms/"+strconv.FormatInt(roomID, 10)+"/users", addBody,
+		map[string]string{"id": strconv.FormatInt(roomID, 10)})
+	c2.Set("user_id", int64(1))
+	c2.Set("role", "admin")
+	require.NoError(t, h.AddUser(c2))
+	assert.Equal(t, http.StatusConflict, rec2.Code)
+}
+
+func TestRoomHandler_UpdateSettings_RejectsZeroMaxUsers(t *testing.T) {
+	h, _ := setupRoomHandler(t)
+
+	createBody := map[string]string{"name": "R"}
+	c, rec := newEchoContext(http.MethodPost, "/api/rooms", createBody, nil)
+	c.Set("user_id", int64(1))
+	require.NoError(t, h.Create(c))
+
+	var createResp map[string]interface{}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &createResp))
+	roomID := int64(createResp["data"].(map[string]interface{})["id"].(float64))
+
+	settingsBody := map[string]interface{}{
+		"max_users":                0, // invalid
+		"session_auto_end_minutes": 60,
+	}
+	c2, rec2 := newEchoContext(http.MethodPut, "/api/rooms/"+strconv.FormatInt(roomID, 10)+"/settings", settingsBody,
+		map[string]string{"id": strconv.FormatInt(roomID, 10)})
+	c2.Set("user_id", int64(1))
+	c2.Set("role", "admin")
+	require.NoError(t, h.UpdateSettings(c2))
+	assert.Equal(t, http.StatusBadRequest, rec2.Code)
+}
+
+func TestRoomHandler_RegenerateCode_RandomShape(t *testing.T) {
+	h, _ := setupRoomHandler(t)
+
+	createBody := map[string]string{"name": "R"}
+	c, rec := newEchoContext(http.MethodPost, "/api/rooms", createBody, nil)
+	c.Set("user_id", int64(1))
+	require.NoError(t, h.Create(c))
+
+	var createResp map[string]interface{}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &createResp))
+	roomID := int64(createResp["data"].(map[string]interface{})["id"].(float64))
+
+	c2, rec2 := newEchoContext(http.MethodPost, "/api/rooms/"+strconv.FormatInt(roomID, 10)+"/regenerate-code", nil,
+		map[string]string{"id": strconv.FormatInt(roomID, 10)})
+	c2.Set("user_id", int64(1))
+	c2.Set("role", "admin")
+	require.NoError(t, h.RegenerateCode(c2))
+	assert.Equal(t, http.StatusOK, rec2.Code)
+
+	var resp map[string]interface{}
+	require.NoError(t, json.Unmarshal(rec2.Body.Bytes(), &resp))
+	code := resp["data"].(map[string]interface{})["code"].(string)
+	assert.Len(t, code, 16, "must be 16 hex chars")
+	assert.NotContains(t, code, "-", "must not be roomID-timestamp format")
+	assert.Regexp(t, `^[0-9a-f]{16}$`, code, "must be lowercase hex only")
+}
+
+func TestRoomHandler_GetBySlug_NoHijack(t *testing.T) {
+	h, _ := setupRoomHandler(t)
+
+	createBody := map[string]string{"name": "Math Class"}
+	c, _ := newEchoContext(http.MethodPost, "/api/rooms", createBody, nil)
+	c.Set("user_id", int64(1))
+	require.NoError(t, h.Create(c))
+
+	// "math-class" is the real slug. Try looking up by raw name "Math Class".
+	c2, rec2 := newEchoContext(http.MethodGet, "/api/rooms/slug/Math%20Class", nil,
+		map[string]string{"slug": "Math Class"})
+	require.NoError(t, h.GetBySlug(c2))
+	assert.Equal(t, http.StatusNotFound, rec2.Code, "lookup by name must not silently rewrite slug")
+}
+
 func TestRoomHandler_Update_InvalidID(t *testing.T) {
 	h, _ := setupRoomHandler(t)
 

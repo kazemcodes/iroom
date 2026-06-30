@@ -1,10 +1,12 @@
 package handler
 
 import (
+	"errors"
 	"strconv"
 
 	"github.com/iroom/iroom/internal/domain/entity"
 	"github.com/iroom/iroom/internal/domain/usecase"
+	apperrors "github.com/iroom/iroom/internal/pkg/errors"
 	"github.com/iroom/iroom/internal/pkg/response"
 	"github.com/labstack/echo/v4"
 )
@@ -16,6 +18,22 @@ type RoomHandler struct {
 
 func NewRoomHandler(roomUC *usecase.RoomUseCase, sessionUC *usecase.SessionUseCase) *RoomHandler {
 	return &RoomHandler{roomUC: roomUC, sessionUC: sessionUC}
+}
+
+// mapErr returns the right HTTP response for a domain error.
+func mapErr(c echo.Context, err error) error {
+	switch {
+	case errors.Is(err, apperrors.ErrNotFound):
+		return response.NotFound(c, err.Error())
+	case errors.Is(err, apperrors.ErrForbidden):
+		return response.Forbidden(c, err.Error())
+	case errors.Is(err, apperrors.ErrValidation):
+		return response.BadRequest(c, "داده‌های نامعتبر")
+	case errors.Is(err, apperrors.ErrConflict):
+		return response.Conflict(c, err.Error())
+	default:
+		return response.InternalError(c, err.Error())
+	}
 }
 
 func (h *RoomHandler) Create(c echo.Context) error {
@@ -39,7 +57,7 @@ func (h *RoomHandler) Create(c echo.Context) error {
 	}
 	room, err := h.roomUC.Create(userID, req.Name, req.Description, req.Color, req.MaxUsers, req.InviteCode)
 	if err != nil {
-		return response.InternalError(c, err.Error())
+		return mapErr(c, err)
 	}
 	return response.Created(c, room)
 }
@@ -106,28 +124,31 @@ func (h *RoomHandler) Update(c echo.Context) error {
 		return response.BadRequest(c, "شناسه نامعتبر")
 	}
 
+	// pointer fields => distinguish "absent" vs "explicit zero/empty"
 	var req struct {
-		Name              string `json:"name"`
-		Description       string `json:"description"`
-		Color             string `json:"color"`
-		GuestLoginEnabled *bool  `json:"guest_login_enabled"`
-		MaxUsers          int    `json:"max_users"`
-		InviteCode        string `json:"invite_code"`
+		Name              *string `json:"name"`
+		Description       *string `json:"description"`
+		Color             *string `json:"color"`
+		GuestLoginEnabled *bool   `json:"guest_login_enabled"`
+		MaxUsers          *int    `json:"max_users"`
+		InviteCode        *string `json:"invite_code"`
 	}
 	if err := c.Bind(&req); err != nil {
 		return response.BadRequest(c, "داده‌های نامعتبر")
 	}
 
-	guestLogin := true
-	if req.GuestLoginEnabled != nil {
-		guestLogin = *req.GuestLoginEnabled
-	}
-
 	userID, _ := getUserID(c)
 	role := getUserRole(c)
-	room, err := h.roomUC.Update(id, userID, role, req.Name, req.Description, req.Color, guestLogin, req.MaxUsers, req.InviteCode)
+	room, err := h.roomUC.Update(id, userID, role, usecase.RoomUpdate{
+		Name:              req.Name,
+		Description:       req.Description,
+		Color:             req.Color,
+		GuestLoginEnabled: req.GuestLoginEnabled,
+		MaxUsers:          req.MaxUsers,
+		InviteCode:        req.InviteCode,
+	})
 	if err != nil {
-		return response.Forbidden(c, err.Error())
+		return mapErr(c, err)
 	}
 	return response.Success(c, room)
 }
@@ -140,7 +161,7 @@ func (h *RoomHandler) Delete(c echo.Context) error {
 	userID, _ := getUserID(c)
 	role := getUserRole(c)
 	if err := h.roomUC.Delete(id, userID, role); err != nil {
-		return response.Forbidden(c, err.Error())
+		return mapErr(c, err)
 	}
 	return response.Success(c, map[string]string{"message": "اتاق حذف شد"})
 }
@@ -161,7 +182,7 @@ func (h *RoomHandler) AddUser(c echo.Context) error {
 	actorID, _ := getUserID(c)
 	role := getUserRole(c)
 	if err := h.roomUC.AddUser(roomID, req.UserID, actorID, req.Role, req.Access, role); err != nil {
-		return response.Forbidden(c, err.Error())
+		return mapErr(c, err)
 	}
 	return response.Success(c, map[string]string{"message": "کاربر اضافه شد"})
 }
@@ -178,7 +199,7 @@ func (h *RoomHandler) RemoveUser(c echo.Context) error {
 	actorID, _ := getUserID(c)
 	role := getUserRole(c)
 	if err := h.roomUC.RemoveUser(roomID, userID, actorID, role); err != nil {
-		return response.Forbidden(c, err.Error())
+		return mapErr(c, err)
 	}
 	return response.Success(c, map[string]string{"message": "کاربر حذف شد"})
 }
@@ -201,7 +222,7 @@ func (h *RoomHandler) UpdateUserAccess(c echo.Context) error {
 	actorID, _ := getUserID(c)
 	role := getUserRole(c)
 	if err := h.roomUC.UpdateUserAccess(roomID, userID, actorID, role, req.Access); err != nil {
-		return response.Forbidden(c, err.Error())
+		return mapErr(c, err)
 	}
 	return response.Success(c, map[string]int{"access": req.Access})
 }
@@ -282,7 +303,7 @@ func (h *RoomHandler) UpdateSettings(c echo.Context) error {
 		SessionAutoEndMinutes:   req.SessionAutoEndMinutes,
 		WaitingRoomEnabled:      req.WaitingRoomEnabled,
 	}); err != nil {
-		return response.Forbidden(c, err.Error())
+		return mapErr(c, err)
 	}
 
 	return response.Success(c, map[string]string{"message": "تنظیمات بروزرسانی شد"})
@@ -297,7 +318,7 @@ func (h *RoomHandler) RegenerateCode(c echo.Context) error {
 	role := getUserRole(c)
 	code, err := h.roomUC.RegenerateCode(id, userID, role)
 	if err != nil {
-		return response.Forbidden(c, err.Error())
+		return mapErr(c, err)
 	}
 	return response.Success(c, map[string]string{"code": code})
 }

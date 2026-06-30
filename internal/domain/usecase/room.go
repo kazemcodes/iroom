@@ -1,14 +1,27 @@
 package usecase
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
-	"time"
 
 	"github.com/iroom/iroom/internal/domain/entity"
 	"github.com/iroom/iroom/internal/pkg/errors"
 	"github.com/iroom/iroom/internal/pkg/slug"
 	repository "github.com/iroom/iroom/internal/adapter/repository/sqlite"
 )
+
+const (
+	defaultMaxUsers = 50
+	minMaxUsers     = 1
+	maxMaxUsers     = 1000
+	minSessionMin   = 5
+	maxSessionMin   = 1440
+)
+
+var validRoomRoles = map[string]bool{"teacher": true, "student": true}
+
+func isValidAccess(a int) bool { return a >= 1 && a <= 3 }
 
 type RoomUseCase struct {
 	roomRepo    *repository.RoomRepo
@@ -21,6 +34,15 @@ func NewRoomUseCase(roomRepo *repository.RoomRepo, userRepo *repository.UserRepo
 }
 
 func (uc *RoomUseCase) Create(ownerID int64, name, description, color string, maxUsers int, inviteCode string) (*entity.Room, error) {
+	if name == "" {
+		return nil, errors.ErrValidation
+	}
+	if maxUsers <= 0 {
+		maxUsers = defaultMaxUsers
+	}
+	if maxUsers > maxMaxUsers {
+		maxUsers = maxMaxUsers
+	}
 	room := &entity.Room{
 		OwnerID:           ownerID,
 		Name:              name,
@@ -57,7 +79,17 @@ func (uc *RoomUseCase) List(page, perPage int, search string) ([]entity.Room, in
 	return uc.roomRepo.ListAll(page, perPage, search)
 }
 
-func (uc *RoomUseCase) Update(id, actorID int64, role, name, description, color string, guestLoginEnabled bool, maxUsers int, inviteCode string) (*entity.Room, error) {
+// RoomUpdate captures partial-update fields. nil = leave unchanged.
+type RoomUpdate struct {
+	Name              *string
+	Description       *string
+	Color             *string
+	GuestLoginEnabled *bool
+	MaxUsers          *int
+	InviteCode        *string
+}
+
+func (uc *RoomUseCase) Update(id, actorID int64, role string, u RoomUpdate) (*entity.Room, error) {
 	room, err := uc.roomRepo.GetByID(id)
 	if err != nil {
 		return nil, errors.ErrNotFound
@@ -65,22 +97,31 @@ func (uc *RoomUseCase) Update(id, actorID int64, role, name, description, color 
 	if room.OwnerID != actorID && role != "admin" {
 		return nil, errors.ErrForbidden
 	}
-	if name != "" {
-		room.Name = name
-		room.Slug = slug.Generate(name)
+	if u.Name != nil {
+		if *u.Name == "" {
+			return nil, errors.ErrValidation
+		}
+		room.Name = *u.Name
+		// slug intentionally NOT regenerated — immutable to preserve links
 	}
-	if description != "" {
-		room.Description = description
+	if u.Description != nil {
+		room.Description = *u.Description
 	}
-	if color != "" {
-		room.Color = color
+	if u.Color != nil {
+		room.Color = *u.Color
 	}
-	room.GuestLoginEnabled = guestLoginEnabled
-	if maxUsers > 0 {
-		room.MaxUsers = maxUsers
+	if u.GuestLoginEnabled != nil {
+		room.GuestLoginEnabled = *u.GuestLoginEnabled
 	}
-	if inviteCode != "" {
-		room.InviteCode = inviteCode
+	if u.MaxUsers != nil {
+		mu := *u.MaxUsers
+		if mu < minMaxUsers || mu > maxMaxUsers {
+			return nil, errors.ErrValidation
+		}
+		room.MaxUsers = mu
+	}
+	if u.InviteCode != nil {
+		room.InviteCode = *u.InviteCode
 	}
 	if err := uc.roomRepo.Update(room); err != nil {
 		return nil, fmt.Errorf("failed to update room: %w", err)
@@ -103,8 +144,14 @@ func (uc *RoomUseCase) AddUser(roomID, userID, actorID int64, role string, acces
 	if role == "" {
 		role = "student"
 	}
-	if access < 1 {
+	if !validRoomRoles[role] {
+		return errors.ErrValidation
+	}
+	if access == 0 {
 		access = 1
+	}
+	if !isValidAccess(access) {
+		return errors.ErrValidation
 	}
 	room, err := uc.roomRepo.GetByID(roomID)
 	if err != nil {
@@ -112,11 +159,22 @@ func (uc *RoomUseCase) AddUser(roomID, userID, actorID int64, role string, acces
 	}
 	if room.OwnerID != actorID && actorRole != "admin" {
 		return errors.ErrForbidden
+	}
+	// enforce MaxUsers cap
+	count, _ := uc.roomRepo.GetUserCount(roomID)
+	if !uc.roomRepo.IsUserInRoom(roomID, userID) && room.MaxUsers > 0 && count >= room.MaxUsers {
+		return errors.ErrConflict
 	}
 	return uc.roomRepo.AddUser(roomID, userID, role, access)
 }
 
 func (uc *RoomUseCase) UpdateSettings(roomID, actorID int64, actorRole string, settings *entity.RoomSettings) error {
+	if settings.MaxUsers < minMaxUsers || settings.MaxUsers > maxMaxUsers {
+		return errors.ErrValidation
+	}
+	if settings.SessionAutoEndMinutes < minSessionMin || settings.SessionAutoEndMinutes > maxSessionMin {
+		return errors.ErrValidation
+	}
 	room, err := uc.roomRepo.GetByID(roomID)
 	if err != nil {
 		return errors.ErrNotFound
@@ -124,6 +182,7 @@ func (uc *RoomUseCase) UpdateSettings(roomID, actorID int64, actorRole string, s
 	if room.OwnerID != actorID && actorRole != "admin" {
 		return errors.ErrForbidden
 	}
+	settings.RoomID = roomID
 	return uc.roomRepo.UpdateSettings(settings)
 }
 
@@ -139,12 +198,18 @@ func (uc *RoomUseCase) RemoveUser(roomID, userID, actorID int64, role string) er
 }
 
 func (uc *RoomUseCase) UpdateUserAccess(roomID, userID, actorID int64, role string, access int) error {
+	if !isValidAccess(access) {
+		return errors.ErrValidation
+	}
 	room, err := uc.roomRepo.GetByID(roomID)
 	if err != nil {
 		return errors.ErrNotFound
 	}
 	if room.OwnerID != actorID && role != "admin" {
 		return errors.ErrForbidden
+	}
+	if !uc.roomRepo.IsUserInRoom(roomID, userID) {
+		return errors.ErrNotFound
 	}
 	return uc.roomRepo.UpdateUserAccess(roomID, userID, access)
 }
@@ -176,7 +241,12 @@ func (uc *RoomUseCase) RegenerateCode(roomID, actorID int64, role string) (strin
 	if room.OwnerID != actorID && role != "admin" {
 		return "", errors.ErrForbidden
 	}
-	code := fmt.Sprintf("%d-%d", roomID, time.Now().UnixMilli())
+	// 8 bytes = 16 hex chars, ~64 bits entropy. unguessable, no ID leak.
+	buf := make([]byte, 8)
+	if _, err := rand.Read(buf); err != nil {
+		return "", fmt.Errorf("failed to generate code: %w", err)
+	}
+	code := hex.EncodeToString(buf)
 	if err := uc.roomRepo.UpdateInviteCode(roomID, code); err != nil {
 		return "", fmt.Errorf("failed to regenerate code: %w", err)
 	}

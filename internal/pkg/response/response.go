@@ -52,3 +52,7 @@ func NotFound(c echo.Context, msg string) error {
 func InternalError(c echo.Context, msg string) error {
 	return Error(c, http.StatusInternalServerError, msg)
 }
+
+func Conflict(c echo.Context, msg string) error {
+	return Error(c, http.StatusConflict, msg)
+}

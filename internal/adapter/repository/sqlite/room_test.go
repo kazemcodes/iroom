@@ -67,6 +67,20 @@ func setupTestDB(t *testing.T) *sql.DB {
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
+
+	CREATE TABLE IF NOT EXISTS sessions (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		room_id INTEGER,
+		class_id INTEGER NOT NULL,
+		title TEXT DEFAULT '',
+		scheduled_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		duration INTEGER DEFAULT 60,
+		status TEXT DEFAULT 'scheduled',
+		livekit_room TEXT DEFAULT '',
+		recording_url TEXT DEFAULT '',
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	);
 	`
 	_, err = db.Exec(schema)
 	require.NoError(t, err)
@@ -727,4 +741,58 @@ func TestRoomRepo_GetBySlug_AllFieldsPreserved(t *testing.T) {
 	assert.Equal(t, "desc", fetched.Description)
 	assert.Equal(t, "#ABCDEF", fetched.Color)
 	assert.False(t, fetched.GuestLoginEnabled)
+}
+
+// ---------- New hardening tests ----------
+
+func TestRoomRepo_Create_AppendsSuffixOnSlugCollision(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+	repo := NewRoomRepo(db)
+
+	r1 := &entity.Room{OwnerID: 1, Name: "Same", Slug: "same"}
+	r2 := &entity.Room{OwnerID: 2, Name: "Same", Slug: "same"}
+	r3 := &entity.Room{OwnerID: 3, Name: "Same", Slug: "same"}
+	require.NoError(t, repo.Create(r1))
+	require.NoError(t, repo.Create(r2))
+	require.NoError(t, repo.Create(r3))
+
+	assert.Equal(t, "same", r1.Slug)
+	assert.Equal(t, "same-1", r2.Slug)
+	assert.Equal(t, "same-2", r3.Slug)
+}
+
+func TestRoomRepo_GetBySlug_NoHijackByName(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+	repo := NewRoomRepo(db)
+
+	// Room has slug "real-slug" but its name happens to be "alias".
+	room := &entity.Room{OwnerID: 1, Name: "alias", Slug: "real-slug"}
+	require.NoError(t, repo.Create(room))
+
+	// Looking up by the *name* must NOT silently rewrite the slug.
+	_, err := repo.GetBySlug("alias")
+	assert.Error(t, err, "lookup by name must NOT find the room (fallback removed)")
+
+	// And the original slug must be untouched.
+	fetched, err := repo.GetBySlug("real-slug")
+	require.NoError(t, err)
+	assert.Equal(t, "real-slug", fetched.Slug, "slug must not be hijacked by URL param")
+}
+
+func TestRoomRepo_Update_DoesNotTouchSlugByItself(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+	repo := NewRoomRepo(db)
+
+	room := &entity.Room{OwnerID: 1, Name: "First", Slug: "stable-slug"}
+	require.NoError(t, repo.Create(room))
+
+	// Renaming the room via repo.Update must keep the slug as the caller set it.
+	room.Name = "Second"
+	require.NoError(t, repo.Update(room))
+
+	fetched, _ := repo.GetByID(room.ID)
+	assert.Equal(t, "stable-slug", fetched.Slug)
 }

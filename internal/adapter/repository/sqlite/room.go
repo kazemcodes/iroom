@@ -3,6 +3,7 @@ package repository
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/iroom/iroom/internal/domain/entity"
@@ -17,35 +18,59 @@ func NewRoomRepo(db *sql.DB) *RoomRepo {
 }
 
 func (r *RoomRepo) Create(room *entity.Room) error {
-	room.Slug = r.uniqueSlug(room.Slug)
+	// Loop on UNIQUE-constraint failure so concurrent creates of the same name
+	// don't both observe count=0 then collide on insert.
+	base := room.Slug
+	for i := 0; i < 100; i++ {
+		candidate := base
+		if i > 0 {
+			candidate = fmt.Sprintf("%s-%d", base, i)
+		}
+		result, err := r.db.Exec(
+			`INSERT INTO rooms (owner_id, name, description, color, slug, guest_login_enabled, max_users, invite_code, is_archived)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			room.OwnerID, room.Name, room.Description, room.Color, candidate,
+			room.GuestLoginEnabled, room.MaxUsers, room.InviteCode, room.IsArchived,
+		)
+		if err != nil {
+			// UNIQUE constraint failure on slug → try next suffix
+			if isUniqueConstraint(err) {
+				continue
+			}
+			return err
+		}
+		id, err := result.LastInsertId()
+		if err != nil {
+			return err
+		}
+		room.ID = id
+		room.Slug = candidate
+		return nil
+	}
+	// give up — use timestamp as last-resort suffix
+	candidate := fmt.Sprintf("%s-%d", base, time.Now().UnixMilli())
 	result, err := r.db.Exec(
 		`INSERT INTO rooms (owner_id, name, description, color, slug, guest_login_enabled, max_users, invite_code, is_archived)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		room.OwnerID, room.Name, room.Description, room.Color, room.Slug,
+		room.OwnerID, room.Name, room.Description, room.Color, candidate,
 		room.GuestLoginEnabled, room.MaxUsers, room.InviteCode, room.IsArchived,
 	)
 	if err != nil {
 		return err
 	}
-	id, err := result.LastInsertId()
-	if err != nil {
-		return err
-	}
+	id, _ := result.LastInsertId()
 	room.ID = id
+	room.Slug = candidate
 	return nil
 }
 
-func (r *RoomRepo) uniqueSlug(base string) string {
-	slug := base
-	for i := 0; i < 100; i++ {
-		var count int
-		r.db.QueryRow(`SELECT COUNT(*) FROM rooms WHERE slug = ?`, slug).Scan(&count)
-		if count == 0 {
-			return slug
-		}
-		slug = fmt.Sprintf("%s-%d", base, i+1)
+func isUniqueConstraint(err error) bool {
+	if err == nil {
+		return false
 	}
-	return fmt.Sprintf("%s-%d", base, time.Now().UnixMilli())
+	msg := err.Error()
+	// sqlite3 driver returns: "UNIQUE constraint failed: rooms.slug"
+	return strings.Contains(msg, "UNIQUE constraint failed") || strings.Contains(msg, "constraint failed: rooms.slug")
 }
 
 func (r *RoomRepo) GetByID(id int64) (*entity.Room, error) {
@@ -71,20 +96,7 @@ func (r *RoomRepo) GetBySlug(slug string) (*entity.Room, error) {
 		&room.Slug, &room.GuestLoginEnabled, &room.MaxUsers, &room.InviteCode,
 		&room.IsArchived, &room.CreatedAt, &room.UpdatedAt)
 	if err != nil {
-		err2 := r.db.QueryRow(
-			`SELECT id, owner_id, name, description, color, slug, guest_login_enabled, max_users, invite_code, is_archived, created_at, updated_at
-			 FROM rooms WHERE name = ?`, slug,
-		).Scan(&room.ID, &room.OwnerID, &room.Name, &room.Description, &room.Color,
-			&room.Slug, &room.GuestLoginEnabled, &room.MaxUsers, &room.InviteCode,
-			&room.IsArchived, &room.CreatedAt, &room.UpdatedAt)
-		if err2 != nil {
-			return nil, err
-		}
-		if room.Slug == "" || room.Slug != slug {
-			room.Slug = slug
-			r.db.Exec(`UPDATE rooms SET slug = ? WHERE id = ?`, slug, room.ID)
-		}
-		return room, nil
+		return nil, err
 	}
 	return room, nil
 }

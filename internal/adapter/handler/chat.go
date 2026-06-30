@@ -23,6 +23,10 @@ var chatUpgrader = websocket.Upgrader{
 	},
 }
 
+// autoEndTimeUnit is the time unit multiplier for auto-end countdowns.
+// Defaults to time.Minute in production; tests can override it to time.Millisecond.
+var autoEndTimeUnit = time.Minute
+
 type autoEndTimer struct {
 	cancel    context.CancelFunc
 	sessionID int64
@@ -318,7 +322,7 @@ func (h *ChatHandler) startAutoEnd(roomID string, sessionID int64) {
 		case <-ctx.Done():
 			// Cancelled — operator rejoined
 			debug.Log("auto-end cancelled", "room_id", roomID, "session_id", sessionID)
-		case <-time.After(time.Duration(minutes) * time.Minute):
+		case <-time.After(time.Duration(minutes) * autoEndTimeUnit):
 			// Timeout — end the session
 			debug.Log("auto-end firing", "room_id", roomID, "session_id", sessionID)
 			if err := h.sessionUC.AutoEnd(sessionID); err != nil {
