@@ -3,7 +3,7 @@
 
 Open-source online classroom platform with live video/audio, chat, whiteboard, screen sharing, polls, recordings, and a full admin panel.
 
-**WebRTC powered by Pion (Go-native)** — no external Janus Gateway needed.
+**WebSocket-based video/audio streaming** — no WebRTC, no STUN/TURN/ICE needed.
 
 ---
 
@@ -60,11 +60,11 @@ cd web && npm install && npm run dev
 ┌─────────┐     ┌──────────┐     ┌──────────────┐
 │  Caddy   │────▶│   Go     │────▶│   SQLite     │
 │  :80     │     │  :8080   │     │  iroom.db    │
-└─────────┘     │  + Pion  │     └──────────────┘
+└─────────┘     │  (Echo)  │     └──────────────┘
                 └──────────┘
 ```
 
-**Stack:** Go + Echo + SQLite + Pion WebRTC + SvelteKit + Tailwind CSS
+**Stack:** Go + Echo + SQLite + SvelteKit + Tailwind CSS
 
 ---
 
@@ -106,7 +106,7 @@ iroom/
 │   ├── models/          # Data models
 │   ├── repository/      # Database queries
 │   ├── services/        # Business logic
-│   └── webrtc/          # Pion WebRTC (room, signaling)
+│   └── infrastructure/  # External integrations
 ├── web/src/             # SvelteKit frontend
 ├── config.yaml          # App configuration
 ├── docker-compose.yml   # Docker services

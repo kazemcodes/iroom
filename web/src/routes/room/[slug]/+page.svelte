@@ -178,6 +178,7 @@
 	// --- Classroom State ---
 	import { onMount as onClassroomMount, onDestroy } from 'svelte';
 	import { MediaClient } from '$lib/classroom/media-client';
+	import { createWebcamToggle } from '$lib/classroom/webcam-toggle.svelte';
 	import type { UserRole, Participant, ChatMessage } from '$lib/classroom/types';
 	import { ROLE_PERMISSIONS, ROLE_LABELS } from '$lib/classroom/types';
 	import ChatPanel from '$lib/components/classroom/ChatPanel.svelte';
@@ -234,7 +235,7 @@
 	let remoteStreams = $state<Array<{id: string; stream: MediaStream; isScreen: boolean}>>([]);
 	let localScreenStream = $state<MediaStream | null>(null);
 	let screenSharingUsers = $state<Set<string>>(new Set());
-	let togglingWebcam = $state(false);
+	let webcamCtrl = $state<ReturnType<typeof createWebcamToggle> | null>(null);
 	let togglingMic = $state(false);
 	let operatorPresent = $state(false);
 	let waitingRoomChecked = $state(false);
@@ -242,6 +243,7 @@
 	const currentUserRole = $derived(($auth.user?.role || 'user') as UserRole);
 	const isOperator = $derived(['owner', 'admin', 'operator'].includes(currentUserRole) || $auth.user?.id === roomOwnerId);
 	const perms = $derived(ROLE_PERMISSIONS[currentUserRole] || ROLE_PERMISSIONS.user);
+	const togglingWebcam = $derived(webcamCtrl?.toggling ?? false);
 	const isPresenterOrAbove = $derived(['owner', 'admin', 'operator', 'presenter'].includes(currentUserRole));
 	const activeRemoteCams = $derived(remoteStreams.filter(r => !r.isScreen && !screenSharingUsers.has(r.id) && participants.find(p => p.id === r.id)?.hasVideo !== false));
 	const hasScreenShare = $derived(remoteStreams.some(r => r.isScreen) || screenShareOn);
@@ -506,7 +508,13 @@
 					setTimeout(() => { clearInterval(check); resolve(); }, 5000);
 				});
 			}
-			mediaClient = new MediaClient(chatWs!, Number(user_id));				mediaClient.onLocalStream = (stream) => {
+			mediaClient = new MediaClient(chatWs!, Number(user_id));
+				webcamCtrl = createWebcamToggle({
+					sendCommand: (cmd) => wsSend({ type: 'command', command: cmd }),
+					toggleVideo: async () => mediaClient!.toggleVideo(),
+					hasMediaClient: true,
+				});
+				mediaClient.onLocalStream = (stream) => {
 					localStream = stream;
 					micOn = stream.getAudioTracks().length > 0 && stream.getAudioTracks()[0].enabled;
 					webcamOn = stream.getVideoTracks().length > 0 && stream.getVideoTracks()[0].enabled;
@@ -518,9 +526,25 @@
 						return p;
 					});
 				};
-			mediaClient.onScreenStream = (stream) => {
-				localScreenStream = stream;
-			};				mediaClient.onRemoteStream = (stream, participantId) => {
+		mediaClient.onScreenStream = (stream) => {
+			localScreenStream = stream;
+		};
+		mediaClient.onScreenShareEnded = () => {
+			streamDebug('onScreenShareEnded browser stop');
+			screenShareOn = false;
+			wsSend({ type: 'command', command: 'screenshare_off' });
+		};
+		mediaClient.onWebcamEnded = () => {
+			streamDebug('onWebcamEnded browser stop');
+			webcamCtrl?.onEnded();
+			webcamOn = false;
+		};
+		mediaClient.onMicEnded = () => {
+			streamDebug('onMicEnded browser stop');
+			micOn = false;
+			wsSend({ type: 'command', command: 'mic_off' });
+		};
+		mediaClient.onRemoteStream = (stream, participantId) => {
 					const hasVideo = stream.getVideoTracks().length > 0;
 					const hasAudio = stream.getAudioTracks().length > 0;
 					const numId = Number(participantId);
@@ -594,29 +618,9 @@
 		}
 	}
 	async function toggleWebcam() {
-		if (!perms.canWebcam || togglingWebcam) return;
-		togglingWebcam = true;
-		try {
-			if (mediaClient) {
-				const targetOn = !webcamOn;
-				streamDebug('toggleWebcam', { current: webcamOn, target: targetOn });
-				wsSend({ type: 'command', command: targetOn ? 'webcam_on' : 'webcam_off' });
-				await new Promise(r => setTimeout(r, 100));
-				const ok = await mediaClient.toggleVideo();
-				if (!ok) {
-					streamDebug('toggleWebcam FAILED, rolling back');
-					wsSend({ type: 'command', command: !targetOn ? 'webcam_on' : 'webcam_off' });
-					return;
-				}
-				streamDebug('toggleWebcam done', { newState: webcamOn });
-			} else {
-				webcamOn = !webcamOn;
-				streamDebug('toggleWebcam no client', { newState: webcamOn });
-				wsSend({ type: 'command', command: webcamOn ? 'webcam_on' : 'webcam_off' });
-			}
-		} finally {
-			togglingWebcam = false;
-		}
+		if (!perms.canWebcam) return;
+		const result = await webcamCtrl?.toggle(webcamOn);
+		if (result !== null && result !== undefined) webcamOn = result;
 	}
 	async function toggleScreenShare() {
 		if (!perms.canScreenShare) return;

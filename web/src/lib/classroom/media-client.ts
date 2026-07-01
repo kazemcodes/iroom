@@ -77,6 +77,9 @@ export class MediaClient {
 	onRemoteStreamEnd?: (participantId: string) => void;
 	onQualityChange?: (tier: QualityTier, userCount: number) => void;
 	onScreenStream?: (stream: MediaStream | null) => void;
+	onScreenShareEnded?: () => void;
+	onWebcamEnded?: () => void;
+	onMicEnded?: () => void;
 
 	constructor(ws: WebSocket, userId: number) {
 		this.ws = ws;
@@ -101,6 +104,26 @@ export class MediaClient {
 
 		this.localStream = await navigator.mediaDevices.getUserMedia(constraints);
 		if (this.onLocalStream) this.onLocalStream(this.localStream);
+
+		// Watch the video track for browser-induced stops
+		const videoTracks = this.localStream.getVideoTracks();
+		if (videoTracks.length > 0) {
+			const videoTrack = videoTracks[0];
+			videoTrack.onended = () => {
+				this.stopVideo();
+				if (this.onWebcamEnded) this.onWebcamEnded();
+			};
+		}
+
+		// Watch the audio track for browser-induced stops
+		const audioTracks = this.localStream.getAudioTracks();
+		if (audioTracks.length > 0) {
+			const audioTrack = audioTracks[0];
+			audioTrack.onended = () => {
+				this.stopAudio();
+				if (this.onMicEnded) this.onMicEnded();
+			};
+		}
 
 		this.startRecorder();
 		console.log('[Media] Started', { tier: tier.width + 'p', videoBitrate: tier.videoBitrate, audioBitrate: tier.audioBitrate });
@@ -179,7 +202,17 @@ export class MediaClient {
 			const newStream = await navigator.mediaDevices.getUserMedia(newConstraints);
 			const oldTracks = this.localStream.getVideoTracks();
 			oldTracks.forEach(t => { t.stop(); this.localStream!.removeTrack(t); });
-			newStream.getVideoTracks().forEach(t => this.localStream!.addTrack(t));
+			const newVideoTracks = newStream.getVideoTracks();
+			newVideoTracks.forEach(t => this.localStream!.addTrack(t));
+
+			// Watch the new video track for browser-induced stops
+			if (newVideoTracks.length > 0) {
+				const videoTrack = newVideoTracks[0];
+				videoTrack.onended = () => {
+					this.stopVideo();
+					if (this.onWebcamEnded) this.onWebcamEnded();
+				};
+			}
 
 			if (this.localVideoCallback) this.localVideoCallback(this.localStream);
 
@@ -331,9 +364,18 @@ export class MediaClient {
 					video: { width: { ideal: tier.width }, height: { ideal: tier.height }, frameRate: { ideal: tier.frameRate } },
 					audio: false,
 				});
-				stream.getVideoTracks().forEach(t => this.localStream!.addTrack(t));
+				const newTracks = stream.getVideoTracks();
+				newTracks.forEach(t => this.localStream!.addTrack(t));
 				this.videoEnabled = true;
 				this.localConstraints.video = true;
+			// Watch the new video track for browser-induced stops
+			if (newTracks.length > 0) {
+				const videoTrack = newTracks[0];
+				videoTrack.onended = () => {
+					this.stopVideo();
+					if (this.onWebcamEnded) this.onWebcamEnded();
+				};
+			}
 				if (this.recorder && this.recorder.state !== 'inactive') {
 					console.debug('[stream] toggleVideo stopping old recorder');
 					this.recorder.stop();
@@ -384,6 +426,28 @@ export class MediaClient {
 		if (this.onLocalStream) this.onLocalStream(this.localStream);
 	}
 
+	/**
+	 * Force-stop audio: stops audio tracks, stops the recorder, and restarts
+	 * recorder with video-only so remote users stop receiving audio frames.
+	 * Called when browser revokes microphone.
+	 */
+	stopAudio(): void {
+		if (!this.localStream) return;
+		this.audioEnabled = false;
+		this.localConstraints.audio = false;
+		const at = this.localStream.getAudioTracks();
+		at.forEach(t => { t.stop(); this.localStream!.removeTrack(t); });
+		if (this.recorder && this.recorder.state !== 'inactive') {
+			this.recorder.stop();
+		}
+		if (this.localStream.getVideoTracks().length > 0) {
+			this.startRecorder();
+		} else {
+			this.recorder = null;
+		}
+		if (this.onLocalStream) this.onLocalStream(this.localStream);
+	}
+
 	async toggleAudio(): Promise<boolean> {
 		if (!this.localStream) return false;
 		const tracks = this.localStream.getAudioTracks();
@@ -397,6 +461,15 @@ export class MediaClient {
 				stream.getAudioTracks().forEach(t => this.localStream!.addTrack(t));
 				this.audioEnabled = true;
 				this.localConstraints.audio = true;
+				// Watch the new audio track for browser-induced stops
+				const newAudioTracks = stream.getAudioTracks();
+				if (newAudioTracks.length > 0) {
+					const audioTrack = newAudioTracks[0];
+					audioTrack.onended = () => {
+						this.stopAudio();
+						if (this.onMicEnded) this.onMicEnded();
+					};
+				}
 				if (this.recorder && this.recorder.state !== 'inactive') {
 					console.debug('[stream] toggleAudio stopping old recorder');
 					this.recorder.stop();
@@ -434,7 +507,10 @@ export class MediaClient {
 		this.screenStream = screenStream;
 		if (this.onScreenStream) this.onScreenStream(screenStream);
 
-		screenTrack.onended = () => this.stopScreenShare();
+		screenTrack.onended = () => {
+			this.stopScreenShare();
+			if (this.onScreenShareEnded) this.onScreenShareEnded();
+		};
 
 		// Keep the webcam recorder running — screen share uses a separate ID
 		const screenShareId = this.userId + SCREEN_SHARE_ID_OFFSET;
