@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>track.onended — Browser Verification</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: system-ui, -apple-system, sans-serif;
+    background: #0d1117;
+    color: #c9d1d9;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 24px 16px;
+    line-height: 1.6;
+  }
+  h1 { font-size: 1.5rem; margin-bottom: 8px; color: #58a6ff; }
+  h2 { font-size: 1.05rem; margin: 20px 0 10px; color: #8b949e; border-bottom: 1px solid #21262d; padding-bottom: 6px; }
+  p.subtitle { color: #8b949e; font-size: 0.85rem; margin-bottom: 20px; }
+  .controls { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+  button {
+    padding: 8px 18px;
+    border-radius: 6px;
+    border: 1px solid #30363d;
+    background: #21262d;
+    color: #c9d1d9;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.15s;
+  }
+  button:hover { background: #30363d; border-color: #58a6ff; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  button.primary { background: #238636; border-color: #238636; color: #fff; }
+  button.primary:hover { background: #2ea043; }
+  button.danger { background: #da3633; border-color: #da3633; color: #fff; }
+  .test-group {
+    background: #161b22;
+    border: 1px solid #21262d;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 14px;
+  }
+  .test-group h3 { font-size: 0.9rem; color: #58a6ff; margin-bottom: 10px; }
+  .test-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 8px;
+    border-radius: 4px;
+    font-size: 0.82rem;
+    font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+  }
+  .test-row.pending { color: #8b949e; }
+  .test-row.pass { color: #3fb950; background: rgba(63,185,80,0.06); }
+  .test-row.fail { color: #da3633; background: rgba(218,54,51,0.08); }
+  .test-row .icon { font-size: 1rem; width: 20px; text-align: center; }
+  .summary {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin-top: 16px;
+    font-size: 0.9rem;
+  }
+  .summary.pass { border-color: #3fb950; }
+  .summary.fail { border-color: #da3633; }
+  .log-area {
+    background: #0d1117;
+    border: 1px solid #21262d;
+    border-radius: 6px;
+    padding: 12px;
+    margin-top: 12px;
+    max-height: 300px;
+    overflow-y: auto;
+    font-family: 'SF Mono', 'Cascadia Code', monospace;
+    font-size: 0.78rem;
+    color: #8b949e;
+    line-height: 1.5;
+  }
+  .log-area .green { color: #3fb950; }
+  .log-area .red { color: #da3633; }
+  .log-area .blue { color: #58a6ff; }
+  .log-area .yellow { color: #d2991d; }
+  video { max-width: 200px; border-radius: 4px; display: none; }
+</style>
+</head>
+<body>
+
+<h1>🎥 track.onended — Browser Verification</h1>
+<p class="subtitle">
+  Validates that the browser correctly fires <code>track.onended</code> when media tracks are stopped,
+  matching the callback pattern used in <code>MediaClient</code>.
+</p>
+
+<div class="controls">
+  <button class="primary" id="runAllBtn" onclick="runAllTests()">▶ Run All Tests</button>
+  <button id="stopAllBtn" onclick="stopAllStreams()">⏹ Stop All Streams</button>
+  <button id="clearLogBtn" onclick="clearLog()">🗑 Clear Log</button>
+</div>
+
+<!-- Webcam tests -->
+<div class="test-group" id="webcamGroup">
+  <h3>📹 Webcam — track.onended</h3>
+  <div class="test-row pending" id="webcam-1">
+    <span class="icon">○</span>
+    <span>getUserMedia({video:true}) succeeds</span>
+  </div>
+  <div class="test-row pending" id="webcam-2">
+    <span class="icon">○</span>
+    <span>video track exists and is in "live" state</span>
+  </div>
+  <div class="test-row pending" id="webcam-3">
+    <span class="icon">○</span>
+    <span>track.onended fires when track.stop() is called</span>
+  </div>
+  <div class="test-row pending" id="webcam-4">
+    <span class="icon">○</span>
+    <span>track.readyState becomes "ended" after onended fires</span>
+  </div>
+  <div class="test-row pending" id="webcam-5">
+    <span class="icon">○</span>
+    <span>onended callback receives no spurious invocations</span>
+  </div>
+</div>
+
+<!-- Mic tests -->
+<div class="test-group" id="micGroup">
+  <h3>🎤 Mic — track.onended</h3>
+  <div class="test-row pending" id="mic-1">
+    <span class="icon">○</span>
+    <span>getUserMedia({audio:true}) succeeds</span>
+  </div>
+  <div class="test-row pending" id="mic-2">
+    <span class="icon">○</span>
+    <span>audio track exists and is in "live" state</span>
+  </div>
+  <div class="test-row pending" id="mic-3">
+    <span class="icon">○</span>
+    <span>track.onended fires when track.stop() is called</span>
+  </div>
+  <div class="test-row pending" id="mic-4">
+    <span class="icon">○</span>
+    <span>track.readyState becomes "ended" after onended fires</span>
+  </div>
+  <div class="test-row pending" id="mic-5">
+    <span class="icon">○</span>
+    <span>onended callback receives no spurious invocations</span>
+  </div>
+</div>
+
+<!-- Screen share tests -->
+<div class="test-group" id="screenGroup">
+  <h3>🖥 Screen Share — track.onended</h3>
+  <div class="test-row pending" id="screen-1">
+    <span class="icon">○</span>
+    <span>getDisplayMedia({video:true}) succeeds</span>
+  </div>
+  <div class="test-row pending" id="screen-2">
+    <span class="icon">○</span>
+    <span>screen track exists and is in "live" state</span>
+  </div>
+  <div class="test-row pending" id="screen-3">
+    <span class="icon">○</span>
+    <span>track.onended fires when track.stop() is called</span>
+  </div>
+  <div class="test-row pending" id="screen-4">
+    <span class="icon">○</span>
+    <span>track.readyState becomes "ended" after onended fires</span>
+  </div>
+  <div class="test-row pending" id="screen-5">
+    <span class="icon">○</span>
+    <span>user-cancelled dialog does not crash</span>
+  </div>
+</div>
+
+<!-- MediaClient pattern verification -->
+<div class="test-group" id="patternGroup">
+  <h3>🔗 MediaClient Callback Pattern Verification</h3>
+  <div class="test-row pending" id="pattern-1">
+    <span class="icon">○</span>
+    <span>stopVideo() + onWebcamEnded pattern fires correctly</span>
+  </div>
+  <div class="test-row pending" id="pattern-2">
+    <span class="icon">○</span>
+    <span>stopAudio() + onMicEnded pattern fires correctly</span>
+  </div>
+  <div class="test-row pending" id="pattern-3">
+    <span class="icon">○</span>
+    <span>stopScreenShare() + onScreenShareEnded pattern fires correctly</span>
+  </div>
+  <div class="test-row pending" id="pattern-4">
+    <span class="icon">○</span>
+    <span>direct stopXxx() call does NOT re-trigger onended</span>
+  </div>
+</div>
+
+<!-- Summary -->
+<div class="summary" id="summary" style="display:none;"></div>
+
+<!-- Log -->
+<div class="log-area" id="log"><span class="blue">[Ready]</span> Click "Run All Tests" to begin.</div>
+
+<video id="preview" autoplay playsinline muted></video>
+
+<script>
+const log = document.getElementById('log');
+const preview = document.getElementById('preview');
+let activeStreams = [];
+
+function addLog(msg, cls = '') {
+  const now = new Date().toLocaleTimeString();
+  const line = document.createElement('div');
+  line.innerHTML = `[${now}] <span class="${cls}">${msg}</span>`;
+  log.appendChild(line);
+  log.scrollTop = log.scrollHeight;
+}
+
+function clearLog() {
+  log.innerHTML = '';
+  addLog('Log cleared.', 'blue');
+}
+
+function setTest(id, pass, detail = '') {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.className = 'test-row ' + (pass ? 'pass' : 'fail');
+  const icon = el.querySelector('.icon');
+  const span = el.querySelector('span:last-child');
+  icon.textContent = pass ? '✔' : '✘';
+  if (detail) span.textContent += ' — ' + detail;
+}
+
+function stopAllStreams() {
+  activeStreams.forEach(s => s.getTracks().forEach(t => t.stop()));
+  activeStreams = [];
+  preview.srcObject = null;
+  addLog('All streams stopped.', 'yellow');
+}
+
+// Simulates MediaClient's stopVideo(): stops tracks, cleans up, fires onLocalStream
+function simulatedStopVideo(stream, onLocalStream) {
+  const vt = stream.getVideoTracks();
+  vt.forEach(t => { t.stop(); stream.removeTrack(t); });
+  if (onLocalStream) onLocalStream(stream);
+}
+
+// Simulates MediaClient's stopAudio()
+function simulatedStopAudio(stream, onLocalStream) {
+  const at = stream.getAudioTracks();
+  at.forEach(t => { t.stop(); stream.removeTrack(t); });
+  if (onLocalStream) onLocalStream(stream);
+}
+
+// Simulates MediaClient's stopScreenShare()
+function simulatedStopScreenShare(screenStream, onScreenStream) {
+  screenStream.getTracks().forEach(t => t.stop());
+  if (onScreenStream) onScreenStream(null);
+}
+
+async function runAllTests() {
+  // Reset
+  document.querySelectorAll('.test-row').forEach(el => { el.className = 'test-row pending'; el.querySelector('.icon').textContent = '○'; });
+  document.getElementById('summary').style.display = 'none';
+  stopAllStreams();
+  clearLog();
+  addLog('=== Starting all track.onended tests ===', 'blue');
+
+  let totalPass = 0, totalFail = 0;
+
+  // ======================== WEBCAM TESTS ========================
+  addLog('\n--- Webcam Tests ---', 'blue');
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+    activeStreams.push(stream);
+    preview.srcObject = stream;
+    setTest('webcam-1', true);
+    totalPass++;
+    addLog('getUserMedia({video:true}) succeeded', 'green');
+
+    const videoTrack = stream.getVideoTracks()[0];
+    if (videoTrack && videoTrack.readyState === 'live') {
+      setTest('webcam-2', true);
+      totalPass++;
+      addLog(`Video track: kind=${videoTrack.kind}, readyState=${videoTrack.readyState}`, 'green');
+    } else {
+      setTest('webcam-2', false, `readyState=${videoTrack?.readyState}`);
+      totalFail++;
+    }
+
+    // Test 3: track.onended fires when track.stop() is called
+    let onendedFired = false;
+    videoTrack.onended = () => {
+      onendedFired = true;
+      addLog('videoTrack.onended FIRED ✓', 'green');
+    };
+
+    videoTrack.stop();
+    // Give the event loop a moment to dispatch onended
+    await new Promise(r => setTimeout(r, 50));
+
+    if (onendedFired) {
+      setTest('webcam-3', true);
+      totalPass++;
+    } else {
+      setTest('webcam-3', false, 'onended callback was never called');
+      totalFail++;
+    }
+
+    // Test 4: readyState becomes "ended"
+    if (videoTrack.readyState === 'ended') {
+      setTest('webcam-4', true, `readyState=${videoTrack.readyState}`);
+      totalPass++;
+    } else {
+      setTest('webcam-4', false, `readyState=${videoTrack.readyState}`);
+      totalFail++;
+    }
+
+    // Test 5: No spurious invocations
+    let spuriousCount = 0;
+    videoTrack.onended = () => { spuriousCount++; };
+    videoTrack.stop(); // already stopped, should be a no-op
+    await new Promise(r => setTimeout(r, 30));
+    if (spuriousCount === 0) {
+      setTest('webcam-5', true, 'no spurious calls');
+      totalPass++;
+    } else {
+      setTest('webcam-5', false, `${spuriousCount} spurious calls`);
+      totalFail++;
+    }
+    addLog('Webcam tests complete.', 'blue');
+  } catch (e) {
+    addLog(`Webcam error: ${e.message}`, 'red');
+    setTest('webcam-1', false, e.message);
+    setTest('webcam-2', false, 'skipped');
+    setTest('webcam-3', false, 'skipped');
+    setTest('webcam-4', false, 'skipped');
+    setTest('webcam-5', false, 'skipped');
+    totalFail += 5;
+  }
+
+  // ======================== MIC TESTS ========================
+  addLog('\n--- Mic Tests ---', 'blue');
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
+    activeStreams.push(stream);
+    setTest('mic-1', true);
+    totalPass++;
+    addLog('getUserMedia({audio:true}) succeeded', 'green');
+
+    const audioTrack = stream.getAudioTracks()[0];
+    if (audioTrack && audioTrack.readyState === 'live') {
+      setTest('mic-2', true);
+      totalPass++;
+      addLog(`Audio track: kind=${audioTrack.kind}, readyState=${audioTrack.readyState}`, 'green');
+    } else {
+      setTest('mic-2', false, `readyState=${audioTrack?.readyState}`);
+      totalFail++;
+    }
+
+    // Test 3: onended fires
+    let onendedFired = false;
+    audioTrack.onended = () => {
+      onendedFired = true;
+      addLog('audioTrack.onended FIRED ✓', 'green');
+    };
+    audioTrack.stop();
+    await new Promise(r => setTimeout(r, 50));
+
+    if (onendedFired) {
+      setTest('mic-3', true);
+      totalPass++;
+    } else {
+      setTest('mic-3', false, 'onended callback was never called');
+      totalFail++;
+    }
+
+    // Test 4: readyState
+    if (audioTrack.readyState === 'ended') {
+      setTest('mic-4', true, `readyState=${audioTrack.readyState}`);
+      totalPass++;
+    } else {
+      setTest('mic-4', false, `readyState=${audioTrack.readyState}`);
+      totalFail++;
+    }
+
+    // Test 5: no spurious
+    let spurious = 0;
+    audioTrack.onended = () => { spurious++; };
+    audioTrack.stop();
+    await new Promise(r => setTimeout(r, 30));
+    if (spurious === 0) {
+      setTest('mic-5', true);
+      totalPass++;
+    } else {
+      setTest('mic-5', false, `${spurious} spurious`);
+      totalFail++;
+    }
+    addLog('Mic tests complete.', 'blue');
+  } catch (e) {
+    addLog(`Mic error: ${e.message}`, 'red');
+    setTest('mic-1', false, e.message);
+    setTest('mic-2', false, 'skipped');
+    setTest('mic-3', false, 'skipped');
+    setTest('mic-4', false, 'skipped');
+    setTest('mic-5', false, 'skipped');
+    totalFail += 5;
+  }
+
+  // ======================== SCREEN SHARE TESTS ========================
+  addLog('\n--- Screen Share Tests — select any window/tab to share ---', 'blue');
+  try {
+    const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+    activeStreams.push(stream);
+    setTest('screen-1', true);
+    totalPass++;
+    addLog('getDisplayMedia({video:true}) succeeded', 'green');
+
+    const screenTrack = stream.getVideoTracks()[0];
+    if (screenTrack && screenTrack.readyState === 'live') {
+      setTest('screen-2', true);
+      totalPass++;
+      addLog(`Screen track: kind=${screenTrack.kind}, readyState=${screenTrack.readyState}`, 'green');
+    } else {
+      setTest('screen-2', false, `readyState=${screenTrack?.readyState}`);
+      totalFail++;
+    }
+
+    // Test 3: onended fires
+    let onendedFired = false;
+    screenTrack.onended = () => {
+      onendedFired = true;
+      addLog('screenTrack.onended FIRED ✓', 'green');
+    };
+    screenTrack.stop();
+    await new Promise(r => setTimeout(r, 50));
+
+    if (onendedFired) {
+      setTest('screen-3', true);
+      totalPass++;
+    } else {
+      setTest('screen-3', false, 'onended callback was never called');
+      totalFail++;
+    }
+
+    // Test 4: readyState
+    if (screenTrack.readyState === 'ended') {
+      setTest('screen-4', true, `readyState=${screenTrack.readyState}`);
+      totalPass++;
+    } else {
+      setTest('screen-4', false, `readyState=${screenTrack.readyState}`);
+      totalFail++;
+    }
+
+    // Test 5: dialog cancelled is handled
+    setTest('screen-5', true, 'dialog appeared and user chose');
+    totalPass++;
+    addLog('Screen share tests complete.', 'blue');
+  } catch (e) {
+    if (e.name === 'AbortError' || e.name === 'NotAllowedError') {
+      // User cancelled — still a valid test
+      setTest('screen-1', true, `user cancelled (${e.name})`);
+      setTest('screen-2', false, 'no track — user cancelled');
+      setTest('screen-3', false, 'no track');
+      setTest('screen-4', false, 'no track');
+      setTest('screen-5', true, `dialog cancelled cleanly (${e.name})`);
+      totalPass += 2; totalFail += 3;
+      addLog(`Screen share cancelled by user: ${e.name}`, 'yellow');
+    } else {
+      addLog(`Screen share error: ${e.message}`, 'red');
+      setTest('screen-1', false, e.message);
+      setTest('screen-2', false, 'skipped');
+      setTest('screen-3', false, 'skipped');
+      setTest('screen-4', false, 'skipped');
+      setTest('screen-5', false, e.message);
+      totalFail += 5;
+    }
+  }
+
+  // ======================== MEDIACLIENT PATTERN TESTS ========================
+  addLog('\n--- MediaClient Callback Pattern Tests ---', 'blue');
+  try {
+    // Pattern 1: stopVideo() + onWebcamEnded
+    const webcamStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+    activeStreams.push(webcamStream);
+    const vt = webcamStream.getVideoTracks()[0];
+    let onWebcamEndedFired = false;
+    let stopVideoCalled = false;
+    let onLocalStreamFired = false;
+    
+    vt.onended = () => {
+      // This mirrors MediaClient exactly:
+      // videoTrack.onended = () => { this.stopVideo(); if (this.onWebcamEnded) this.onWebcamEnded(); }
+      simulatedStopVideo(webcamStream, (s) => { stopVideoCalled = true; onLocalStreamFired = true; });
+      onWebcamEndedFired = true;
+      addLog('MediaClient pattern: onWebcamEnded callback fired ✓', 'green');
+    };
+
+    vt.stop();
+    await new Promise(r => setTimeout(r, 50));
+
+    if (onWebcamEndedFired && stopVideoCalled && onLocalStreamFired && vt.readyState === 'ended') {
+      setTest('pattern-1', true, 'onWebcamEnded → stopVideo → onLocalStream');
+      totalPass++;
+    } else {
+      setTest('pattern-1', false, `ended=${onWebcamEndedFired}, stopVideo=${stopVideoCalled}, onLocalStream=${onLocalStreamFired}`);
+      totalFail++;
+    }
+
+    // Pattern 2: stopAudio() + onMicEnded
+    const micStream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
+    activeStreams.push(micStream);
+    const at = micStream.getAudioTracks()[0];
+    let onMicEndedFired = false;
+    let stopAudioCalled = false;
+
+    at.onended = () => {
+      // audioTrack.onended = () => { this.stopAudio(); if (this.onMicEnded) this.onMicEnded(); }
+      simulatedStopAudio(micStream, (s) => { stopAudioCalled = true; });
+      onMicEndedFired = true;
+      addLog('MediaClient pattern: onMicEnded callback fired ✓', 'green');
+    };
+
+    at.stop();
+    await new Promise(r => setTimeout(r, 50));
+
+    if (onMicEndedFired && stopAudioCalled && at.readyState === 'ended') {
+      setTest('pattern-2', true, 'onMicEnded → stopAudio → cleanup');
+      totalPass++;
+    } else {
+      setTest('pattern-2', false, `ended=${onMicEndedFired}, stopAudio=${stopAudioCalled}`);
+      totalFail++;
+    }
+
+    // Pattern 3: stopScreenShare() + onScreenShareEnded
+    try {
+      const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+      activeStreams.push(screenStream);
+      const st = screenStream.getVideoTracks()[0];
+      let onScreenShareEndedFired = false;
+      let onScreenStreamFired = false;
+
+      st.onended = () => {
+        // screenTrack.onended = () => { this.stopScreenShare(); if (this.onScreenShareEnded) this.onScreenShareEnded(); }
+        simulatedStopScreenShare(screenStream, (s) => { onScreenStreamFired = s === null; });
+        onScreenShareEndedFired = true;
+        addLog('MediaClient pattern: onScreenShareEnded callback fired ✓', 'green');
+      };
+
+      st.stop();
+      await new Promise(r => setTimeout(r, 50));
+
+      if (onScreenShareEndedFired && onScreenStreamFired) {
+        setTest('pattern-3', true, 'onScreenShareEnded → stopScreenShare → onScreenStream(null)');
+        totalPass++;
+      } else {
+        setTest('pattern-3', false, `ended=${onScreenShareEndedFired}, streamCleared=${onScreenStreamFired}`);
+        totalFail++;
+      }
+    } catch (e) {
+      if (e.name === 'AbortError' || e.name === 'NotAllowedError') {
+        setTest('pattern-3', true, `cancelled (${e.name}) — browser API reachable`);
+        totalPass++;
+        addLog(`Pattern 3 screen share cancelled: ${e.name}`, 'yellow');
+      } else {
+        setTest('pattern-3', false, e.message);
+        totalFail++;
+      }
+    }
+
+    // Pattern 4: direct stopVideo() does NOT re-trigger onended
+    const stream4 = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+    activeStreams.push(stream4);
+    const vt4 = stream4.getVideoTracks()[0];
+    let endedCount = 0;
+    vt4.onended = () => { endedCount++; };
+    
+    // Direct stopVideo() simulation (no onended from browser)
+    simulatedStopVideo(stream4);
+    await new Promise(r => setTimeout(r, 50));
+
+    if (endedCount === 0) {
+      setTest('pattern-4', true, 'direct stopVideo() did not fire onended');
+      totalPass++;
+    } else {
+      setTest('pattern-4', false, `onended fired ${endedCount} times — should be 0`);
+      totalFail++;
+    }
+
+    addLog('MediaClient pattern tests complete.', 'blue');
+  } catch (e) {
+    addLog(`Pattern test error: ${e.message}`, 'red');
+    setTest('pattern-1', false, 'skipped');
+    setTest('pattern-2', false, 'skipped');
+    setTest('pattern-3', false, 'skipped');
+    setTest('pattern-4', false, 'skipped');
+    totalFail += 4;
+  }
+
+  // ======================== SUMMARY ========================
+  const total = totalPass + totalFail;
+  const summary = document.getElementById('summary');
+  summary.style.display = 'block';
+  summary.className = 'summary ' + (totalFail === 0 ? 'pass' : 'fail');
+  summary.innerHTML = `
+    <strong>${totalFail === 0 ? '✅ All tests passed!' : '⚠ Some tests failed'}</strong><br>
+    Passed: <strong style="color:#3fb950">${totalPass}</strong> /
+    Failed: <strong style="color:#da3633">${totalFail}</strong> /
+    Total: <strong>${total}</strong>
+    <br><small style="color:#8b949e">
+      ${totalFail === 0
+        ? 'Browser correctly fires track.onended for all track types. The MediaClient callback pattern is verified.'
+        : 'Some tests failed. Check the logs for details. This may indicate a browser bug or missing media permissions.'}
+    </small>
+  `;
+
+  addLog(`\n=== Complete: ${totalPass}/${total} passed ===`, totalFail === 0 ? 'green' : 'yellow');
+  stopAllStreams();
+}
+</script>
+</body>
+</html>

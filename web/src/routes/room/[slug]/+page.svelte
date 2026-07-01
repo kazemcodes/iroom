@@ -176,9 +176,11 @@
 	}
 
 	// --- Classroom State ---
-	import { onMount as onClassroomMount, onDestroy } from 'svelte';
+
 	import { MediaClient } from '$lib/classroom/media-client';
 	import { createWebcamToggle } from '$lib/classroom/webcam-toggle.svelte';
+	import { createMicToggle } from '$lib/classroom/mic-toggle.svelte';
+	import { createScreenShareToggle } from '$lib/classroom/screenshare-toggle.svelte';
 	import type { UserRole, Participant, ChatMessage } from '$lib/classroom/types';
 	import { ROLE_PERMISSIONS, ROLE_LABELS } from '$lib/classroom/types';
 	import ChatPanel from '$lib/components/classroom/ChatPanel.svelte';
@@ -236,7 +238,8 @@
 	let localScreenStream = $state<MediaStream | null>(null);
 	let screenSharingUsers = $state<Set<string>>(new Set());
 	let webcamCtrl = $state<ReturnType<typeof createWebcamToggle> | null>(null);
-	let togglingMic = $state(false);
+	let micCtrl = $state<ReturnType<typeof createMicToggle> | null>(null);
+	let screenShareCtrl = $state<ReturnType<typeof createScreenShareToggle> | null>(null);
 	let operatorPresent = $state(false);
 	let waitingRoomChecked = $state(false);
 
@@ -244,6 +247,7 @@
 	const isOperator = $derived(['owner', 'admin', 'operator'].includes(currentUserRole) || $auth.user?.id === roomOwnerId);
 	const perms = $derived(ROLE_PERMISSIONS[currentUserRole] || ROLE_PERMISSIONS.user);
 	const togglingWebcam = $derived(webcamCtrl?.toggling ?? false);
+	const togglingMic = $derived(micCtrl?.toggling ?? false);
 	const isPresenterOrAbove = $derived(['owner', 'admin', 'operator', 'presenter'].includes(currentUserRole));
 	const activeRemoteCams = $derived(remoteStreams.filter(r => !r.isScreen && !screenSharingUsers.has(r.id) && participants.find(p => p.id === r.id)?.hasVideo !== false));
 	const hasScreenShare = $derived(remoteStreams.some(r => r.isScreen) || screenShareOn);
@@ -514,6 +518,17 @@
 					toggleVideo: async () => mediaClient!.toggleVideo(),
 					hasMediaClient: true,
 				});
+				micCtrl = createMicToggle({
+					sendCommand: (cmd) => wsSend({ type: 'command', command: cmd }),
+					toggleAudio: async () => mediaClient!.toggleAudio(),
+					hasMediaClient: true,
+				});
+				screenShareCtrl = createScreenShareToggle({
+					sendCommand: (cmd) => wsSend({ type: 'command', command: cmd }),
+					shareScreen: async () => { await mediaClient!.shareScreen(); },
+					stopScreenShare: async () => { await mediaClient!.stopScreenShare(); },
+					hasMediaClient: true,
+				});
 				mediaClient.onLocalStream = (stream) => {
 					localStream = stream;
 					micOn = stream.getAudioTracks().length > 0 && stream.getAudioTracks()[0].enabled;
@@ -531,8 +546,8 @@
 		};
 		mediaClient.onScreenShareEnded = () => {
 			streamDebug('onScreenShareEnded browser stop');
+			screenShareCtrl?.onEnded();
 			screenShareOn = false;
-			wsSend({ type: 'command', command: 'screenshare_off' });
 		};
 		mediaClient.onWebcamEnded = () => {
 			streamDebug('onWebcamEnded browser stop');
@@ -541,8 +556,8 @@
 		};
 		mediaClient.onMicEnded = () => {
 			streamDebug('onMicEnded browser stop');
+			micCtrl?.onEnded();
 			micOn = false;
-			wsSend({ type: 'command', command: 'mic_off' });
 		};
 		mediaClient.onRemoteStream = (stream, participantId) => {
 					const hasVideo = stream.getVideoTracks().length > 0;
@@ -593,29 +608,9 @@
 	function startParticipantRefresh() { participantInterval = setInterval(() => { fetchParticipants(); }, 5000); }
 
 	async function toggleMic() {
-		if (!perms.canMic || togglingMic) return;
-		togglingMic = true;
-		try {
-			if (mediaClient) {
-				const targetOn = !micOn;
-				streamDebug('toggleMic', { current: micOn, target: targetOn });
-				wsSend({ type: 'command', command: targetOn ? 'mic_on' : 'mic_off' });
-				await new Promise(r => setTimeout(r, 100));
-				const ok = await mediaClient.toggleAudio();
-				if (!ok) {
-					streamDebug('toggleMic FAILED, rolling back');
-					wsSend({ type: 'command', command: !targetOn ? 'mic_on' : 'mic_off' });
-					return;
-				}
-				streamDebug('toggleMic done', { newState: micOn });
-			} else {
-				micOn = !micOn;
-				streamDebug('toggleMic no client', { newState: micOn });
-				wsSend({ type: 'command', command: micOn ? 'mic_on' : 'mic_off' });
-			}
-		} finally {
-			togglingMic = false;
-		}
+		if (!perms.canMic) return;
+		const result = await micCtrl?.toggle(micOn);
+		if (result !== null && result !== undefined) micOn = result;
 	}
 	async function toggleWebcam() {
 		if (!perms.canWebcam) return;
@@ -624,22 +619,8 @@
 	}
 	async function toggleScreenShare() {
 		if (!perms.canScreenShare) return;
-		try {
-			if (!screenShareOn) {
-				streamDebug('toggleScreenShare ON');
-				await mediaClient?.shareScreen();
-				screenShareOn = true;
-			} else {
-				streamDebug('toggleScreenShare OFF');
-				await mediaClient?.stopScreenShare();
-				screenShareOn = false;
-			}
-			streamDebug('toggleScreenShare done', { screenShareOn });
-			wsSend({ type: 'command', command: screenShareOn ? 'screenshare_on' : 'screenshare_off' });
-		} catch (e) {
-			streamDebug('toggleScreenShare error', e);
-			screenShareOn = false;
-		}
+		const result = await screenShareCtrl?.toggle(screenShareOn);
+		if (result !== null && result !== undefined) screenShareOn = result;
 	}
 	function toggleHand() {
 		if (!perms.canHandRaise) return;
@@ -725,9 +706,7 @@
 		wsSend({ type: 'command', command: show ? 'show_users' : 'hide_users' });
 	}
 
-	function syncLayout(layout: string) {
-		wsSend({ type: 'command', command: 'layout', layout });
-	}
+
 	function leaveRoom() {
 		if (confirm('آیا از خروج از اتاق اطمینان دارید؟')) {
 			disconnect();
@@ -932,11 +911,6 @@
 		input.click();
 	}
 
-	function handlePdfUrl(url: string, fileName: string) {
-		pdfUrl = url;
-		pdfFileName = fileName;
-		showPdf = true;
-	}
 
 	function closePdf() {
 		if (pdfUrl) URL.revokeObjectURL(pdfUrl);
