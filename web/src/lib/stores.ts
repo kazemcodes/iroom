@@ -55,6 +55,17 @@ function createAuthStore() {
 				}
 			}
 		},
+		updateTokens: (tokens: { access_token: string; refresh_token: string }) => {
+			if (browser) {
+				localStorage.setItem('access_token', tokens.access_token);
+				localStorage.setItem('refresh_token', tokens.refresh_token);
+			}
+			// Keep existing user and login state — tokens were just refreshed
+			update(state => ({
+				...state,
+				isLoggedIn: true,
+			}));
+		},
 		updateRole: (role: string) => {
 			update(state => {
 				if (!state.user) return state;

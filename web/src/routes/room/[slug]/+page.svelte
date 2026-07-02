@@ -4,7 +4,7 @@
 	import { api } from '$lib/api';
 	import { auth } from '$lib/stores';
 	import { dev } from '$app/environment';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import type { User, Tokens, Room } from '$lib/types';
 
 	const chatDebug = (...args: any[]) => { if (dev) console.debug('[chat]', ...args); };
@@ -12,6 +12,7 @@
 
 	let room = $state<Room | null>(null);
 	let loading = $state(true);
+	let mounted = $state(true);
 	let displayName = $state('');
 	let email = $state('');
 	let password = $state('');
@@ -20,6 +21,9 @@
 	let showGuestForm = $state(false);
 	let waitingRoomEnabled = $state(false);
 	let roomOwnerId = $state(0);
+
+	const CACHED_EMAIL_KEY = 'iroom_last_email';
+	const CACHED_GUEST_NAME_KEY = 'iroom_guest_name';
 
 	const slug = $derived(page.params.slug!);
 	const isLoggedIn = $derived($auth.isLoggedIn);
@@ -67,6 +71,9 @@
 				localStorage.setItem('access_token', guestData.accessToken);
 				localStorage.setItem('refresh_token', guestData.refreshToken);
 				const meRes = await api.get<User>('/auth/me');
+				// Guard against race: if someone logged in via the form while this
+				// request was in flight, the token in localStorage will have changed
+				if (!mounted || localStorage.getItem('access_token') !== guestData.accessToken) return;
 				if (meRes.success && meRes.data) {
 					auth.login(meRes.data, {
 						access_token: guestData.accessToken,
@@ -76,16 +83,28 @@
 					return;
 				}
 			} catch {}
+			// Guard: component may have been destroyed while request was in flight
+			if (!mounted) return;
 			displayName = guestData.displayName;
 			showGuestForm = true;
 		}
 
 		const res = await api.get<any>('/rooms/slug/' + slug);
+		// Guard: component may have been destroyed while request was in flight
+		if (!mounted) return;
 		if (res.success && res.data) {
 			room = res.data.room ?? null;
 		}
+		// Restore cached email from previous login
+		const cachedEmail = localStorage.getItem(CACHED_EMAIL_KEY);
+		if (cachedEmail) email = cachedEmail;
+		// Restore cached guest name
+		const cachedGuest = localStorage.getItem(CACHED_GUEST_NAME_KEY);
+		if (cachedGuest) displayName = cachedGuest;
 		loading = false;
 	});
+
+	onDestroy(() => { mounted = false; });
 
 	async function joinRoom() {
 		const res = await api.get<any>('/rooms/slug/' + slug);
@@ -154,6 +173,8 @@
 		actionLoading = true; error = '';
 		const res = await api.post<{ user: User; tokens: Tokens }>('/auth/login', { email, password });
 		if (!res.success) { error = res.error || 'خطا در ورود'; actionLoading = false; return; }
+		// Cache email for next login
+		localStorage.setItem(CACHED_EMAIL_KEY, email);
 		auth.login(res.data!.user, res.data!.tokens);
 		await joinRoom();
 	}
@@ -166,6 +187,8 @@
 			display_name: displayName.trim()
 		});
 		if (!res.success) { error = res.error || 'خطا در ورود'; actionLoading = false; return; }
+		// Cache guest name for next visit
+		localStorage.setItem(CACHED_GUEST_NAME_KEY, displayName.trim());
 		auth.login(res.data!.user, res.data!.tokens);
 		setGuestCookie(slug, {
 			displayName: displayName.trim(),
@@ -213,9 +236,14 @@
 	let chatDisabled = $state(false);
 	let chatPrivate = $state(false);
 	let chatExpanded = $state(false);
+	// Whiteboard: fixed virtual coordinate space for consistency across all screen sizes
+	const WB_VIRTUAL_W = 1920;
+	const WB_VIRTUAL_H = 1080;
 	let whiteboardTool = $state<'pen' | 'eraser'>('pen');
 	let whiteboardColor = $state('#ffffff');
-	let whiteboardCanvas: HTMLCanvasElement | null = null;
+	let whiteboardLineWidth = $state(2);
+	let whiteboardCanvas = $state<HTMLCanvasElement | null>(null);
+	let whiteboardStrokes = $state<Array<{x1:number;y1:number;x2:number;y2:number;color:string;width:number}>>([]);
 	let isDrawing = $state(false);
 	let lastX = $state(0);
 	let lastY = $state(0);
@@ -229,6 +257,7 @@
 	let localStream: MediaStream | null = null;
 	let chatWs: WebSocket | null = null;
 	let showWhiteboard = $state(false);
+	let whiteboardFullscreen = $state(false);
 	let showPdf = $state(false);
 	let pdfUrl = $state('');
 	let pdfFileName = $state('');
@@ -480,6 +509,11 @@
 						applyWhiteboardDraw(data);
 					} else if (data.action === 'clear') {
 						applyWhiteboardClear();
+					} else if (data.action === 'undo') {
+						if (whiteboardStrokes.length > 0) {
+							whiteboardStrokes = whiteboardStrokes.slice(0, -1);
+							resizeWhiteboard();
+						}
 					}
 				}
 			} catch (e) { chatDebug('parse error', e); }
@@ -631,9 +665,13 @@
 	function toggleWhiteboard() {
 		if (!perms.canWhiteboard) return;
 		showWhiteboard = !showWhiteboard;
+		whiteboardFullscreen = false;
 		if (chatWs && chatWs.readyState === WebSocket.OPEN) {
 			chatWs.send(JSON.stringify({ type: 'whiteboard', action: 'toggle', show: showWhiteboard }));
 		}
+	}
+	function toggleWhiteboardFullscreen() {
+		whiteboardFullscreen = !whiteboardFullscreen;
 	}
 	function toggleChatDisabled() {
 		if (!perms.canChangeRole) return;
@@ -762,77 +800,129 @@
 		const ctx = canvas.getContext('2d');
 		if (!ctx) return;
 
-		canvas.width = canvas.offsetWidth;
-		canvas.height = canvas.offsetHeight;
+		// Match pixel dimensions to the virtual resolution for crisp rendering
+		canvas.width = WB_VIRTUAL_W;
+		canvas.height = WB_VIRTUAL_H;
 		ctx.fillStyle = '#1c2a3a';
 		ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+		// Redraw all stored strokes
+		for (const s of whiteboardStrokes) {
+			const isErase = s.color === 'rgba(0,0,0,0)';
+			ctx.save();
+			if (isErase) ctx.globalCompositeOperation = 'destination-out';
+			ctx.beginPath();
+			ctx.moveTo(s.x1, s.y1);
+			ctx.lineTo(s.x2, s.y2);
+			ctx.strokeStyle = s.color;
+			ctx.lineWidth = s.width;
+			ctx.lineCap = 'round';
+			ctx.stroke();
+			ctx.restore();
+		}
 
 		if (!(canvas as any)._wbInit) {
 			canvas.addEventListener('mousedown', startDrawing);
 			canvas.addEventListener('mousemove', draw);
 			canvas.addEventListener('mouseup', stopDrawing);
 			canvas.addEventListener('mouseout', stopDrawing);
+			// Touch support for tablets and iPads
+			canvas.addEventListener('touchstart', startDrawing, { passive: false });
+			canvas.addEventListener('touchmove', draw, { passive: false });
+			canvas.addEventListener('touchend', stopDrawing);
+			canvas.addEventListener('touchcancel', stopDrawing);
+			// Ctrl+Z keyboard shortcut for undo, Esc to exit fullscreen
+			canvas.addEventListener('keydown', (e: KeyboardEvent) => {
+				if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+					e.preventDefault();
+					undoWhiteboard();
+				}
+				if (e.key === 'Escape' && whiteboardFullscreen) {
+					whiteboardFullscreen = false;
+				}
+			});
+			// Make canvas focusable for keyboard events
+			canvas.tabIndex = 0;
 			(canvas as any)._wbInit = true;
 		}
 	}
 
 	function resizeWhiteboard() {
+		// With fixed virtual resolution, resize just re-renders — no data loss
 		if (!whiteboardCanvas) return;
 		const ctx = whiteboardCanvas.getContext('2d');
 		if (!ctx) return;
-		let saved: ImageData | null = null;
-		if (whiteboardCanvas.width > 0 && whiteboardCanvas.height > 0) {
-			try { saved = ctx.getImageData(0, 0, whiteboardCanvas.width, whiteboardCanvas.height); } catch {}
-		}
-		whiteboardCanvas.width = whiteboardCanvas.offsetWidth;
-		whiteboardCanvas.height = whiteboardCanvas.offsetHeight;
 		ctx.fillStyle = '#1c2a3a';
 		ctx.fillRect(0, 0, whiteboardCanvas.width, whiteboardCanvas.height);
-		if (saved) {
-			try { ctx.putImageData(saved, 0, 0); } catch {}
+		for (const s of whiteboardStrokes) {
+			const isErase = s.color === 'rgba(0,0,0,0)';
+			ctx.save();
+			if (isErase) ctx.globalCompositeOperation = 'destination-out';
+			ctx.beginPath();
+			ctx.moveTo(s.x1, s.y1);
+			ctx.lineTo(s.x2, s.y2);
+			ctx.strokeStyle = s.color;
+			ctx.lineWidth = s.width;
+			ctx.lineCap = 'round';
+			ctx.stroke();
+			ctx.restore();
 		}
 	}
 
-	function startDrawing(e: MouseEvent) {
+	function startDrawing(e: MouseEvent | TouchEvent) {
 		isDrawing = true;
 		const canvas = whiteboardCanvas;
 		if (!canvas) return;
+		if ('touches' in e) e.preventDefault(); // prevent scroll on touch devices
 		const rect = canvas.getBoundingClientRect();
-		lastX = e.clientX - rect.left;
-		lastY = e.clientY - rect.top;
+		const point = 'touches' in e ? e.touches[0] : e;
+		// Map coords to virtual coordinate space
+		lastX = (point.clientX - rect.left) / rect.width * WB_VIRTUAL_W;
+		lastY = (point.clientY - rect.top) / rect.height * WB_VIRTUAL_H;
 	}
 
-	function draw(e: MouseEvent) {
+	function draw(e: MouseEvent | TouchEvent) {
 		if (!isDrawing || !whiteboardCanvas) return;
 		if (!perms.canWhiteboard) return;
+		if ('touches' in e) e.preventDefault(); // prevent scroll on touch devices
 		const ctx = whiteboardCanvas.getContext('2d');
 		if (!ctx) return;
 		const rect = whiteboardCanvas.getBoundingClientRect();
-		const x = e.clientX - rect.left;
-		const y = e.clientY - rect.top;
+		const point = 'touches' in e ? e.touches[0] : e;
+		// Map to virtual coordinate space
+		const x = (point.clientX - rect.left) / rect.width * WB_VIRTUAL_W;
+		const y = (point.clientY - rect.top) / rect.height * WB_VIRTUAL_H;
 
 		const isEraser = whiteboardTool === 'eraser';
+		const lw = isEraser ? 40 : whiteboardLineWidth;
+		const strokeColor = isEraser ? 'rgba(0,0,0,0)' : whiteboardColor;
+		const compositeOp = isEraser ? 'destination-out' : 'source-over';
+
+		// Store stroke (virtual coords)
+		const stroke = { x1: lastX, y1: lastY, x2: x, y2: y, color: strokeColor, width: lw };
+		whiteboardStrokes = [...whiteboardStrokes, stroke];
+
+		// Draw immediately
+		ctx.save();
+		ctx.globalCompositeOperation = compositeOp;
 		ctx.beginPath();
 		ctx.moveTo(lastX, lastY);
 		ctx.lineTo(x, y);
-		ctx.strokeStyle = isEraser ? '#1c2a3a' : whiteboardColor;
-		ctx.lineWidth = isEraser ? 20 : 2;
+		ctx.strokeStyle = strokeColor;
+		ctx.lineWidth = lw;
 		ctx.lineCap = 'round';
 		ctx.stroke();
+		ctx.restore();
 
 		if (chatWs && chatWs.readyState === WebSocket.OPEN) {
-			// Normalize coords to 0-1 range so all users see the same drawing
-			// regardless of their canvas pixel dimensions
-			const cw = whiteboardCanvas.width || 1;
-			const ch = whiteboardCanvas.height || 1;
-			const lw = (isEraser ? 20 : 2) / Math.max(cw, ch);
+			// Normalize to 0-1 for network (backward compatible)
 			chatWs.send(JSON.stringify({
 				type: 'whiteboard',
 				action: 'draw',
-				x1: lastX / cw, y1: lastY / ch,
-				x2: x / cw, y2: y / ch,
-				color: isEraser ? '#1c2a3a' : whiteboardColor,
-				width: lw
+				x1: lastX / WB_VIRTUAL_W, y1: lastY / WB_VIRTUAL_H,
+				x2: x / WB_VIRTUAL_W, y2: y / WB_VIRTUAL_H,
+				color: strokeColor,
+				width: lw / Math.max(WB_VIRTUAL_W, WB_VIRTUAL_H)
 			}));
 		}
 
@@ -844,8 +934,35 @@
 		isDrawing = false;
 	}
 
+	function undoWhiteboard() {
+		if (whiteboardStrokes.length === 0 || !whiteboardCanvas) return;
+		whiteboardStrokes = whiteboardStrokes.slice(0, -1);
+		// Redraw all strokes
+		const ctx = whiteboardCanvas.getContext('2d');
+		if (!ctx) return;
+		ctx.fillStyle = '#1c2a3a';
+		ctx.fillRect(0, 0, whiteboardCanvas.width, whiteboardCanvas.height);
+		for (const s of whiteboardStrokes) {
+			const isErase = s.color === 'rgba(0,0,0,0)';
+			ctx.save();
+			if (isErase) ctx.globalCompositeOperation = 'destination-out';
+			ctx.beginPath();
+			ctx.moveTo(s.x1, s.y1);
+			ctx.lineTo(s.x2, s.y2);
+			ctx.strokeStyle = s.color;
+			ctx.lineWidth = s.width;
+			ctx.lineCap = 'round';
+			ctx.stroke();
+			ctx.restore();
+		}
+		if (chatWs && chatWs.readyState === WebSocket.OPEN) {
+			chatWs.send(JSON.stringify({ type: 'whiteboard', action: 'undo' }));
+		}
+	}
+
 	function clearWhiteboard() {
 		if (!whiteboardCanvas) return;
+		whiteboardStrokes = [];
 		const ctx = whiteboardCanvas.getContext('2d');
 		if (!ctx) return;
 		ctx.fillStyle = '#1c2a3a';
@@ -857,22 +974,33 @@
 
 	function applyWhiteboardDraw(data: any) {
 		if (!whiteboardCanvas) return;
+		// Denormalize from 0-1 to virtual coordinate space
+		const x1 = data.x1 * WB_VIRTUAL_W;
+		const y1 = data.y1 * WB_VIRTUAL_H;
+		const x2 = data.x2 * WB_VIRTUAL_W;
+		const y2 = data.y2 * WB_VIRTUAL_H;
+		const lw = data.width * Math.max(WB_VIRTUAL_W, WB_VIRTUAL_H);
+
+		// Store stroke for re-rendering
+		whiteboardStrokes = [...whiteboardStrokes, { x1, y1, x2, y2, color: data.color, width: lw }];
+
 		const ctx = whiteboardCanvas.getContext('2d');
 		if (!ctx) return;
-		// Denormalize from 0-1 range back to pixel coords for this canvas size
-		const cw = whiteboardCanvas.width || 1;
-		const ch = whiteboardCanvas.height || 1;
-		const refDim = Math.max(cw, ch);
+		const isErase = data.color === 'rgba(0,0,0,0)';
+		ctx.save();
+		if (isErase) ctx.globalCompositeOperation = 'destination-out';
 		ctx.beginPath();
-		ctx.moveTo(data.x1 * cw, data.y1 * ch);
-		ctx.lineTo(data.x2 * cw, data.y2 * ch);
+		ctx.moveTo(x1, y1);
+		ctx.lineTo(x2, y2);
 		ctx.strokeStyle = data.color;
-		ctx.lineWidth = data.width * refDim;
+		ctx.lineWidth = lw;
 		ctx.lineCap = 'round';
 		ctx.stroke();
+		ctx.restore();
 	}
 
 	function applyWhiteboardClear() {
+		whiteboardStrokes = [];
 		if (!whiteboardCanvas) return;
 		const ctx = whiteboardCanvas.getContext('2d');
 		if (!ctx) return;
@@ -898,7 +1026,9 @@
 				});
 				const data = await res.json();
 				if (data.success && data.data) {
-					const pdfUrlFull = data.data.url;
+					// In dev mode, frontend (5173) and backend (8080) are different ports.
+					// Use dev backend origin for PDF URL. In production, relative URL works fine.
+					const pdfUrlFull = dev ? `http://${window.location.hostname}:8080${data.data.url}` : data.data.url;
 					pdfUrl = pdfUrlFull;
 					pdfFileName = file.name;
 					showPdf = true;
@@ -1196,7 +1326,7 @@
 							{/if}
 
 							{#if showWhiteboard}
-								<div class="grid-tile whiteboard-container">
+								<div class="grid-tile whiteboard-container" class:wb-fullscreen={whiteboardFullscreen}>
 									<canvas id="whiteboard-canvas" class="whiteboard-canvas"></canvas>
 									<div class="whiteboard-tools">
 										<button class="wb-btn" class:active={whiteboardTool === 'pen'} onclick={() => whiteboardTool = 'pen'} title="مداد">
@@ -1206,6 +1336,22 @@
 											<svg width="18" height="18"><use xlink:href="#shape_clear"></use></svg>
 										</button>
 										<input type="color" bind:value={whiteboardColor} class="wb-color" title="رنگ" />
+										<div class="wb-sep"></div>
+										<button class="wb-btn" onclick={undoWhiteboard} title="بازگشت (Ctrl+Z)">
+											<svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentColor" d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/></svg>
+										</button>
+										<button class="wb-btn" class:active={whiteboardFullscreen} onclick={toggleWhiteboardFullscreen} title={whiteboardFullscreen ? 'خروج از تمام‌صفحه' : 'تمام‌صفحه'}>
+											<svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentColor" d={whiteboardFullscreen ? 'M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z' : 'M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z'} /></svg>
+										</button>
+										<div class="wb-sep"></div>
+										{#if whiteboardTool === 'pen'}
+											<select class="wb-lw-select" bind:value={whiteboardLineWidth} title="ضخامت خط">
+												<option value={1}>نازک</option>
+												<option value={2}>معمولی</option>
+												<option value={5}>ضخیم</option>
+												<option value={10}>بسیار ضخیم</option>
+											</select>
+										{/if}
 										<div class="wb-sep"></div>
 										<button class="wb-btn" onclick={clearWhiteboard} title="پاک کردن همه">
 											<svg width="16" height="16"><use xlink:href="#shape_power_settings_new"></use></svg>
@@ -1225,6 +1371,10 @@
 											<button class="pdf-btn" onclick={() => { const f = document.querySelector('.pdf-iframe') as HTMLIFrameElement; if(f) f.contentWindow?.postMessage({type:'zoom',delta:-0.2},'*'); }} title="کوچک‌تر">−</button>
 											<button class="pdf-btn" onclick={() => { const f = document.querySelector('.pdf-iframe') as HTMLIFrameElement; if(f) f.contentWindow?.postMessage({type:'zoom',delta:0},'*'); }} title="اندازه اصلی">↺</button>
 											<button class="pdf-btn" onclick={() => { const f = document.querySelector('.pdf-iframe') as HTMLIFrameElement; if(f) f.contentWindow?.postMessage({type:'zoom',delta:0.2},'*'); }} title="بزرگ‌تر">+</button>
+											<div class="pdf-sep"></div>
+											<button class="pdf-btn" onclick={() => { const a = document.createElement('a'); a.href = pdfUrl; a.download = pdfFileName || 'document.pdf'; a.click(); }} title="دانلود فایل">
+												<svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentColor" d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+											</button>
 											{#if isPresenterOrAbove}
 												<div class="pdf-sep"></div>
 												<button class="pdf-btn pdf-close" onclick={closePdf} title="بستن">
@@ -1422,7 +1572,7 @@
 
 	/* === Whiteboard === */
 	.whiteboard-container { width: 100%; height: 100%; background: #1c2a3a; position: relative; }
-	.whiteboard-canvas { width: 100%; height: 100%; cursor: crosshair; }
+	.whiteboard-canvas { width: 100%; height: 100%; cursor: crosshair; touch-action: none; }
 	.whiteboard-tools { position: absolute; top: 12px; right: 12px; display: flex; align-items: center; gap: 4px; background: rgba(20,30,45,0.92); backdrop-filter: blur(8px); padding: 6px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08); z-index: 10; }
 	.wb-btn { width: 34px; height: 34px; border-radius: 8px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; background: transparent; color: var(--inactive); transition: all 0.15s; }
 	.wb-btn:hover { background: rgba(255,255,255,0.08); color: #e0e0e6; }
@@ -1432,6 +1582,11 @@
 	.wb-color::-webkit-color-swatch-wrapper { padding: 2px; }
 	.wb-color::-webkit-color-swatch { border-radius: 50%; border: none; }
 	.wb-sep { width: 1px; height: 20px; background: rgba(255,255,255,0.1); margin: 0 2px; }
+	.wb-lw-select { padding: 4px 6px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.12); background: transparent; color: var(--inactive); font-size: 0.7rem; cursor: pointer; font-family: var(--font-family); }
+	.wb-lw-select:hover { border-color: var(--accent); color: #e0e0e6; }
+	.wb-lw-select:focus { outline: none; border-color: var(--accent); }
+	.wb-fullscreen { position: fixed !important; inset: 0; z-index: 500; border-radius: 0 !important; }
+	.wb-fullscreen .whiteboard-tools { z-index: 510; }
 
 	/* === PDF Viewer === */
 	.pdf-viewer { width: 100%; height: 100%; display: flex; flex-direction: column; }

@@ -201,7 +201,7 @@ export class MediaClient {
 		try {
 			const newStream = await navigator.mediaDevices.getUserMedia(newConstraints);
 			const oldTracks = this.localStream.getVideoTracks();
-			oldTracks.forEach(t => { t.stop(); this.localStream!.removeTrack(t); });
+			oldTracks.forEach(t => { t.onended = null; t.stop(); this.localStream!.removeTrack(t); });
 			const newVideoTracks = newStream.getVideoTracks();
 			newVideoTracks.forEach(t => this.localStream!.addTrack(t));
 
@@ -391,7 +391,7 @@ export class MediaClient {
 		// TURN OFF: stop and remove video tracks so recorder stops sending frames
 		this.videoEnabled = false;
 		this.localConstraints.video = false;
-		tracks.forEach(t => { t.stop(); this.localStream!.removeTrack(t); });
+		tracks.forEach(t => { t.onended = null; t.stop(); this.localStream!.removeTrack(t); });
 		if (this.recorder && this.recorder.state !== 'inactive') {
 			this.recorder.stop();
 		}
@@ -414,7 +414,7 @@ export class MediaClient {
 		this.videoEnabled = false;
 		this.localConstraints.video = false;
 		const vt = this.localStream.getVideoTracks();
-		vt.forEach(t => { t.stop(); this.localStream!.removeTrack(t); });
+		vt.forEach(t => { t.onended = null; t.stop(); this.localStream!.removeTrack(t); });
 		if (this.recorder && this.recorder.state !== 'inactive') {
 			this.recorder.stop();
 		}
@@ -436,7 +436,7 @@ export class MediaClient {
 		this.audioEnabled = false;
 		this.localConstraints.audio = false;
 		const at = this.localStream.getAudioTracks();
-		at.forEach(t => { t.stop(); this.localStream!.removeTrack(t); });
+		at.forEach(t => { t.onended = null; t.stop(); this.localStream!.removeTrack(t); });
 		if (this.recorder && this.recorder.state !== 'inactive') {
 			this.recorder.stop();
 		}
@@ -485,7 +485,7 @@ export class MediaClient {
 		// TURN OFF: stop and remove audio tracks so recorder stops sending audio frames
 		this.audioEnabled = false;
 		this.localConstraints.audio = false;
-		tracks.forEach(t => { t.stop(); this.localStream!.removeTrack(t); });
+		tracks.forEach(t => { t.onended = null; t.stop(); this.localStream!.removeTrack(t); });
 		if (this.recorder && this.recorder.state !== 'inactive') {
 			this.recorder.stop();
 		}
@@ -583,7 +583,7 @@ export class MediaClient {
 		}
 		this.screenRecorder = null;
 		if (this.localStream) {
-			this.localStream.getTracks().forEach(t => t.stop());
+			this.localStream.getTracks().forEach(t => { t.onended = null; t.stop(); });
 			this.localStream = null;
 		}
 		this.remoteEntries.forEach((entry) => {

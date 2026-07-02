@@ -5,7 +5,7 @@
 <script lang="ts">
 	import { auth } from '$lib/stores';
 	import { goto } from '$app/navigation';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { api } from '$lib/api';
 	import type { User, Tokens } from '$lib/types';
 
@@ -13,14 +13,32 @@
 	let password = $state('');
 	let loading = $state(false);
 	let error = $state('');
+	let mounted = $state(true);
 
-	onMount(() => {
+	const CACHED_EMAIL_KEY = 'iroom_last_email';
+
+	onMount(async () => {
 		auth.init();
-		const unsub = auth.subscribe(($auth) => {
-			if ($auth.isLoggedIn) goto('/admin');
-		});
-		return unsub;
+		// Validate token before redirecting — prevents redirect loop when token is expired
+		const token = localStorage.getItem('access_token');
+		if (token) {
+			const res = await api.get('/auth/me');
+			// Guard against race: if user logged in while this request was in flight,
+			// the component has been destroyed — don't clear the fresh tokens
+			if (!mounted) return;
+			if (res.success) {
+				goto('/admin');
+				return;
+			}
+			// Token is invalid/expired — clear stale auth state
+			auth.logout();
+		}
+		// Restore cached email from previous login
+		const cached = localStorage.getItem(CACHED_EMAIL_KEY);
+		if (cached) email = cached;
 	});
+
+	onDestroy(() => { mounted = false; });
 
 	async function handleLogin() {
 		if (!email || !password) { error = 'ایمیل و رمز عبور الزامی است'; return; }
@@ -33,6 +51,8 @@
 			loading = false;
 			return;
 		}
+		// Cache email for next login
+		localStorage.setItem(CACHED_EMAIL_KEY, email);
 		auth.login(res.data!.user, res.data!.tokens);
 		goto('/admin');
 	}

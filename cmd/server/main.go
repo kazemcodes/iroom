@@ -109,7 +109,27 @@ func main() {
 	e.GET("/api/v1/rooms/slug/:slug", roomHandler.GetBySlug)
 	e.GET("/api/v1/classes/slug/:slug", classURLHandler.ResolveSlug)
 
-	e.POST("/api/v1/pdf/upload", func(c echo.Context) error {
+	e.Static("/uploads", "uploads")
+
+	authGroup := e.Group("/api/v1/auth")
+	authGroup.Use(middleware.AuthRateLimit())
+	authGroup.POST("/register", authHandler.Register)
+	authGroup.POST("/login", authHandler.Login)
+	authGroup.POST("/guest-login", authHandler.GuestLogin)
+	authGroup.POST("/room-guest-login", authHandler.RoomGuestLogin)
+	authGroup.POST("/refresh", authHandler.Refresh)
+	authGroup.POST("/create-login-url", authHandler.CreateLoginURL)
+	authGroup.POST("/forgot-password", func(c echo.Context) error {
+		return response.Success(c, map[string]string{"message": "اگر ایمیل شما ثبت شده باشد، لینک بازنشانی ارسال شده است"})
+	})
+	authGroup.POST("/reset-password", func(c echo.Context) error {
+		return response.Success(c, map[string]string{"message": "رمز عبور بازنشانی شد"})
+	})
+
+	api := e.Group("/api/v1")
+	api.Use(middleware.Auth(cfg.JWT.Secret))
+
+	api.POST("/pdf/upload", func(c echo.Context) error {
 		file, header, err := c.Request().FormFile("file")
 		if err != nil {
 			return response.BadRequest(c, "فایل ارسال نشده")
@@ -142,26 +162,6 @@ func main() {
 			"size":     written,
 		})
 	})
-
-	e.Static("/uploads", "uploads")
-
-	authGroup := e.Group("/api/v1/auth")
-	authGroup.Use(middleware.AuthRateLimit())
-	authGroup.POST("/register", authHandler.Register)
-	authGroup.POST("/login", authHandler.Login)
-	authGroup.POST("/guest-login", authHandler.GuestLogin)
-	authGroup.POST("/room-guest-login", authHandler.RoomGuestLogin)
-	authGroup.POST("/refresh", authHandler.Refresh)
-	authGroup.POST("/create-login-url", authHandler.CreateLoginURL)
-	authGroup.POST("/forgot-password", func(c echo.Context) error {
-		return response.Success(c, map[string]string{"message": "اگر ایمیل شما ثبت شده باشد، لینک بازنشانی ارسال شده است"})
-	})
-	authGroup.POST("/reset-password", func(c echo.Context) error {
-		return response.Success(c, map[string]string{"message": "رمز عبور بازنشانی شد"})
-	})
-
-	api := e.Group("/api/v1")
-	api.Use(middleware.Auth(cfg.JWT.Secret))
 
 	api.GET("/auth/me", authHandler.Me)
 	api.PUT("/auth/me", func(c echo.Context) error { return response.Success(c, map[string]string{"message": "بروزرسانی شد"}) })
