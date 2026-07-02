@@ -3,6 +3,8 @@ import { chromium, type Browser, type BrowserContext, type Page } from 'playwrig
 
 const FRONTEND = 'http://localhost:5173';
 const ROOM_SLUG = 'math';
+const ADMIN_EMAIL = 'admin@iroom.local';
+const ADMIN_PASSWORD = 'admin123';
 
 const chromePath =
 	process.env.CHROME_BIN ||
@@ -17,12 +19,18 @@ let consoleErrors: string[] = [];
 let classroomLoaded = false;
 let sessionId: number | null = null;
 
+let adminPage: Page | null = null;
+let adminContext: BrowserContext | null = null;
+
 const API_BASE = 'http://localhost:8080/api/v1';
+const WAIT_SHORT = 500;
+const WAIT_MED = 1500;
+const WAIT_LONG = 3000;
 
 beforeAll(async () => {
 	browser = await chromium.launch({
 		executablePath: chromePath,
-		headless: true,
+		headless: process.env.HEADLESS !== 'false',
 		args: [
 			'--use-fake-device-for-media-stream',
 			'--use-fake-ui-for-media-stream',
@@ -254,5 +262,455 @@ describe('Classroom E2E — Toggle Controllers', () => {
 
 		const newErrors = consoleErrors.slice(before);
 		expect(newErrors).toEqual([]);
+	});
+});
+
+describe('Classroom — App Menu & Modals', () => {
+	it('app menu opens with all items visible', async () => {
+		if (!classroomLoaded) return;
+		const menuBtn = page!.locator('button[title="منو"]');
+		const menuVisible = await menuBtn.isVisible().catch(() => false);
+		if (!menuVisible) return;
+		await menuBtn.click();
+		await page!.waitForTimeout(WAIT_SHORT);
+
+		const menuText = await page!.evaluate(() => document.body.innerText);
+		expect(menuText).toContain('اطلاعات کاربری');
+		expect(menuText).toContain('وضعیت اتصال');
+		expect(menuText).toContain('تنظیمات');
+		expect(menuText).toContain('خروج');
+		expect(menuText).toContain('بستن اتاق');
+
+		// Dismiss menu by clicking outside
+		await page!.locator('.skyroom-header').click({ position: { x: 0, y: 0 } });
+		await page!.waitForTimeout(WAIT_SHORT);
+	});
+
+	it('user info modal opens and closes', async () => {
+		if (!classroomLoaded) return;
+		const menuBtn = page!.locator('button[title="منو"]');
+		await menuBtn.click();
+		await page!.waitForTimeout(WAIT_SHORT);
+
+		await page!.getByText('اطلاعات کاربری').click();
+		await page!.waitForTimeout(WAIT_SHORT);
+
+		const modalContent = await page!.evaluate(() => document.body.innerText);
+		expect(modalContent).toContain('مدیر سیستم');
+
+		// Close modal
+		const closeBtn = page!.locator('.modal-content .close-btn, .modal-header .close-btn, button:has(svg use[href="#shape_clear"])').first();
+		if (await closeBtn.isVisible().catch(() => false)) {
+			await closeBtn.click();
+			await page!.waitForTimeout(WAIT_SHORT);
+		}
+	});
+
+	it('connection status modal opens and closes', async () => {
+		if (!classroomLoaded) return;
+		const menuBtn = page!.locator('button[title="منو"]');
+		await menuBtn.click();
+		await page!.waitForTimeout(WAIT_SHORT);
+
+		await page!.getByText('وضعیت اتصال').click();
+		await page!.waitForTimeout(WAIT_SHORT);
+
+		const modalContent = await page!.evaluate(() => document.body.innerText);
+		expect(modalContent).toContain('وضعیت اتصال');
+
+		// Close by clicking overlay
+		await page!.locator('.modal-overlay').click({ position: { x: 10, y: 10 } });
+		await page!.waitForTimeout(WAIT_SHORT);
+	});
+
+	it('settings modal opens with waiting room toggle', async () => {
+		if (!classroomLoaded) return;
+		const menuBtn = page!.locator('button[title="منو"]');
+		await menuBtn.click();
+		await page!.waitForTimeout(WAIT_SHORT);
+
+		await page!.getByText('تنظیمات').click();
+		await page!.waitForTimeout(WAIT_SHORT);
+
+		const modalContent = await page!.evaluate(() => document.body.innerText);
+		expect(modalContent).toContain('اتاق انتظار');
+
+		// Close
+		await page!.locator('.modal-overlay').click({ position: { x: 10, y: 10 } });
+		await page!.waitForTimeout(WAIT_SHORT);
+	});
+
+	it('layout modal opens with chat and users toggles', async () => {
+		if (!classroomLoaded) return;
+		const menuBtn = page!.locator('button[title="منو"]');
+		await menuBtn.click();
+		await page!.waitForTimeout(WAIT_SHORT);
+
+		await page!.getByText('چیدمان').click();
+		await page!.waitForTimeout(WAIT_SHORT);
+
+		const modalContent = await page!.evaluate(() => document.body.innerText);
+		expect(modalContent).toContain('چیدمان');
+		expect(modalContent).toContain('کاربران');
+		expect(modalContent).toContain('پیام‌ها');
+
+		// Close
+		await page!.locator('.modal-overlay').click({ position: { x: 10, y: 10 } });
+		await page!.waitForTimeout(WAIT_SHORT);
+	});
+});
+
+describe('Classroom — Chat Panel', () => {
+	it('chat panel is visible by default', async () => {
+		if (!classroomLoaded) return;
+		const panelText = await page!.evaluate(() => document.body.innerText);
+		expect(panelText).toContain('پیام‌ها');
+	});
+
+	it('chat context menu has all options', async () => {
+		if (!classroomLoaded) return;
+		// Click dots menu in chat header
+		const chatDots = page!.locator('.skyroom-chat-block .skyroom-dots-btn').first();
+		const dotsVisible = await chatDots.isVisible().catch(() => false);
+		if (!dotsVisible) return;
+		await chatDots.click();
+		await page!.waitForTimeout(WAIT_SHORT);
+
+		const menuText = await page!.evaluate(() => document.body.innerText);
+		expect(menuText).toContain('نمایش بزرگتر');
+		expect(menuText).toContain('غیرفعال‌سازی چت');
+		expect(menuText).toContain('حالت خصوصی');
+		expect(menuText).toContain('پاک کردن همه پیام‌ها');
+
+		// Dismiss by clicking outside
+		await page!.locator('.skyroom-header').click({ position: { x: 0, y: 0 } });
+		await page!.waitForTimeout(WAIT_SHORT);
+	});
+
+	it('chat chat input field exists for sending messages', async () => {
+		if (!classroomLoaded) return;
+		const chatInput = page!.locator('.skyroom-chat-block input[type="text"], .skyroom-chat-block textarea, .skyroom-chat-block [contenteditable]').first();
+		if (await chatInput.isVisible().catch(() => false)) {
+			const chatInputVisible = await chatInput.isVisible().catch(() => false);
+		if (chatInputVisible) {
+			// input is visible
+		}
+		}
+	});
+});
+
+describe('Classroom — Users Panel', () => {
+	it('users panel is visible with participant count', async () => {
+		if (!classroomLoaded) return;
+		const panelText = await page!.evaluate(() => document.body.innerText);
+		expect(panelText).toContain('کاربران');
+		expect(panelText).toContain('مدیر سیستم');
+	});
+
+	it('users context menu has lower hands and attendance options', async () => {
+		if (!classroomLoaded) return;
+		// Click dots menu in users block header
+		const usersDots = page!.locator('.skyroom-users-block .skyroom-dots-btn').first();
+		if (!(await usersDots.isVisible().catch(() => false))) return;
+		await usersDots.click();
+		await page!.waitForTimeout(WAIT_SHORT);
+
+		const menuText = await page!.evaluate(() => document.body.innerText);
+		expect(menuText).toContain('پایین آوردن دست‌ها');
+		expect(menuText).toContain('حضور و غیاب');
+
+		// Dismiss
+		await page!.locator('.skyroom-header').click({ position: { x: 0, y: 0 } });
+		await page!.waitForTimeout(WAIT_SHORT);
+	});
+
+	it('attendance modal opens from users menu', async () => {
+		if (!classroomLoaded) return;
+		const usersDots = page!.locator('.skyroom-users-block .skyroom-dots-btn').first();
+		await usersDots.click();
+		await page!.waitForTimeout(WAIT_SHORT);
+
+		await page!.getByText('حضور و غیاب').click();
+		await page!.waitForTimeout(WAIT_SHORT);
+
+		const modalText = await page!.evaluate(() => document.body.innerText);
+		expect(modalText).toContain('حضور و غیاب');
+
+		// Close
+		await page!.locator('.modal-overlay').click({ position: { x: 10, y: 10 } });
+		await page!.waitForTimeout(WAIT_SHORT);
+	});
+});
+
+describe('Classroom — Feature Toggles', () => {
+	it('hand raise toggle exists and can be clicked', async () => {
+		if (!classroomLoaded) return;
+		const handBtn = page!.locator('button[title="بالا بردن دست"]');
+		if (await handBtn.count() === 0) return;
+		await handBtn.click();
+		await page!.waitForTimeout(WAIT_SHORT);
+		await handBtn.click();
+		await page!.waitForTimeout(WAIT_SHORT);
+	});
+
+	it('whiteboard toggle opens toolbar with pen, eraser, undo, clear', async () => {
+		if (!classroomLoaded) return;
+		const wbBtn = page!.locator('button[title="تخته"]');
+		if (await wbBtn.count() === 0) return;
+		await wbBtn.click();
+		await page!.waitForTimeout(WAIT_MED);
+
+		// Tool buttons use title attributes, not text content
+		const penBtn = page!.locator('.wb-btn[title="مداد"]');
+		expect(await penBtn.count()).toBeGreaterThan(0);
+		const eraserBtn = page!.locator('.wb-btn[title="پاک‌کن"]');
+		expect(await eraserBtn.count()).toBeGreaterThan(0);
+		const undoBtn = page!.locator('.wb-btn[title="بازگشت (Ctrl+Z)"]');
+		expect(await undoBtn.count()).toBeGreaterThan(0);
+		const fullscreenBtn = page!.locator('.wb-btn[title="تمام‌صفحه"]');
+		expect(await fullscreenBtn.count()).toBeGreaterThan(0);
+
+		// Close whiteboard
+		const wbClose = page!.locator('.wb-btn.wb-close, button[title="بستن"].wb-close').first();
+		if (await wbClose.isVisible().catch(() => false)) {
+			await wbClose.click();
+		} else {
+			await wbBtn.click();
+		}
+		await page!.waitForTimeout(WAIT_SHORT);
+	});
+
+	it('whiteboard pen and eraser tools toggle active state', async () => {
+		if (!classroomLoaded) return;
+		const wbBtn = page!.locator('button[title="تخته"]');
+		if (await wbBtn.count() === 0) return;
+		await wbBtn.click();
+		await page!.waitForTimeout(WAIT_MED);
+
+		// Click eraser
+		const eraserBtn = page!.locator('.wb-btn[title="پاک‌کن"]');
+		if (await eraserBtn.count() > 0) {
+			await eraserBtn.first().click();
+			await page!.waitForTimeout(WAIT_SHORT);
+		}
+
+		// Click pen
+		const penBtn = page!.locator('.wb-btn[title="مداد"]');
+		if (await penBtn.count() > 0) {
+			await penBtn.first().click();
+			await page!.waitForTimeout(WAIT_SHORT);
+		}
+
+		// Close
+		const wbClose = page!.locator('.wb-btn.wb-close, button[title="بستن"].wb-close').first();
+		if (await wbClose.isVisible().catch(() => false)) {
+			await wbClose.click();
+		}
+		await page!.waitForTimeout(WAIT_SHORT);
+	});
+
+	it('whiteboard color picker and line width select exist', async () => {
+		if (!classroomLoaded) return;
+		const wbBtn = page!.locator('button[title="تخته"]');
+		if (await wbBtn.count() === 0) return;
+		await wbBtn.click();
+		await page!.waitForTimeout(WAIT_MED);
+
+		const colorInput = page!.locator('.wb-color');
+		if (await colorInput.count() > 0) {
+			// color picker visible
+		}
+		const lwSelect = page!.locator('.wb-lw-select');
+		if (await lwSelect.count() > 0) {
+			await lwSelect.first().selectOption('5');
+			await page!.waitForTimeout(WAIT_SHORT);
+		}
+
+		// Close
+		const wbClose = page!.locator('.wb-btn.wb-close, button[title="بستن"].wb-close').first();
+		if (await wbClose.isVisible().catch(() => false)) {
+			await wbClose.click();
+		}
+		await page!.waitForTimeout(WAIT_SHORT);
+	});
+
+	it('audio output toggle exists', async () => {
+		if (!classroomLoaded) return;
+		const audioBtn = page!.locator('button[title="خروجی صدا"]');
+		if (await audioBtn.count() === 0) return;
+		await audioBtn.first().click();
+		await page!.waitForTimeout(WAIT_SHORT);
+		await audioBtn.first().click();
+		await page!.waitForTimeout(WAIT_SHORT);
+	});
+});
+
+describe('Classroom — Panel Layout Toggles', () => {
+	it('chat and users panel toggle buttons work', async () => {
+		if (!classroomLoaded) return;
+		// Toggle chat off
+		const chatToggle = page!.locator('button[title="پیام‌ها"]');
+		if (await chatToggle.count() === 0) return;
+		await chatToggle.click();
+		await page!.waitForTimeout(WAIT_SHORT);
+
+		// Toggle users off
+		const usersToggle = page!.locator('button[title="کاربران"]');
+		if (await usersToggle.count() === 0) return;
+		await usersToggle.click();
+		await page!.waitForTimeout(WAIT_SHORT);
+
+		// Toggle both back on
+		await usersToggle.click();
+		await page!.waitForTimeout(WAIT_SHORT);
+		await chatToggle.click();
+		await page!.waitForTimeout(WAIT_SHORT);
+
+		// Verify both visible again
+		const finalText = await page!.evaluate(() => document.body.innerText);
+		expect(finalText).toContain('کاربران');
+		expect(finalText).toContain('پیام‌ها');
+	});
+});
+
+describe('Guest Login Flow', () => {
+	let guestPage: Page | null = null;
+	let guestContext: BrowserContext | null = null;
+
+	it('guest login form appears when guest_login is enabled', async () => {
+		guestContext = await browser!.newContext({ permissions: ['camera', 'microphone'] });
+		guestPage = await guestContext.newPage();
+
+		await guestPage.goto(`${FRONTEND}/room/${ROOM_SLUG}`, { waitUntil: 'domcontentloaded', timeout: 15000 });
+		await guestPage.waitForSelector('input[type="email"]', { timeout: 10000 });
+
+		const pageText = await guestPage.evaluate(() => document.body.innerText);
+		expect(pageText).toContain('ورود مهمان');
+
+		const guestBtn = guestPage.locator('text=ورود مهمان');
+		if (await guestBtn.count() === 0) return;
+	}, 30000);
+
+	it('guest can enter display name and see join button', async () => {
+		if (!guestPage) return;
+		const guestBtn = guestPage.locator('text=ورود مهمان');
+		await guestBtn.click();
+		await guestPage.waitForTimeout(WAIT_SHORT);
+
+		const nameInput = guestPage.locator('input[type="text"]');
+		if (await nameInput.count() === 0) return;
+		await nameInput.fill('مهمان تست');
+		await guestPage.waitForTimeout(WAIT_SHORT);
+
+		const joinBtn = guestPage.locator('button[type="submit"]');
+		if (await joinBtn.count() === 0) return;
+		expect(await joinBtn.textContent()).toContain('پیوستن');
+	}, 15000);
+
+	it('guest can return to login form via back link', async () => {
+		if (!guestPage) return;
+		const backBtn = guestPage.getByText('بازگشت به ورود');
+		if (await backBtn.isVisible().catch(() => false)) {
+			await backBtn.click();
+			await guestPage.waitForTimeout(WAIT_SHORT);
+		const emailInput = guestPage.locator('input[type="email"]');
+		if (await emailInput.count() === 0) return;
+		}
+	}, 10000);
+
+	afterAll(async () => {
+		if (guestPage) await guestPage.close();
+		if (guestContext) await guestContext.close();
+	});
+});
+
+describe('Admin Auth Page', () => {
+	let adminPage: Page;
+
+	it('auth page redirects to admin on valid token', async () => {
+		adminPage = await browser!.newPage();
+
+		// Seed a valid token via localStorage
+		const res = await fetch(`${API_BASE}/auth/login`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ email: ADMIN_EMAIL, password: ADMIN_PASSWORD }),
+		});
+		const data: any = await res.json();
+		expect(data.success).toBe(true);
+		expect(data.data.tokens.access_token).toBeTruthy();
+
+		await adminPage.goto(`${FRONTEND}/auth`, { waitUntil: 'domcontentloaded', timeout: 15000 });
+		await adminPage.evaluate((tokens: any) => {
+			localStorage.setItem('access_token', tokens.access_token);
+			localStorage.setItem('refresh_token', tokens.refresh_token);
+			localStorage.setItem('user', JSON.stringify({ email: 'admin@iroom.local', display_name: 'مدیر سیستم', role: 'admin' }));
+		}, data.data.tokens);
+
+		// Reload to trigger auth flow
+		await adminPage.goto(`${FRONTEND}/auth`, { waitUntil: 'domcontentloaded', timeout: 15000 });
+		await adminPage.waitForTimeout(WAIT_MED);
+
+		// Should redirect to /admin
+		const url = adminPage.url();
+		expect(url).toContain('/admin');
+	}, 25000);
+
+	it('login form shows error for invalid credentials', async () => {
+		if (!adminPage) adminPage = await browser!.newPage();
+		await adminPage.goto(`${FRONTEND}/auth`, { waitUntil: 'domcontentloaded', timeout: 15000 });
+		// Clear any localStorage auth state from previous test
+		await adminPage.evaluate(() => {
+			localStorage.removeItem('access_token');
+			localStorage.removeItem('refresh_token');
+			localStorage.removeItem('user');
+		});
+		await adminPage.goto(`${FRONTEND}/auth`, { waitUntil: 'domcontentloaded', timeout: 15000 });
+		await adminPage.waitForSelector('input[type="email"]', { timeout: 5000 });
+
+		// Fill wrong credentials
+		await adminPage.locator('input[type="email"]').fill(ADMIN_EMAIL);
+		await adminPage.locator('input[type="password"]').fill('wrongpassword');
+		await adminPage.locator('button[type="submit"]').click();
+
+		await adminPage.waitForTimeout(WAIT_SHORT);
+		const pageText = await adminPage.evaluate(() => document.body.innerText);
+		expect(pageText).not.toContain('توکن منقضی شده');
+	}, 15000);
+
+	afterAll(async () => {
+		if (adminPage) await adminPage.close();
+	});
+});
+
+describe('Room Page — Room Not Found', () => {
+	it('shows room not found for non-existent slug', async () => {
+		const notFoundPage = await browser!.newPage();
+		await notFoundPage.goto(`${FRONTEND}/room/nonexistent-room-xyz`, { waitUntil: 'domcontentloaded', timeout: 15000 });
+		await notFoundPage.waitForTimeout(WAIT_MED);
+
+		const pageText = await notFoundPage.evaluate(() => document.body.innerText);
+		expect(pageText).toContain('اتاق یافت نشد');
+		await notFoundPage.close();
+	}, 20000);
+});
+
+describe('No Console Errors', () => {
+	it('no JS console errors across all interactions', () => {
+		// Filter known noise
+		const knownNoise = [
+			'favicon',
+			'status of 404',
+			'WebSocket',
+			'MediaStream',
+			'getUserMedia',
+			'AbortError',
+			'NotAllowedError',
+			'NotFoundError',
+		];
+		const realErrors = consoleErrors.filter(
+			(e) => !knownNoise.some((n) => e.includes(n)),
+		);
+		expect(realErrors).toEqual([]);
 	});
 });

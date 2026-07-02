@@ -1,21 +1,21 @@
 /**
  * Seed — Creates initial admin user on first database run.
  *
- * Only runs if the users table is empty. Generates a random 12-character
- * password and logs it to stdout. The admin user can then log in at /auth.
+ * Only runs if the users table is empty. Uses "iroomteppasword123" as the default password.
+ * The admin user can then log in at /auth and change it later.
  *
- * Default admin: admin@iroom.local (password shown in logs)
+ * Default admin: admin@iroom.local / iroomteppasword123
  */
 package database
 
 import (
-	"crypto/rand"
 	"database/sql"
-	"fmt"
 	"log/slog"
 
 	"github.com/iroom/iroom/internal/pkg/hash"
 )
+
+const DefaultAdminPassword = "iroomteppasword123"
 
 func Seed(db *sql.DB) error {
 	var count int
@@ -27,8 +27,7 @@ func Seed(db *sql.DB) error {
 		return nil
 	}
 
-	password := generateRandomPassword(12)
-	hashedPassword, err := hash.Hash(password)
+	hashedPassword, err := hash.Hash(DefaultAdminPassword)
 	if err != nil {
 		return err
 	}
@@ -41,18 +40,6 @@ func Seed(db *sql.DB) error {
 		return err
 	}
 
-	slog.Info("seeded admin user", "email", "admin@iroom.local", "initial_password", password)
+	slog.Info("seeded admin user", "email", "admin@iroom.local", "default_password", DefaultAdminPassword)
 	return nil
-}
-
-func generateRandomPassword(length int) string {
-	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%"
-	b := make([]byte, length)
-	if _, err := rand.Read(b); err != nil {
-		return "Admin@2024Secure"
-	}
-	for i := range b {
-		b[i] = charset[int(b[i])%len(charset)]
-	}
-	return fmt.Sprintf("%s", b)
 }

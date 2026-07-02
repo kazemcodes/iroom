@@ -112,7 +112,7 @@ async function request<T>(
 			body: body ? JSON.stringify(body) : undefined
 		});
 
-		if (res.status === 401 && browser) {
+		if (res.status === 401 && browser && token) {
 			// Try to refresh the token before giving up
 			const refreshed = await tryRefreshToken();
 			if (refreshed) {
@@ -182,7 +182,7 @@ async function postFormData<T>(path: string, formData: FormData): Promise<APIRes
 			body: formData
 		});
 
-		if (res.status === 401 && browser) {
+		if (res.status === 401 && browser && token) {
 			// Try to refresh the token before giving up
 			const refreshed = await tryRefreshToken();
 			if (refreshed) {

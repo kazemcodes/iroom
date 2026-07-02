@@ -1,11 +1,12 @@
 <script lang="ts">
-	import { page } from '$app/state';
-	import { goto } from '$app/navigation';
-	import { api } from '$lib/api';
-	import { auth } from '$lib/stores';
-	import { dev } from '$app/environment';
-	import { onMount, onDestroy } from 'svelte';
-	import type { User, Tokens, Room } from '$lib/types';
+import { page } from '$app/state';
+import { goto } from '$app/navigation';
+import { api } from '$lib/api';
+import { auth } from '$lib/stores';
+import { browser } from '$app/environment';
+import { dev } from '$app/environment';
+import { onMount, onDestroy } from 'svelte';
+import type { User, Tokens, Room } from '$lib/types';
 
 	const chatDebug = (...args: any[]) => { if (dev) console.debug('[chat]', ...args); };
 	const streamDebug = (...args: any[]) => console.debug('[stream]', ...args);
@@ -58,10 +59,19 @@
 	}
 
 	onMount(async () => {
-		// If already logged in, try to join room directly
+		// Mobile: users panel hidden by default
+		isMobile = window.innerWidth < 768;
+		if (isMobile) showUsersPanel = false;
+
+		// If already logged in, validate token before trying to join
 		if (isLoggedIn) {
-			await joinRoom();
-			return;
+			const meRes = await api.get<User>('/auth/me');
+			if (meRes.success && meRes.data) {
+				await joinRoom();
+				return;
+			}
+			// Token expired — clear auth state and show the login form
+			auth.logout();
 		}
 
 		// Check for guest cookie first
@@ -226,6 +236,7 @@
 	let handRaised = $state(false);
 	let elapsedSeconds = $state(0);
 	let timerInterval: ReturnType<typeof setInterval> | null = null;
+	let isMobile = $state(false);
 	let showUsersPanel = $state(true);
 	let showChatPanel = $state(true);
 	let showAppMenu = $state(false);
@@ -895,7 +906,7 @@
 
 		const isEraser = whiteboardTool === 'eraser';
 		const lw = isEraser ? 40 : whiteboardLineWidth;
-		const strokeColor = isEraser ? 'rgba(0,0,0,0)' : whiteboardColor;
+		const strokeColor = isEraser ? 'rgba(0,0,0,1)' : whiteboardColor;
 		const compositeOp = isEraser ? 'destination-out' : 'source-over';
 
 		// Store stroke (virtual coords)
@@ -1496,6 +1507,8 @@
 	<symbol id="shape_more_vert" viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></symbol>
 	<symbol id="shape_exit" viewBox="0 0 24 24"><path d="M10.09 15.59L11.5 17l5-5-5-5-1.41 1.41L12.67 11H3v2h9.67l-2.58 2.59zM19 3H5c-1.11 0-2 .9-2 2v4h2V5h14v14H5v-4H3v4c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/></symbol>
 	<symbol id="shape_keyboard_arrow_down" viewBox="0 0 24 24"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></symbol>
+	<symbol id="shape_power_settings_new" viewBox="0 0 24 24"><path d="M13 3h-2v10h2V3zm4.83 2.17l-1.42 1.42C17.99 7.86 19 9.81 19 12c0 3.87-3.13 7-7 7s-7-3.13-7-7c0-2.19 1.01-4.14 2.59-5.42L6.17 5.17C4.23 6.82 3 9.26 3 12c0 4.97 4.03 9 9 9s9-4.03 9-9c0-2.74-1.23-5.18-3.17-6.83z"/></symbol>
+	<symbol id="shape_clear" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></symbol>
 </svg>
 
 <style>
@@ -1574,7 +1587,8 @@
 	.whiteboard-container { width: 100%; height: 100%; background: #1c2a3a; position: relative; }
 	.whiteboard-canvas { width: 100%; height: 100%; cursor: crosshair; touch-action: none; }
 	.whiteboard-tools { position: absolute; top: 12px; right: 12px; display: flex; align-items: center; gap: 4px; background: rgba(20,30,45,0.92); backdrop-filter: blur(8px); padding: 6px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08); z-index: 10; }
-	.wb-btn { width: 34px; height: 34px; border-radius: 8px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; background: transparent; color: var(--inactive); transition: all 0.15s; }
+	.wb-btn { width: 34px; height: 34px; border-radius: 8px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; background: transparent; color: #b0b5c0; transition: all 0.15s; }
+	.whiteboard-tools svg { fill: currentColor; }
 	.wb-btn:hover { background: rgba(255,255,255,0.08); color: #e0e0e6; }
 	.wb-btn.active { background: var(--accent); color: #fff; }
 	.wb-btn.wb-close:hover { background: rgba(224,82,82,0.2); color: #e05252; }
@@ -1582,7 +1596,7 @@
 	.wb-color::-webkit-color-swatch-wrapper { padding: 2px; }
 	.wb-color::-webkit-color-swatch { border-radius: 50%; border: none; }
 	.wb-sep { width: 1px; height: 20px; background: rgba(255,255,255,0.1); margin: 0 2px; }
-	.wb-lw-select { padding: 4px 6px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.12); background: transparent; color: var(--inactive); font-size: 0.7rem; cursor: pointer; font-family: var(--font-family); }
+	.wb-lw-select { padding: 4px 6px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.12); background: transparent; color: #b0b5c0; font-size: 0.7rem; cursor: pointer; font-family: var(--font-family); }
 	.wb-lw-select:hover { border-color: var(--accent); color: #e0e0e6; }
 	.wb-lw-select:focus { outline: none; border-color: var(--accent); }
 	.wb-fullscreen { position: fixed !important; inset: 0; z-index: 500; border-radius: 0 !important; }
@@ -1778,8 +1792,8 @@
 	/* Mobile responsive */
 	@media (max-width: 768px) {
 		.skyroom-layout { flex-direction: column; padding: 0 4px 4px; gap: 0; }
-		.skyroom-sidebar { min-width: 0; max-width: none; flex-direction: row; min-height: 120px; max-height: 160px; border-top: 1px solid rgba(255,255,255,0.06); padding: 4px; order: 2; }
-		.skyroom-mainbar { order: 1; }
+		.skyroom-sidebar { min-width: 0; max-width: none; flex-direction: column; flex: 1; min-height: 35vh; border-top: 1px solid rgba(255,255,255,0.06); padding: 4px; order: 2; }
+		.skyroom-mainbar { order: 1; max-height: 55vh; }
 		.skyroom-block { min-height: 0; flex: 1; }
 		.skyroom-room-nav { margin: 4px; padding: 4px 8px; min-height: 38px; }
 		.skyroom-icon-square { width: 32px; height: 32px; }
