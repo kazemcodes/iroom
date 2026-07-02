@@ -1,12 +1,23 @@
-## graphify
+# AGENTS.md — Opencode Minimal Loop
 
-This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
+These rules are loaded by opencode before loop work.
 
-When the user types `/graphify`, invoke the `skill` tool with `skill: "graphify"` before doing anything else.
+## Loop Mode
 
-Rules:
-- For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
-- Dirty graphify-out/ files are expected after hooks or incremental updates; dirty graph files are not a reason to skip graphify. Only skip graphify if the task is about stale or incorrect graph output, or the user explicitly says not to use it.
-- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
-- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
-- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
+- Start in L1 report-only mode.
+- Read `STATE.md` before any triage.
+- Update `STATE.md` after every loop run.
+- Do not edit source code until the human explicitly enables L2.
+
+## Safety
+
+- Never push or merge without human approval.
+- Never edit `.env`, `.env.*`, `auth/`, `payments/`, `secrets/`, or `credentials/`.
+- Use a git worktree for every code-changing attempt.
+- Max 3 fix attempts per item; escalate after that.
+
+## Verification
+
+- For L2+ changes, dispatch a verifier sub-agent after implementation.
+- Run the project's documented tests before proposing a fix.
+- Record test evidence in `STATE.md`.
