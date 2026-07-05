@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"net/http"
+	"os"
 	"sync"
 	"time"
 
@@ -75,6 +76,10 @@ func (rl *rateLimiter) allow(key string) bool {
 }
 
 func RateLimit(limit int, window time.Duration) echo.MiddlewareFunc {
+	// ponytail: RATE_LIMIT_DISABLED env skips rate limiting for local dev/e2e; remove when production hardening needed
+	if os.Getenv("RATE_LIMIT_DISABLED") == "true" || os.Getenv("RATE_LIMIT_DISABLED") == "1" {
+		return func(next echo.HandlerFunc) echo.HandlerFunc { return next }
+	}
 	limiter := newRateLimiter(limit, window)
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {

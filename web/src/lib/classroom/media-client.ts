@@ -9,7 +9,23 @@
  * Adaptive quality: bitrate adjusts based on participant count.
  */
 
-const MIME_TYPE = 'video/webm;codecs=vp8,opus';
+const CODEC_CANDIDATES = [
+	'video/webm;codecs=vp8,opus',
+	'video/webm;codecs=vp9,opus',
+	'video/webm;codecs=vp8',
+	'video/webm',
+	'video/mp4;codecs=h264,aac',
+	'video/mp4',
+];
+
+function pickSupportedMime(): string {
+	for (const mime of CODEC_CANDIDATES) {
+		if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(mime)) return mime;
+	}
+	return CODEC_CANDIDATES[0];
+}
+
+const MIME_TYPE = pickSupportedMime();
 
 /** Offset added to userId for screen-share streams so receivers can distinguish them from webcam. */
 const SCREEN_SHARE_ID_OFFSET = 1_000_000;
