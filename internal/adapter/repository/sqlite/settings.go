@@ -1,14 +1,14 @@
 package repository
 
 import (
-	"database/sql"
+	"github.com/iroom/iroom/internal/database"
 )
 
 type SettingsRepo struct {
-	db *sql.DB
+	db database.DB
 }
 
-func NewSettingsRepo(db *sql.DB) *SettingsRepo {
+func NewSettingsRepo(db database.DB) *SettingsRepo {
 	return &SettingsRepo{db: db}
 }
 

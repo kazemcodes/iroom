@@ -1,19 +1,18 @@
 package repository
 
 import (
-	"database/sql"
 	"fmt"
-	"strings"
 	"time"
 
+	"github.com/iroom/iroom/internal/database"
 	"github.com/iroom/iroom/internal/domain/entity"
 )
 
 type RoomRepo struct {
-	db *sql.DB
+	db database.DB
 }
 
-func NewRoomRepo(db *sql.DB) *RoomRepo {
+func NewRoomRepo(db database.DB) *RoomRepo {
 	return &RoomRepo{db: db}
 }
 
@@ -34,7 +33,7 @@ func (r *RoomRepo) Create(room *entity.Room) error {
 		)
 		if err != nil {
 			// UNIQUE constraint failure on slug → try next suffix
-			if isUniqueConstraint(err) {
+			if r.db.IsUniqueViolation(err) {
 				continue
 			}
 			return err
@@ -62,15 +61,6 @@ func (r *RoomRepo) Create(room *entity.Room) error {
 	room.ID = id
 	room.Slug = candidate
 	return nil
-}
-
-func isUniqueConstraint(err error) bool {
-	if err == nil {
-		return false
-	}
-	msg := err.Error()
-	// sqlite3 driver returns: "UNIQUE constraint failed: rooms.slug"
-	return strings.Contains(msg, "UNIQUE constraint failed") || strings.Contains(msg, "constraint failed: rooms.slug")
 }
 
 func (r *RoomRepo) GetByID(id int64) (*entity.Room, error) {
@@ -208,8 +198,13 @@ func (r *RoomRepo) Count() (int64, error) {
 }
 
 func (r *RoomRepo) AddUser(roomID, userID int64, role string, access int) error {
+	// Portable upsert so re-adding a user updates their role/access instead
+	// of failing. Works identically on SQLite and Postgres.
 	_, err := r.db.Exec(
-		`INSERT OR REPLACE INTO room_users (room_id, user_id, role, access) VALUES (?, ?, ?, ?)`,
+		`INSERT INTO room_users (room_id, user_id, role, access) VALUES (?, ?, ?, ?)
+		 ON CONFLICT (room_id, user_id) DO UPDATE SET
+			role = excluded.role,
+			access = excluded.access`,
 		roomID, userID, role, access,
 	)
 	return err
@@ -285,10 +280,24 @@ func (r *RoomRepo) GetSettings(roomID int64) (*entity.RoomSettings, error) {
 }
 
 func (r *RoomRepo) UpdateSettings(s *entity.RoomSettings) error {
+	// Portable upsert: SQLite and Postgres both support
+	// "ON CONFLICT (pk) DO UPDATE", unlike SQLite-only "INSERT OR REPLACE"
+	// (which also differs subtly in that it deletes then reinserts the row).
 	_, err := r.db.Exec(
-		`INSERT OR REPLACE INTO room_settings (room_id, max_users, recording_enabled, allow_student_video, allow_student_audio,
+		`INSERT INTO room_settings (room_id, max_users, recording_enabled, allow_student_video, allow_student_audio,
 		 allow_student_screen_share, allow_student_whiteboard, allow_student_chat, session_auto_end_minutes, waiting_room_enabled, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+		 ON CONFLICT (room_id) DO UPDATE SET
+			max_users = excluded.max_users,
+			recording_enabled = excluded.recording_enabled,
+			allow_student_video = excluded.allow_student_video,
+			allow_student_audio = excluded.allow_student_audio,
+			allow_student_screen_share = excluded.allow_student_screen_share,
+			allow_student_whiteboard = excluded.allow_student_whiteboard,
+			allow_student_chat = excluded.allow_student_chat,
+			session_auto_end_minutes = excluded.session_auto_end_minutes,
+			waiting_room_enabled = excluded.waiting_room_enabled,
+			updated_at = excluded.updated_at`,
 		s.RoomID, s.MaxUsers, s.RecordingEnabled, s.AllowStudentVideo, s.AllowStudentAudio,
 		s.AllowStudentScreenShare, s.AllowStudentWhiteboard, s.AllowStudentChat,
 		s.SessionAutoEndMinutes, s.WaitingRoomEnabled,

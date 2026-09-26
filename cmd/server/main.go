@@ -5,6 +5,8 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/iroom/iroom/internal/adapter/handler"
@@ -30,7 +32,15 @@ func main() {
 
 	debug.Init()
 
-	db, err := database.New(cfg.Database.Path)
+	db, err := database.Open(database.Config{
+		Driver:          database.Driver(cfg.Database.Driver),
+		Path:            cfg.Database.Path,
+		URL:             cfg.Database.URL,
+		SSLMode:         cfg.Database.SSLMode,
+		MaxOpenConns:    cfg.Database.MaxOpenConns,
+		MaxIdleConns:    cfg.Database.MaxIdleConns,
+		ConnMaxLifetime: cfg.Database.ConnMaxLifetime,
+	})
 	if err != nil {
 		slog.Error("failed to init database", "error", err)
 		os.Exit(1)
@@ -164,9 +174,13 @@ func main() {
 	})
 
 	api.GET("/auth/me", authHandler.Me)
-	api.PUT("/auth/me", func(c echo.Context) error { return response.Success(c, map[string]string{"message": "بروزرسانی شد"}) })
+	api.PUT("/auth/me", func(c echo.Context) error {
+		return response.Success(c, map[string]string{"message": "بروزرسانی شد"})
+	})
 	api.POST("/auth/change-password", userHandler.ChangeOwnPassword)
-	api.POST("/auth/avatar", func(c echo.Context) error { return response.Success(c, map[string]string{"message": "آپلود شد"}) })
+	api.POST("/auth/avatar", func(c echo.Context) error {
+		return response.Success(c, map[string]string{"message": "آپلود شد"})
+	})
 
 	api.GET("/rooms", roomHandler.List)
 	api.GET("/rooms/:id", roomHandler.GetByID)
@@ -263,10 +277,67 @@ func main() {
 	admin.GET("/webhooks/:id/deliveries", webhookHandler.ListDeliveries)
 	admin.POST("/webhooks/:id/test", webhookHandler.Test)
 
+	// Serve the built SvelteKit SPA from the same process.
+	//
+	// On VPS deployments Caddy/nginx terminates this, but platforms like
+	// Hugging Face Spaces (and any single-container host) expose exactly one
+	// port, so the Go binary must serve the frontend too. Registering the
+	// static routes last keeps the API routes above authoritative.
+	registerSPA(e, "static")
+
 	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
-	slog.Info("server starting", "addr", addr)
+	slog.Info("server starting",
+		"addr", addr,
+		"db_driver", string(db.Driver()),
+		"port_source", portSource(),
+	)
 	if err := e.Start(addr); err != nil {
 		slog.Error("server error", "error", err)
 		os.Exit(1)
 	}
+}
+
+// registerSPA serves the static frontend build from dir with an SPA fallback.
+//
+// Client-side routes (e.g. /room/my-room) have no file on disk, so any GET
+// that isn't an API/WebSocket route and doesn't match a real file falls back
+// to index.html and is resolved by the SvelteKit router in the browser.
+func registerSPA(e *echo.Echo, dir string) {
+	index := filepath.Join(dir, "index.html")
+	if _, err := os.Stat(index); err != nil {
+		// No frontend build present (e.g. backend-only dev mode).
+		slog.Info("no frontend build found, skipping static serving", "dir", dir)
+		return
+	}
+
+	e.Static("/", dir)
+	slog.Info("serving frontend", "dir", dir)
+
+	e.GET("/*", func(c echo.Context) error {
+		reqPath := c.Request().URL.Path
+		// Never shadow the API or the WebSocket upgrade endpoint.
+		if strings.HasPrefix(reqPath, "/api/") || strings.HasPrefix(reqPath, "/ws") {
+			return echo.ErrNotFound
+		}
+
+		// Serve a real file if it exists, otherwise fall back to the SPA shell.
+		candidate := filepath.Join(dir, filepath.Clean("/"+reqPath))
+		if info, err := os.Stat(candidate); err == nil && !info.IsDir() {
+			return c.File(candidate)
+		}
+		return c.File(index)
+	})
+}
+
+// portSource reports which env var supplied the listen port, for diagnostics.
+// Container platforms (Hugging Face Spaces, Render, Fly.io) set PORT, while
+// local development uses SERVER_PORT.
+func portSource() string {
+	if os.Getenv("PORT") != "" {
+		return "PORT"
+	}
+	if os.Getenv("SERVER_PORT") != "" {
+		return "SERVER_PORT"
+	}
+	return "config.yaml"
 }

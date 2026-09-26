@@ -1,16 +1,15 @@
 package repository
 
 import (
-	"database/sql"
-
+	"github.com/iroom/iroom/internal/database"
 	"github.com/iroom/iroom/internal/domain/entity"
 )
 
 type NotificationRepo struct {
-	db *sql.DB
+	db database.DB
 }
 
-func NewNotificationRepo(db *sql.DB) *NotificationRepo {
+func NewNotificationRepo(db database.DB) *NotificationRepo {
 	return &NotificationRepo{db: db}
 }
 

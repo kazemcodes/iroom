@@ -4,16 +4,19 @@ import (
 	"database/sql"
 	"testing"
 
+	"github.com/iroom/iroom/internal/database"
 	"github.com/iroom/iroom/internal/domain/entity"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func setupTestDB(t *testing.T) *sql.DB {
+func setupTestDB(t *testing.T) database.DB {
 	t.Helper()
-	db, err := sql.Open("sqlite3", ":memory:")
+	sqlDB, err := sql.Open("sqlite3", ":memory:")
 	require.NoError(t, err)
+
+	db := database.NewConn(sqlDB, database.DriverSQLite)
 
 	schema := `
 	CREATE TABLE IF NOT EXISTS rooms (
@@ -113,9 +116,9 @@ func TestRoomRepo_GetByID(t *testing.T) {
 	repo := NewRoomRepo(db)
 
 	room := &entity.Room{
-		OwnerID:     1,
-		Name:        "Fetch Room",
-		Slug:        "fetch-room",
+		OwnerID: 1,
+		Name:    "Fetch Room",
+		Slug:    "fetch-room",
 	}
 	require.NoError(t, repo.Create(room))
 
@@ -395,16 +398,16 @@ func TestRoomRepo_UpdateSettings(t *testing.T) {
 	require.NoError(t, repo.Create(room))
 
 	s := &entity.RoomSettings{
-		RoomID:                    room.ID,
-		MaxUsers:                  100,
-		RecordingEnabled:          false,
-		AllowStudentVideo:         true,
-		AllowStudentAudio:         false,
-		AllowStudentScreenShare:   true,
-		AllowStudentWhiteboard:    true,
-		AllowStudentChat:          false,
-		SessionAutoEndMinutes:     45,
-		WaitingRoomEnabled:        true,
+		RoomID:                  room.ID,
+		MaxUsers:                100,
+		RecordingEnabled:        false,
+		AllowStudentVideo:       true,
+		AllowStudentAudio:       false,
+		AllowStudentScreenShare: true,
+		AllowStudentWhiteboard:  true,
+		AllowStudentChat:        false,
+		SessionAutoEndMinutes:   45,
+		WaitingRoomEnabled:      true,
 	}
 	require.NoError(t, repo.UpdateSettings(s))
 
@@ -553,7 +556,7 @@ func TestRoomRepo_Delete_CascadesRoomSettings(t *testing.T) {
 		"room_settings should be cascade-deleted when room is deleted")
 }
 
-func mustCount(t *testing.T, db *sql.DB, query string, args ...interface{}) int {
+func mustCount(t *testing.T, db database.DB, query string, args ...interface{}) int {
 	t.Helper()
 	var count int
 	err := db.QueryRow(query, args...).Scan(&count)

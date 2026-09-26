@@ -1,15 +1,16 @@
 package repository
 
 import (
-	"database/sql"
 	"time"
+
+	"github.com/iroom/iroom/internal/database"
 )
 
 type PasswordResetRepo struct {
-	db *sql.DB
+	db database.DB
 }
 
-func NewPasswordResetRepo(db *sql.DB) *PasswordResetRepo {
+func NewPasswordResetRepo(db database.DB) *PasswordResetRepo {
 	return &PasswordResetRepo{db: db}
 }
 

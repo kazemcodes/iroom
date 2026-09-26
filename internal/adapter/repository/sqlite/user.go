@@ -1,16 +1,15 @@
 package repository
 
 import (
-	"database/sql"
-
+	"github.com/iroom/iroom/internal/database"
 	"github.com/iroom/iroom/internal/domain/entity"
 )
 
 type UserRepo struct {
-	db *sql.DB
+	db database.DB
 }
 
-func NewUserRepo(db *sql.DB) *UserRepo {
+func NewUserRepo(db database.DB) *UserRepo {
 	return &UserRepo{db: db}
 }
 

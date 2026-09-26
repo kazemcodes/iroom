@@ -1,16 +1,15 @@
 package repository
 
 import (
-	"database/sql"
-
+	"github.com/iroom/iroom/internal/database"
 	"github.com/iroom/iroom/internal/domain/entity"
 )
 
 type FileRepo struct {
-	db *sql.DB
+	db database.DB
 }
 
-func NewFileRepo(db *sql.DB) *FileRepo {
+func NewFileRepo(db database.DB) *FileRepo {
 	return &FileRepo{db: db}
 }
 

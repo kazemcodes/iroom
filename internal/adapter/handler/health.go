@@ -1,30 +1,34 @@
 package handler
 
 import (
-	"database/sql"
 	"fmt"
 	"os"
 	"time"
 
+	"github.com/iroom/iroom/internal/database"
 	"github.com/iroom/iroom/internal/pkg/response"
 	"github.com/labstack/echo/v4"
 )
 
 type HealthHandler struct {
-	db        *sql.DB
+	db        database.DB
 	startTime time.Time
 	dbPath    string
 }
 
-func NewHealthHandler(db *sql.DB, dbPath string) *HealthHandler {
+func NewHealthHandler(db database.DB, dbPath string) *HealthHandler {
 	return &HealthHandler{db: db, startTime: time.Now(), dbPath: dbPath}
 }
 
 func (h *HealthHandler) Health(c echo.Context) error {
 	uptime := time.Since(h.startTime)
-	dbSize := "unknown"
-	if info, err := os.Stat(h.dbPath); err == nil {
-		dbSize = formatBytes(info.Size())
+
+	// Only SQLite has a file we can measure; external databases report "n/a".
+	dbSize := "n/a"
+	if h.db.Driver() == database.DriverSQLite && h.dbPath != "" {
+		if info, err := statFile(h.dbPath); err == nil {
+			dbSize = formatBytes(info)
+		}
 	}
 
 	var activeRooms int64
@@ -35,11 +39,21 @@ func (h *HealthHandler) Health(c echo.Context) error {
 	return response.Success(c, map[string]interface{}{
 		"status":        "ok",
 		"uptime":        formatUptime(uptime),
+		"db_driver":     string(h.db.Driver()),
 		"db_size":       dbSize,
 		"webrtc_status": "pion_builtin",
 		"active_rooms":  activeRooms,
 		"total_users":   totalUsers,
 	})
+}
+
+// statFile returns the size in bytes of the file at path.
+func statFile(path string) (int64, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return 0, err
+	}
+	return info.Size(), nil
 }
 
 func formatUptime(d time.Duration) string {

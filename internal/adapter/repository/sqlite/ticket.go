@@ -1,16 +1,15 @@
 package repository
 
 import (
-	"database/sql"
-
+	"github.com/iroom/iroom/internal/database"
 	"github.com/iroom/iroom/internal/domain/entity"
 )
 
 type SessionLogRepo struct {
-	db *sql.DB
+	db database.DB
 }
 
-func NewSessionLogRepo(db *sql.DB) *SessionLogRepo {
+func NewSessionLogRepo(db database.DB) *SessionLogRepo {
 	return &SessionLogRepo{db: db}
 }
 

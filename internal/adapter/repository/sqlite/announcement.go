@@ -1,16 +1,15 @@
 package repository
 
 import (
-	"database/sql"
-
+	"github.com/iroom/iroom/internal/database"
 	"github.com/iroom/iroom/internal/domain/entity"
 )
 
 type AnnouncementRepo struct {
-	db *sql.DB
+	db database.DB
 }
 
-func NewAnnouncementRepo(db *sql.DB) *AnnouncementRepo {
+func NewAnnouncementRepo(db database.DB) *AnnouncementRepo {
 	return &AnnouncementRepo{db: db}
 }
 

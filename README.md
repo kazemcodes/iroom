@@ -57,14 +57,19 @@ cd web && npm install && npm run dev
 ## Architecture
 
 ```
-┌─────────┐     ┌──────────┐     ┌──────────────┐
-│  Caddy   │────▶│   Go     │────▶│   SQLite     │
-│  :80     │     │  :8080   │     │  iroom.db    │
-└─────────┘     │  (Echo)  │     └──────────────┘
-                └──────────┘
+┌─────────┐     ┌──────────┐     ┌──────────────────┐
+│  Caddy   │────▶│   Go     │────▶│ SQLite (default) │
+│  :80     │     │  :8080   │     │   or Postgres    │
+└─────────┘     │  (Echo)  │     │ (Supabase/Neon)  │
+                └──────────┘     └──────────────────┘
 ```
 
-**Stack:** Go + Echo + SQLite + SvelteKit + Tailwind CSS
+**Stack:** Go + Echo + SQLite/Postgres + SvelteKit + Tailwind CSS
+
+The database layer is driver-agnostic: repositories depend on a portable
+`database.DB` interface, and `DB_DRIVER` (plus `DATABASE_URL`) selects the
+backend at startup. Nothing above `internal/database` needs to change to move
+from SQLite to Postgres.
 
 ---
 
@@ -77,9 +82,31 @@ cp .env.example .env
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `SERVER_PORT` | `8080` | Backend port |
+| `PORT` | — | Listen port (takes precedence; set by HF Spaces/Render/Fly) |
+| `DB_DRIVER` | `sqlite` | `sqlite` or `postgres` |
+| `DATABASE_PATH` | `iroom.db` | SQLite file path |
+| `DATABASE_URL` | — | Postgres DSN (implies `DB_DRIVER=postgres`) |
+| `SUPABASE_DB_URL` | — | Alias for `DATABASE_URL` |
+| `DB_SSLMODE` | — | e.g. `require`; only added if the URL has no `sslmode` |
+| `DB_MAX_OPEN_CONNS` | `10` | Postgres pool size |
+| `DB_MAX_IDLE_CONNS` | `5` | Postgres idle connections |
 | `JWT_SECRET` | `change-me...` | JWT secret (change in prod!) |
 | `JWT_ACCESS_EXPIRY` | `15` | Access token lifetime (min) |
 | `UPLOAD_MAX_SIZE` | `52428800` | Max upload (50MB) |
+
+### Free / ephemeral hosting
+
+Containers on Hugging Face Spaces, Render and Fly.io lose their local disk on
+every restart, so a local `iroom.db` is not viable there. Point the app at an
+external Postgres instead:
+
+```bash
+DB_DRIVER=postgres
+DATABASE_URL=postgresql://postgres.REF:PASSWORD@aws-0-REGION.pooler.supabase.com:5432/postgres?sslmode=require
+```
+
+The schema is created automatically on first boot. See
+[docs/hosting-free.md](docs/hosting-free.md) for the full walkthrough.
 
 ---
 

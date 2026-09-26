@@ -1,18 +1,18 @@
 package repository
 
 import (
-	"database/sql"
 	"encoding/json"
 	"strings"
 
+	"github.com/iroom/iroom/internal/database"
 	"github.com/iroom/iroom/internal/domain/entity"
 )
 
 type PollRepo struct {
-	db *sql.DB
+	db database.DB
 }
 
-func NewPollRepo(db *sql.DB) *PollRepo {
+func NewPollRepo(db database.DB) *PollRepo {
 	return &PollRepo{db: db}
 }
 
@@ -94,9 +94,12 @@ func (r *PollRepo) Delete(id int64) error {
 }
 
 func (r *PollRepo) Vote(vote *entity.PollVote) error {
-	// Use INSERT OR REPLACE to handle re-voting (update existing vote)
+	// Portable upsert to handle re-voting (update the existing vote).
+	// "ON CONFLICT ... DO UPDATE" is supported by both SQLite and Postgres.
 	_, err := r.db.Exec(
-		`INSERT OR REPLACE INTO poll_votes (poll_id, user_id, option_index) VALUES (?, ?, ?)`,
+		`INSERT INTO poll_votes (poll_id, user_id, option_index) VALUES (?, ?, ?)
+		 ON CONFLICT (poll_id, user_id) DO UPDATE SET
+			option_index = excluded.option_index`,
 		vote.PollID, vote.UserID, vote.OptionIndex,
 	)
 	return err

@@ -20,10 +20,10 @@ type Config struct {
 }
 
 type WebRTCConfig struct {
-	PublicIP string `yaml:"public_ip"`
-	STUNPort int    `yaml:"stun_port"`
-	TurnPort int    `yaml:"turn_port"`
-	UDPPort  int    `yaml:"udp_port"`
+	PublicIP   string `yaml:"public_ip"`
+	STUNPort   int    `yaml:"stun_port"`
+	TurnPort   int    `yaml:"turn_port"`
+	UDPPort    int    `yaml:"udp_port"`
 	TurnSecret string `yaml:"turn_secret"`
 }
 
@@ -33,18 +33,31 @@ type ServerConfig struct {
 }
 
 type DatabaseConfig struct {
+	// Driver selects the backend: "sqlite" (default) or "postgres".
+	Driver string `yaml:"driver"`
+	// Path is the SQLite database file (driver=sqlite).
 	Path string `yaml:"path"`
+	// URL is the PostgreSQL connection string (driver=postgres).
+	URL string `yaml:"url"`
+	// SSLMode overrides the sslmode parameter of the Postgres URL.
+	SSLMode string `yaml:"ssl_mode"`
+	// MaxOpenConns caps the connection pool (0 = driver default).
+	MaxOpenConns int `yaml:"max_open_conns"`
+	// MaxIdleConns caps idle connections (0 = driver default).
+	MaxIdleConns int `yaml:"max_idle_conns"`
+	// ConnMaxLifetime recycles connections after N seconds (0 = never).
+	ConnMaxLifetime int `yaml:"conn_max_lifetime"`
 }
 
 type JWTConfig struct {
-	Secret          string `yaml:"secret"`
-	AccessExpiry    int    `yaml:"access_expiry"`
-	RefreshExpiry   int    `yaml:"refresh_expiry"`
+	Secret        string `yaml:"secret"`
+	AccessExpiry  int    `yaml:"access_expiry"`
+	RefreshExpiry int    `yaml:"refresh_expiry"`
 }
 
 type UploadConfig struct {
-	MaxSize    int64  `yaml:"max_size"`
-	UploadDir  string `yaml:"upload_dir"`
+	MaxSize   int64  `yaml:"max_size"`
+	UploadDir string `yaml:"upload_dir"`
 }
 
 type ExternalConfig struct {
@@ -96,8 +109,48 @@ func applyEnvOverrides(cfg *Config) {
 			cfg.Server.Port = p
 		}
 	}
+	// PORT is what container platforms (Hugging Face Spaces, Render, Fly.io)
+	// set, so it takes precedence over the local SERVER_PORT default.
+	if v := os.Getenv("PORT"); v != "" {
+		if p, err := strconv.Atoi(v); err == nil {
+			cfg.Server.Port = p
+		}
+	}
 	if v := os.Getenv("DATABASE_PATH"); v != "" {
 		cfg.Database.Path = v
+	}
+	if v := os.Getenv("DB_DRIVER"); v != "" {
+		cfg.Database.Driver = v
+	}
+	// DATABASE_URL is the canonical name; SUPABASE_DB_URL is accepted as an
+	// alias so pasting the Supabase "URI" field works without renaming.
+	if v := os.Getenv("DATABASE_URL"); v != "" {
+		cfg.Database.URL = v
+	}
+	if v := os.Getenv("SUPABASE_DB_URL"); v != "" {
+		cfg.Database.URL = v
+	}
+	// A Postgres URL implies the postgres driver, so `DB_DRIVER` is optional.
+	if cfg.Database.Driver == "" && cfg.Database.URL != "" {
+		cfg.Database.Driver = "postgres"
+	}
+	if v := os.Getenv("DB_MAX_OPEN_CONNS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			cfg.Database.MaxOpenConns = n
+		}
+	}
+	if v := os.Getenv("DB_MAX_IDLE_CONNS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			cfg.Database.MaxIdleConns = n
+		}
+	}
+	if v := os.Getenv("DB_CONN_MAX_LIFETIME"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			cfg.Database.ConnMaxLifetime = n
+		}
+	}
+	if v := os.Getenv("DB_SSLMODE"); v != "" {
+		cfg.Database.SSLMode = v
 	}
 	if v := os.Getenv("JWT_SECRET"); v != "" {
 		cfg.JWT.Secret = v
@@ -173,7 +226,13 @@ func Default() *Config {
 			Port: 8080,
 		},
 		Database: DatabaseConfig{
-			Path: "iroom.db",
+			Driver: "sqlite",
+			Path:   "iroom.db",
+			URL:    "",
+			// SQLite needs a single connection; Postgres uses these.
+			MaxOpenConns:    10,
+			MaxIdleConns:    5,
+			ConnMaxLifetime: 0,
 		},
 		JWT: JWTConfig{
 			Secret:        "change-me-in-production",

@@ -1,16 +1,15 @@
 package repository
 
 import (
-	"database/sql"
-
+	"github.com/iroom/iroom/internal/database"
 	"github.com/iroom/iroom/internal/domain/entity"
 )
 
 type RecordingRepo struct {
-	db *sql.DB
+	db database.DB
 }
 
-func NewRecordingRepo(db *sql.DB) *RecordingRepo {
+func NewRecordingRepo(db database.DB) *RecordingRepo {
 	return &RecordingRepo{db: db}
 }
 

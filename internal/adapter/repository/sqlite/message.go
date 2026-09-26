@@ -1,16 +1,15 @@
 package repository
 
 import (
-	"database/sql"
-
+	"github.com/iroom/iroom/internal/database"
 	"github.com/iroom/iroom/internal/domain/entity"
 )
 
 type MessageRepo struct {
-	db *sql.DB
+	db database.DB
 }
 
-func NewMessageRepo(db *sql.DB) *MessageRepo {
+func NewMessageRepo(db database.DB) *MessageRepo {
 	return &MessageRepo{db: db}
 }
 

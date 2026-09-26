@@ -1,17 +1,17 @@
 package repository
 
 import (
-	"database/sql"
 	"encoding/json"
 
+	"github.com/iroom/iroom/internal/database"
 	"github.com/iroom/iroom/internal/domain/entity"
 )
 
 type WebhookRepo struct {
-	db *sql.DB
+	db database.DB
 }
 
-func NewWebhookRepo(db *sql.DB) *WebhookRepo {
+func NewWebhookRepo(db database.DB) *WebhookRepo {
 	return &WebhookRepo{db: db}
 }
 
@@ -150,10 +150,10 @@ func (r *WebhookRepo) Delete(id int64) error {
 // Webhook Delivery methods
 
 type WebhookDeliveryRepo struct {
-	db *sql.DB
+	db database.DB
 }
 
-func NewWebhookDeliveryRepo(db *sql.DB) *WebhookDeliveryRepo {
+func NewWebhookDeliveryRepo(db database.DB) *WebhookDeliveryRepo {
 	return &WebhookDeliveryRepo{db: db}
 }
 

@@ -8,12 +8,14 @@ import (
 	"github.com/stretchr/testify/require"
 
 	repository "github.com/iroom/iroom/internal/adapter/repository/sqlite"
+	"github.com/iroom/iroom/internal/database"
 )
 
-func setupTestDB(t *testing.T) *sql.DB {
+func setupTestDB(t *testing.T) database.DB {
 	t.Helper()
-	db, err := sql.Open("sqlite3", ":memory:")
+	sqlDB, err := sql.Open("sqlite3", ":memory:")
 	require.NoError(t, err)
+	db := database.NewConn(sqlDB, database.DriverSQLite)
 
 	schema := `
 	CREATE TABLE IF NOT EXISTS rooms (
@@ -92,17 +94,17 @@ func setupTestDB(t *testing.T) *sql.DB {
 	return db
 }
 
-func newTestRoomRepo(t *testing.T, db *sql.DB) *repository.RoomRepo {
+func newTestRoomRepo(t *testing.T, db database.DB) *repository.RoomRepo {
 	t.Helper()
 	return repository.NewRoomRepo(db)
 }
 
-func newTestUserRepo(t *testing.T, db *sql.DB) *repository.UserRepo {
+func newTestUserRepo(t *testing.T, db database.DB) *repository.UserRepo {
 	t.Helper()
 	return repository.NewUserRepo(db)
 }
 
-func newTestSessionRepo(t *testing.T, db *sql.DB) *repository.SessionRepo {
+func newTestSessionRepo(t *testing.T, db database.DB) *repository.SessionRepo {
 	t.Helper()
 	return repository.NewSessionRepo(db)
 }

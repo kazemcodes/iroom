@@ -1,11 +1,11 @@
 package middleware
 
 import (
-	"database/sql"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/iroom/iroom/internal/database"
 	"github.com/iroom/iroom/internal/pkg/jwt"
 	"github.com/iroom/iroom/internal/pkg/response"
 	"github.com/labstack/echo/v4"
@@ -17,7 +17,7 @@ type maintenanceCache struct {
 	expiresAt time.Time
 }
 
-func MaintenanceMode(db *sql.DB, jwtSecret string) echo.MiddlewareFunc {
+func MaintenanceMode(db database.DB, jwtSecret string) echo.MiddlewareFunc {
 	cache := &maintenanceCache{}
 	ttl := 30 * time.Second
 

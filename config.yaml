@@ -3,7 +3,16 @@ server:
   port: 8080
 
 database:
+  # sqlite (default, no external service) or postgres (Supabase/Neon/RDS).
+  driver: sqlite
+  # Used when driver = sqlite
   path: "iroom.db"
+  # Used when driver = postgres. Override with DATABASE_URL / SUPABASE_DB_URL.
+  url: ""
+  # Postgres connection pool (ignored by sqlite, which uses a single conn)
+  max_open_conns: 10
+  max_idle_conns: 5
+  conn_max_lifetime: 0
 
 jwt:
   secret: "change-me-in-production-use-random-string"

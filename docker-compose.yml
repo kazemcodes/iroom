@@ -7,6 +7,9 @@ services:
       - .env
     environment:
       - TZ=Asia/Tehran
+      # Must bind 0.0.0.0 inside the container for Caddy to reach the service.
+      - SERVER_HOST=0.0.0.0
+      - SERVER_PORT=8080
     volumes:
       - ./data:/app/data
       - ./uploads:/app/uploads

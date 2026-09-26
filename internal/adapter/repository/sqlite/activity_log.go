@@ -1,16 +1,15 @@
 package repository
 
 import (
-	"database/sql"
-
+	"github.com/iroom/iroom/internal/database"
 	"github.com/iroom/iroom/internal/domain/entity"
 )
 
 type ActivityLogRepo struct {
-	db *sql.DB
+	db database.DB
 }
 
-func NewActivityLogRepo(db *sql.DB) *ActivityLogRepo {
+func NewActivityLogRepo(db database.DB) *ActivityLogRepo {
 	return &ActivityLogRepo{db: db}
 }
 

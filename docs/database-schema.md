@@ -2,14 +2,44 @@
 
 ## Overview
 
-IRoom uses **SQLite** as its database, with a file-based migration system. The database file is `iroom.db` in the project root.
+IRoom supports two database backends behind a single abstraction layer
+(`internal/database`):
 
-**Key characteristics:**
+| Driver | Use case | Migrations |
+|--------|----------|------------|
+| `sqlite` (default) | Local development, VPS with a persistent disk | `internal/database/migrations/` |
+| `postgres` | Free/ephemeral hosting (Hugging Face Spaces, Render, Fly) with Supabase/Neon | `internal/database/migrations/postgres/` |
+
+Select the driver with `DB_DRIVER`, or simply set `DATABASE_URL` (which implies
+`postgres`). See [hosting-free.md](hosting-free.md) for deployment details.
+
+## Portability layer
+
+Everything above `internal/database` uses the portable `database.DB` interface
+and writes SQL with `?` placeholders. The driver handles the differences:
+
+| Concern | SQLite | Postgres |
+|---------|--------|----------|
+| Placeholders | `?` (native) | converted to `$1, $2` by `Rebind()` |
+| Upserts | `ON CONFLICT (...) DO UPDATE` | same syntax |
+| Unique errors | `UNIQUE constraint failed` message | SQLSTATE `23505` via `IsUniqueViolation()` |
+| Connection pool | 1 connection (writer safety) | configurable (`DB_MAX_OPEN_CONNS`) |
+
+## Key characteristics (SQLite)
+
 - SQLite with WAL journal mode for concurrent reads
 - Foreign keys enforced (`PRAGMA foreign_keys=ON`)
 - Migrations are embedded in the binary via `go:embed`
 - Schema versioning via `schema_migrations` table
 - Single connection pool (`MaxOpenConns=1`) for SQLite safety
+
+## Key characteristics (Postgres)
+
+- Real connection pool with configurable limits (tuned for free-tier quotas)
+- `TIMESTAMPTZ` timestamps, `BOOLEAN` flags, `BIGSERIAL` primary keys
+- TLS via `sslmode` in the DSN or the `DB_SSLMODE` setting
+- A single idempotent baseline migration (`001_baseline.sql`) rather than the
+  SQLite 001–022 history, since a new Postgres database only needs the end state
 
 ## Migration System
 

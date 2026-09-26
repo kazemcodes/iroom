@@ -9,7 +9,6 @@
 package database
 
 import (
-	"database/sql"
 	"log/slog"
 
 	"github.com/iroom/iroom/internal/pkg/hash"
@@ -17,10 +16,11 @@ import (
 
 const DefaultAdminPassword = "iroomteppasword123"
 
-func Seed(db *sql.DB) error {
+// Seed creates the initial admin user on the first run of an empty database.
+// It is safe to call on every boot: it no-ops when users already exist.
+func Seed(db DB) error {
 	var count int
-	err := db.QueryRow("SELECT COUNT(*) FROM users").Scan(&count)
-	if err != nil {
+	if err := db.QueryRow("SELECT COUNT(*) FROM users").Scan(&count); err != nil {
 		return err
 	}
 	if count > 0 {

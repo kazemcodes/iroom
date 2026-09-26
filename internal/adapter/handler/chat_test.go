@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"database/sql"
 	"net/http/httptest"
 	"strconv"
 	"strings"
@@ -10,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/iroom/iroom/internal/database"
 	"github.com/iroom/iroom/internal/pkg/jwt"
 	"github.com/iroom/iroom/internal/services"
 	"github.com/labstack/echo/v4"
@@ -55,13 +55,13 @@ func newMockSessionUCWithCh(ch chan int64) *mockSessionUC {
 
 // newTestChatHandler creates a ChatHandler wired to an in-memory SQLite DB
 // and a standalone hub so BroadcastToRoom doesn't panic.
-func newTestChatHandler(t *testing.T, db *sql.DB, sessionUC *mockSessionUC) *ChatHandler {
+func newTestChatHandler(t *testing.T, db database.DB, sessionUC *mockSessionUC) *ChatHandler {
 	t.Helper()
 	return NewChatHandler(
-		nil,            // messageRepo — not needed for auto-end tests
+		nil, // messageRepo — not needed for auto-end tests
 		newTestUserRepo(t, db),
 		newTestSessionRepo(t, db),
-		sessionUC,      // satisfies the interface: AutoEnd(int64) error
+		sessionUC, // satisfies the interface: AutoEnd(int64) error
 		"test-secret",
 		services.NewHub(),
 	)
@@ -69,14 +69,14 @@ func newTestChatHandler(t *testing.T, db *sql.DB, sessionUC *mockSessionUC) *Cha
 
 // seedTestRoomAndSession inserts a room, its room_settings, and a session
 // into the test DB. Returns (sessionID, ownerID).
-func seedTestRoomAndSession(t *testing.T, db *sql.DB, status string, autoEndMinutes int) (sessionID int64, ownerID int64) {
+func seedTestRoomAndSession(t *testing.T, db database.DB, status string, autoEndMinutes int) (sessionID int64, ownerID int64) {
 	t.Helper()
 	return seedTestRoomAndSessionWithSlug(t, db, status, autoEndMinutes, "test-room")
 }
 
 // seedTestRoomAndSessionWithSlug is like seedTestRoomAndSession but accepts a
 // unique slug to avoid conflicts when seeding multiple rooms.
-func seedTestRoomAndSessionWithSlug(t *testing.T, db *sql.DB, status string, autoEndMinutes int, slug string) (sessionID int64, ownerID int64) {
+func seedTestRoomAndSessionWithSlug(t *testing.T, db database.DB, status string, autoEndMinutes int, slug string) (sessionID int64, ownerID int64) {
 	t.Helper()
 
 	// Insert a user (owner)
@@ -369,5 +369,3 @@ func TestChatHandler_AutoEnd_TimerReplacement(t *testing.T) {
 	// Verify exactly ONE call (the replaced timer should NOT have fired)
 	assert.Len(t, mockUC.getAutoEndCalls(), 1, "only one AutoEnd should be called (the replacement)")
 }
-
-
