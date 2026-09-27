@@ -22,15 +22,19 @@ docker compose up -d
 
 #### Prerequisites
 
-- Go 1.22+
-- Node.js 18+
+- **Go 1.25+** — no C compiler needed. SQLite is provided by
+  `modernc.org/sqlite` (pure Go), so the project builds with `CGO_ENABLED=0`
+  and cross-compiles cleanly.
+- **Node.js 18+**
 
 #### Backend
 
 **Option A — Manual build:**
 
 ```bash
+cp .env.example .env
 go build -o server ./cmd/server && ./server
+# → http://localhost:8080
 ```
 
 **Option B — Auto-reload with [air](https://github.com/air-verse/air) (recommended):**
@@ -50,7 +54,22 @@ cd web && npm install && npm run dev
 # → http://localhost:5173
 ```
 
+The dev server proxies `/api`, `/ws`, `/uploads` and `/recordings` to
+`localhost:8080`, so run the backend and frontend side by side.
+
 **Default login:** `admin@iroom.local` / `admin123`
+
+#### Single-binary mode (no dev servers)
+
+The backend also serves the built frontend, which is how it runs in Docker and
+on Hugging Face Spaces. Build the frontend once, then run just the Go binary:
+
+```bash
+cd web && npm install && npm run build && cd ..
+cp -r web/build static
+go build -o server ./cmd/server && ./server
+# → http://localhost:8080  (UI + API from one process)
+```
 
 ---
 

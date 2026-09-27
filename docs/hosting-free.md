@@ -103,7 +103,9 @@ Under **Settings → Variables and secrets → New secret**:
 | `RATE_LIMIT_DISABLED` | `false` |
 
 The Dockerfile already binds `0.0.0.0`, reads `$PORT` and serves the built
-frontend from the same process, so no extra wiring is needed.
+frontend from the same process, so no extra wiring is needed. The build is
+`CGO_ENABLED=0`, so there is no C toolchain layer — HF builds stay fast and the
+image stays small.
 
 ### Why an external database is required
 

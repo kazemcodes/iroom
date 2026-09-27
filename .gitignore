@@ -32,6 +32,10 @@ Thumbs.db
 # Node
 web/node_modules/
 web/.svelte-kit/
+web/build/
+
+# Frontend build copied next to the binary for single-binary serving
+/static/
 
 # Docker
 data/

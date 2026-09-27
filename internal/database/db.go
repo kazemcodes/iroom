@@ -27,8 +27,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/lib/pq"             // registers the "postgres" driver
-	_ "github.com/mattn/go-sqlite3" // registers the "sqlite3" driver
+	"github.com/lib/pq"         // registers the "postgres" driver
+	_ "modernc.org/sqlite"      // registers the "sqlite" driver (pure Go, no CGO)
 )
 
 // Driver identifies a supported database backend.
@@ -217,7 +217,8 @@ func isUniqueViolation(driver Driver, err error) bool {
 		// Fall back to the message for wrapped/unknown error types.
 		return strings.Contains(err.Error(), "duplicate key value")
 	default:
-		// SQLite (mattn/go-sqlite3) reports constraint failures in the message.
+		// SQLite (modernc.org/sqlite) reports constraint failures in the message
+		// rather than a typed error, so match on the known phrasings.
 		msg := err.Error()
 		return strings.Contains(msg, "UNIQUE constraint failed") ||
 			strings.Contains(msg, "constraint failed: rooms.slug")

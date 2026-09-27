@@ -20,6 +20,7 @@ and writes SQL with `?` placeholders. The driver handles the differences:
 
 | Concern | SQLite | Postgres |
 |---------|--------|----------|
+| Driver | `modernc.org/sqlite` (pure Go, no CGO) | `lib/pq` (pure Go) |
 | Placeholders | `?` (native) | converted to `$1, $2` by `Rebind()` |
 | Upserts | `ON CONFLICT (...) DO UPDATE` | same syntax |
 | Unique errors | `UNIQUE constraint failed` message | SQLSTATE `23505` via `IsUniqueViolation()` |
@@ -27,8 +28,9 @@ and writes SQL with `?` placeholders. The driver handles the differences:
 
 ## Key characteristics (SQLite)
 
-- SQLite with WAL journal mode for concurrent reads
-- Foreign keys enforced (`PRAGMA foreign_keys=ON`)
+- Pure Go via `modernc.org/sqlite`, so the project builds with `CGO_ENABLED=0`
+  (no C toolchain, and cross-compiles cleanly)
+- WAL journal mode for concurrent readers, foreign keys enforced
 - Migrations are embedded in the binary via `go:embed`
 - Schema versioning via `schema_migrations` table
 - Single connection pool (`MaxOpenConns=1`) for SQLite safety

@@ -133,6 +133,102 @@ func TestConn_ExecAndQuery(t *testing.T) {
 	}
 }
 
+func TestSQLiteDSN(t *testing.T) {
+	// The pragmas are load-bearing: WAL gives concurrent readers, and
+	// foreign_keys=ON makes ON DELETE CASCADE work. SQLite ignores unknown
+	// DSN parameters silently, so assert the exact string we depend on.
+	want := "app.db?_journal_mode=WAL&_busy_timeout=5000&_foreign_keys=ON"
+	if got := sqliteDSN("app.db"); got != want {
+		t.Errorf("sqliteDSN() = %q, want %q", got, want)
+	}
+}
+
+// TestSQLite_PragmasApplied guards against a driver swap silently dropping
+// WAL or foreign key enforcement — both fail "successfully" if missing.
+func TestSQLite_PragmasApplied(t *testing.T) {
+	db, err := NewTestDB()
+	if err != nil {
+		t.Fatalf("NewTestDB() error = %v", err)
+	}
+	defer db.Close()
+
+	if _, err := db.Exec(`CREATE TABLE p (id INTEGER PRIMARY KEY)`); err != nil {
+		t.Fatalf("create p: %v", err)
+	}
+	if _, err := db.Exec(
+		`CREATE TABLE c (id INTEGER PRIMARY KEY, pid INTEGER REFERENCES p(id) ON DELETE CASCADE)`,
+	); err != nil {
+		t.Fatalf("create c: %v", err)
+	}
+
+	// A child row with a missing parent must be rejected.
+	if _, err := db.Exec(`INSERT INTO c (id, pid) VALUES (1, 999)`); err == nil {
+		t.Error("foreign keys are NOT enforced: orphan row was accepted")
+	}
+
+	// ON DELETE CASCADE must remove children.
+	if _, err := db.Exec(`INSERT INTO p (id) VALUES (1)`); err != nil {
+		t.Fatalf("insert p: %v", err)
+	}
+	if _, err := db.Exec(`INSERT INTO c (id, pid) VALUES (2, 1)`); err != nil {
+		t.Fatalf("insert c: %v", err)
+	}
+	if _, err := db.Exec(`DELETE FROM p WHERE id = 1`); err != nil {
+		t.Fatalf("delete p: %v", err)
+	}
+	var remaining int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM c WHERE pid = 1`).Scan(&remaining); err != nil {
+		t.Fatalf("count c: %v", err)
+	}
+	if remaining != 0 {
+		t.Errorf("ON DELETE CASCADE did not fire: %d child rows remain", remaining)
+	}
+}
+
+// TestSQLite_UpsertAndLastInsertId covers the two repository behaviours that
+// differ most between SQLite drivers.
+func TestSQLite_UpsertAndLastInsertId(t *testing.T) {
+	db, err := NewTestDB()
+	if err != nil {
+		t.Fatalf("NewTestDB() error = %v", err)
+	}
+	defer db.Close()
+
+	if _, err := db.Exec(`CREATE TABLE t (id INTEGER PRIMARY KEY, v TEXT)`); err != nil {
+		t.Fatalf("create t: %v", err)
+	}
+
+	res, err := db.Exec(`INSERT INTO t (v) VALUES (?)`, "x")
+	if err != nil {
+		t.Fatalf("insert: %v", err)
+	}
+	if id, err := res.LastInsertId(); err != nil || id != 1 {
+		t.Errorf("LastInsertId() = %d, %v; want 1, <nil>", id, err)
+	}
+
+	// The repositories rely on this exact upsert form.
+	for _, val := range []string{"a", "b"} {
+		if _, err := db.Exec(
+			`INSERT INTO t (id, v) VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET v = excluded.v`,
+			1, val,
+		); err != nil {
+			t.Fatalf("upsert %q: %v", val, err)
+		}
+	}
+
+	var count int
+	var v string
+	if err := db.QueryRow(`SELECT COUNT(*) FROM t WHERE id = 1`).Scan(&count); err != nil {
+		t.Fatalf("count: %v", err)
+	}
+	if err := db.QueryRow(`SELECT v FROM t WHERE id = 1`).Scan(&v); err != nil {
+		t.Fatalf("select: %v", err)
+	}
+	if count != 1 || v != "b" {
+		t.Errorf("upsert result count=%d value=%q; want 1 and %q", count, v, "b")
+	}
+}
+
 func TestRebind_SQLiteLeavesQuestionMarks(t *testing.T) {
 	q := `SELECT * FROM users WHERE id = ? AND email = ?`
 	if got := Rebind(DriverSQLite, q); got != q {

@@ -10,19 +10,20 @@ RUN npm ci
 COPY web/ ./
 RUN npm run build
 
-FROM golang:1.24-alpine AS backend
-RUN apk add --no-cache gcc musl-dev
+FROM golang:1.25-alpine AS backend
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=1 GOOS=linux go build -ldflags="-s -w" -o /server ./cmd/server
+# No C toolchain required: SQLite is provided by modernc.org/sqlite (pure Go),
+# so the build is static, fast and cross-compiles cleanly.
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /server ./cmd/server
 
 FROM alpine:3.19
 RUN apk add --no-cache ca-certificates tzdata
 WORKDIR /app
 COPY --from=backend /server .
-COPY --from=frontend /app/web/.svelte-kit/output/client ./static
+COPY --from=frontend /app/web/build ./static
 COPY config.yaml .
 # uploads/recordings are scratch space; with an external DB these are the only
 # ephemeral bits left, and they are intentionally not persisted.

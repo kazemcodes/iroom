@@ -1,10 +1,8 @@
 package handler
 
 import (
-	"database/sql"
 	"testing"
 
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/require"
 
 	repository "github.com/iroom/iroom/internal/adapter/repository/sqlite"
@@ -13,7 +11,7 @@ import (
 
 func setupTestDB(t *testing.T) database.DB {
 	t.Helper()
-	sqlDB, err := sql.Open("sqlite3", ":memory:")
+	sqlDB, err := database.NewTestDB()
 	require.NoError(t, err)
 	db := database.NewConn(sqlDB, database.DriverSQLite)
 

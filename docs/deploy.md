@@ -60,7 +60,7 @@ No other ports needed! Media travels over the same WebSocket as chat.
 ### Option 2: Manual (Development/Custom)
 
 #### Prerequisites
-- Go 1.22+
+- Go 1.25+
 - Node.js 18+
 - npm
 
@@ -134,7 +134,11 @@ SERVER_HOST=0.0.0.0
 SERVER_PORT=8080
 
 # Database
+# sqlite (default, needs a persistent disk) or postgres (external DB)
+DB_DRIVER=sqlite
 DATABASE_PATH=iroom.db
+# For ephemeral/container hosting (HF Spaces, Render, Fly) use an external DB:
+# DATABASE_URL=postgresql://user:pass@host:5432/db?sslmode=require
 
 # Upload
 UPLOAD_MAX_SIZE=52428800        # 50MB
