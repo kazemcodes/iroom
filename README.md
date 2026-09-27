@@ -126,7 +126,7 @@ cp .env.example .env
 
 ### Free / ephemeral hosting
 
-Containers on Render, Fly.io and similar hosts lose their local disk on every
+Containers on Railway, Render and similar hosts lose their local disk on every
 restart, so a local `iroom.db` is not viable there. Point the app at an
 external Postgres instead:
 
@@ -135,14 +135,12 @@ DB_DRIVER=postgres
 DATABASE_URL=postgresql://postgres.REF:PASSWORD@aws-0-REGION.pooler.supabase.com:5432/postgres?sslmode=require
 ```
 
-`render.yaml` deploys the whole app to Render's free tier, and the schema is
-created automatically on first boot. See
-[docs/deploy-free.md](docs/deploy-free.md) for the walkthrough and free-tier
-limits.
+`railway.json` deploys to Railway's free tier (**$0, no credit card required**)
+and the schema is created automatically on first boot. See
+[DEPLOY.md](DEPLOY.md) for the full walkthrough and free-tier limits.
 
 > **Hugging Face Spaces is no longer free** — since July 2026, Docker Spaces
-> require the PRO plan ($9/month). See
-> [docs/deploy-free.md](docs/deploy-free.md#7-optional-hugging-face-spaces-requires-pro-9mo).
+> require the PRO plan ($9/month).
 
 ---
 

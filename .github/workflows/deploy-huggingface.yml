@@ -8,9 +8,9 @@ name: Deploy to Hugging Face Space
 # a PRO subscription." Users also report that pushing to an existing Docker
 # Space now requires PRO as well.
 #
-# For a genuinely $0 deployment use render.yaml (Render free tier) instead:
-# Render auto-deploys from GitHub and needs no workflow. See docs/deploy-free.md
-# This workflow is kept for anyone who already pays for HF PRO.
+# For a genuinely $0 deployment use railway.json instead: Railway's free tier
+# is $0/month and needs no credit card, and it auto-deploys from GitHub.
+# See DEPLOY.md. This workflow is kept for anyone who pays for HF PRO.
 #
 # Required repository configuration (Settings -> Secrets and variables -> Actions):
 #   - Secret  HF_TOKEN  : a Hugging Face write token for the Space owner

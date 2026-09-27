@@ -11,7 +11,7 @@ IRoom supports two database backends behind a single abstraction layer
 | `postgres` | Free/ephemeral hosting (Hugging Face Spaces, Render, Fly) with Supabase/Neon | `internal/database/migrations/postgres/` |
 
 Select the driver with `DB_DRIVER`, or simply set `DATABASE_URL` (which implies
-`postgres`). See [deploy-free.md](deploy-free.md) for hosting setup.
+`postgres`). See [DEPLOY.md](../DEPLOY.md) for hosting setup.
 
 ## Portability layer
 
