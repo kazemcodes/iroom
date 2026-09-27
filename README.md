@@ -1,3 +1,14 @@
+---
+title: IRoom
+emoji: 🎓
+colorFrom: indigo
+colorTo: gray
+sdk: docker
+app_port: 7860
+pinned: false
+license: mit
+---
+
 # آی‌روم — IRoom
 ## EXPERIMENTAL (dont use it)
 
@@ -115,8 +126,8 @@ cp .env.example .env
 
 ### Free / ephemeral hosting
 
-Containers on Hugging Face Spaces, Render and Fly.io lose their local disk on
-every restart, so a local `iroom.db` is not viable there. Point the app at an
+Containers on Render, Fly.io and similar hosts lose their local disk on every
+restart, so a local `iroom.db` is not viable there. Point the app at an
 external Postgres instead:
 
 ```bash
@@ -124,8 +135,14 @@ DB_DRIVER=postgres
 DATABASE_URL=postgresql://postgres.REF:PASSWORD@aws-0-REGION.pooler.supabase.com:5432/postgres?sslmode=require
 ```
 
-The schema is created automatically on first boot. See
-[docs/hosting-free.md](docs/hosting-free.md) for the full walkthrough.
+`render.yaml` deploys the whole app to Render's free tier, and the schema is
+created automatically on first boot. See
+[docs/deploy-free.md](docs/deploy-free.md) for the walkthrough and free-tier
+limits.
+
+> **Hugging Face Spaces is no longer free** — since July 2026, Docker Spaces
+> require the PRO plan ($9/month). See
+> [docs/deploy-free.md](docs/deploy-free.md#7-optional-hugging-face-spaces-requires-pro-9mo).
 
 ---
 

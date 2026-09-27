@@ -1,0 +1,125 @@
+name: Deploy to Hugging Face Space
+
+# OPTIONAL — this path requires a Hugging Face PRO subscription ($9/month).
+#
+# As of July 2026, HF moved Gradio and Docker Spaces behind the PRO plan with no
+# public announcement, while the pricing page still lists "CPU Basic - FREE".
+# The CLI error is: "hosting Gradio and Docker Spaces on free cpu-basic requires
+# a PRO subscription." Users also report that pushing to an existing Docker
+# Space now requires PRO as well.
+#
+# For a genuinely $0 deployment use render.yaml (Render free tier) instead:
+# Render auto-deploys from GitHub and needs no workflow. See docs/deploy-free.md
+# This workflow is kept for anyone who already pays for HF PRO.
+#
+# Required repository configuration (Settings -> Secrets and variables -> Actions):
+#   - Secret  HF_TOKEN  : a Hugging Face write token for the Space owner
+#   - Variable HF_SPACE : "<username>/<space-name>", e.g. "kazem/iroom"
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - '.opencode/**'
+      - '.claude/**'
+  workflow_dispatch:
+
+concurrency:
+  group: hf-deploy
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Sync to Hugging Face
+    runs-on: ubuntu-latest
+    environment: huggingface
+
+    steps:
+      - name: Check configuration
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_SPACE: ${{ vars.HF_SPACE }}
+        run: |
+          set -euo pipefail
+          if [ -z "${HF_TOKEN}" ]; then
+            echo "::error::secret HF_TOKEN is not configured"
+            exit 1
+          fi
+          if [ -z "${HF_SPACE}" ]; then
+            echo "::error::variable HF_SPACE is not configured (expected <user>/<space>)"
+            exit 1
+          fi
+          echo "Deploying to Space: ${HF_SPACE}"
+
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # The Space builds its own Docker image, so we only need the source and
+      # the README frontmatter that declares the Space configuration.
+      - name: Sync repository to the Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_SPACE: ${{ vars.HF_SPACE }}
+        run: |
+          set -euo pipefail
+
+          # Clone outside the workspace so the sync below cannot recurse into
+          # the Space directory it is extracting into.
+          SPACE_DIR="${RUNNER_TEMP}/hf-space"
+          git clone --depth 1 "https://user:${HF_TOKEN}@huggingface.co/spaces/${HF_SPACE}" "$SPACE_DIR"
+          cd "$SPACE_DIR"
+
+          # Drop everything currently in the Space so the deployed copy exactly
+          # matches upstream (removed files actually disappear).
+          find . -mindepth 1 -maxdepth 1 \
+            ! -name '.git' \
+            -exec rm -rf {} +
+
+          # `git archive` emits only committed files, so local build junk
+          # (web/node_modules, uploads, *.db, static/) can never leak into the
+          # Space repo. Deploying HEAD is deliberate: the Space always matches
+          # a real commit rather than whatever happens to be in the worktree.
+          git -C "${GITHUB_WORKSPACE}" archive --format=tar HEAD | tar -xf -
+
+          git add -A
+
+          if git diff --cached --quiet; then
+            echo "No changes to deploy."
+            exit 0
+          fi
+
+          # Space metadata comes from the README frontmatter, so fail loudly
+          # rather than publishing a Space that cannot start.
+          if ! grep -q '^sdk: docker' README.md; then
+            echo "::error::README.md is missing the Hugging Face frontmatter (sdk: docker)"
+            exit 1
+          fi
+
+          git -c user.name='github-actions[bot]' \
+              -c user.email='github-actions[bot]@users.noreply.github.com' \
+              commit -m "Deploy ${GITHUB_SHA::8} from ${GITHUB_REF_NAME} ($(date -u +'%Y-%m-%d %H:%M UTC'))"
+
+          git push origin HEAD:main
+          echo "Pushed to https://huggingface.co/spaces/${HF_SPACE}"
+
+      - name: Summary
+        if: always()
+        env:
+          HF_SPACE: ${{ vars.HF_SPACE }}
+        run: |
+          {
+            echo "### 🤗 Deployed to Hugging Face Space"
+            echo ""
+            echo "- **Space:** [\`${HF_SPACE}\`](https://huggingface.co/spaces/${HF_SPACE})"
+            echo "- **Commit:** \`${GITHUB_SHA}\`"
+            echo "- **Triggered by:** \`${GITHUB_EVENT_NAME}\` on \`${GITHUB_REF_NAME}\`"
+            echo ""
+            echo "The Space rebuilds its Docker image automatically (~3-5 min)."
+          } >> "$GITHUB_STEP_SUMMARY"

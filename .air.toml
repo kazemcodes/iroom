@@ -3,10 +3,13 @@ root = "."
 tmp_dir = "tmp"
 
 [build]
-  bin = "./tmp/main"
-  cmd = "go build -o ./tmp/main ./cmd/server"
+  # air only executes paths ending in .exe on Windows, so the binary is built
+  # with an explicit .exe name. `go build -o` uses the name verbatim, which
+  # keeps this file working on Linux/macOS too.
+  entrypoint = "./tmp/main.exe"
+  cmd = "go build -o ./tmp/main.exe ./cmd/server"
   delay = 1000
-  exclude_dir = ["tmp", "web", "recordings", "uploads", "data", ".git", "skyroom_saved_ui", ".kilo", ".mimocode"]
+  exclude_dir = ["tmp", "web", "static", "recordings", "uploads", "data", ".git", "skyroom_saved_ui", ".kilo", ".mimocode", "docs", "skills"]
   exclude_regex = ["_test\\.go$"]
   include_ext = ["go", "sql", "yaml"]
   kill_delay = "0s"

@@ -1,0 +1,50 @@
+# Build artifacts and dependencies — never needed inside the image and
+# massively reduce upload/build time (node_modules alone is ~200MB).
+.git
+.github
+.gitignore
+.dockerignore
+
+web/node_modules
+web/.svelte-kit
+web/build
+web/tmp
+static
+node_modules
+
+# Local dev artifacts
+tmp
+iroom-server
+server
+*.exe
+
+# Runtime data (ephemeral on HF Spaces, and must never be baked into an image)
+*.db
+*.db-shm
+*.db-wal
+uploads
+recordings
+data
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Docs & tooling not needed to build or run the app
+docs
+recordings
+skyroom_saved_ui
+.kilo
+.mimocode
+.claude
+.opencode
+.codegraph
+skills
+AGENT.md
+AGENTS.md
+LOOP.md
+loop-*.md
+
+# NOTE: do not ignore package-lock.json — the frontend stage runs `npm ci`,
+# which requires web/package-lock.json to be present and in sync.

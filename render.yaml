@@ -1,0 +1,57 @@
+# Render Blueprint — free-tier deployment for IRoom.
+#
+# Render reads this file from the repo root and builds the service from the
+# repository's Dockerfile. Connecting the repo in the Render dashboard is all
+# that is needed: every push to the branch Render tracks triggers a rebuild
+# and redeploy, so no custom GitHub Actions workflow is required.
+#
+# Setup: https://render.com/docs/blueprint-spec
+#   1. Push render.yaml to the repository root
+#   2. Render Dashboard -> New -> Blueprint -> select this repo
+#   3. Enter DATABASE_URL when prompted (marked sync: false below)
+#
+# Cost: $0. The free plan spins down after 15 minutes of inactivity.
+
+services:
+  - type: web
+    name: iroom
+    runtime: docker
+    plan: free
+
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+
+    # Free instances support a health check path; it also keeps the service
+    # "awake" for the first request after a spin-down.
+    healthCheckPath: /api/v1/health
+
+    envVars:
+      # SQLite is the default driver, but the free tier has an ephemeral disk,
+      # so an external Postgres is required for data to survive restarts.
+      - key: DB_DRIVER
+        value: postgres
+
+      # Supabase connection string. Prompts for the value in the dashboard so
+      # the password is never committed.
+      - key: DATABASE_URL
+        sync: false
+
+      # Render injects PORT automatically and the app reads it, so the service
+      # binds the port the platform proxies to.
+      - key: SERVER_HOST
+        value: 0.0.0.0
+
+      # Generated once and then preserved, so sessions survive redeploys.
+      # Without it, every restart would invalidate all logins.
+      - key: JWT_SECRET
+        generateValue: true
+
+      - key: EXTERNAL_API_KEY
+        generateValue: true
+
+      # Free instances are single-instance and small; keep the pool modest so
+      # the external database is not exhausted by overlapping connections.
+      - key: DB_MAX_OPEN_CONNS
+        value: "5"
+      - key: DB_MAX_IDLE_CONNS
+        value: "2"
